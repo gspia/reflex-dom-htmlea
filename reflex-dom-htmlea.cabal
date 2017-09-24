@@ -1,0 +1,112 @@
+name:                reflex-dom-htmlea
+-- The package version.  See the Haskell package versioning policy (PVP)
+-- for standards guiding when and how versions should be incremented.
+-- https://wiki.haskell.org/Package_versioning_policy
+-- PVP summary:      +-+------- breaking API changes
+--                   | | +----- non-breaking API additions
+--                   | | | +--- code changes with no API change
+version:             0.1.0.0
+synopsis:            A reflex-dom API for HTML elements and attributes.
+description:         This package introduces sets of functions for writing
+                     html elements and attributes. This way the compiler
+                     can help to avoid some of the typos that otherwise would
+                     have to be debugged out on runtime (that can happen
+                     easily with el-family of functions). The functions 
+                     introduced in this package can be used together with
+                     el-family of functions.
+license:             BSD3
+license-file:        LICENSE
+author:              gspia
+maintainer:          Use github to contact gspia
+copyright:           All rights reserved, gspia
+category:            Web
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+                    , README.md
+                    , default.nix
+                    , shell.nix
+                    , reflex-dom-htmlea.nix
+                    , dev-server.sh
+                    , static/figs/eveninglandscape.jpg
+                    , static/figs/owl.jpg
+                    , tools/nix-tags-haskell/builder.sh
+                    , tools/nix-tags-haskell/default.nix
+                    , tools/nix-tags-haskell/nix-tags-haskell
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Reflex.Dom.HTML5.Attrs
+                       , Reflex.Dom.HTML5.Attrs.AnyAttr
+                       , Reflex.Dom.HTML5.Attrs.Aria
+                       , Reflex.Dom.HTML5.Attrs.Attrs
+                       , Reflex.Dom.HTML5.Attrs.Common
+                       , Reflex.Dom.HTML5.Attrs.Globals
+                       , Reflex.Dom.HTML5.Attrs.DataAttrs
+                       , Reflex.Dom.HTML5.Elements
+                       , Reflex.Dom.HTML5.Elements.Elements
+                       , Reflex.Dom.HTML5.Elements.Embedded
+                       , Reflex.Dom.HTML5.Elements.Interactive
+                       , Reflex.Dom.HTML5.Elements.Metadata
+                       , Reflex.Dom.HTML5.Elements.SectionHead
+                       , Reflex.Dom.HTML5.Elements.Tabular
+
+  -- Modules included in this library but not exported.
+  -- other-modules:
+
+  -- LANGUAGE extensions used by modules in this package.
+  -- other-extensions:
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  build-depends:       base              >=4.9 && <4.10
+                       , containers      >=0.5.7 && <0.6
+                       , data-default
+                       -- , file-embed      >= 0.0.10 && < 0.1
+                       -- , ghcjs-dom
+                       -- , lens
+                       -- , mtl
+                       , reflex          >= 0.5 && < 0.6
+                       , reflex-dom-core >= 0.4 && < 0.5
+                       , text
+                       -- , lens
+  if impl(ghcjs -any)
+    build-depends:       ghcjs-base
+    ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wmissing-import-lists -dedupe
+    cpp-options: -DGHCJS_BROWSER
+  else
+    ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wmissing-import-lists
+
+
+
+-- test-suite reflexHtmlLeaEx
+--   type:              exitcode-stdio-1.0
+executable reflexHtmlLeaEx
+  main-is:           reflexHtmlLeaEx.hs
+  hs-source-dirs:    examples, src
+  default-language:  Haskell2010
+  build-depends:
+      base
+    , containers
+    , data-default
+    , ghcjs-dom
+    , reflex             >= 0.5 && < 0.6
+    , reflex-dom-core    >= 0.4 && < 0.5
+    -- , reflex-dom-htmlea
+    , text
+    , jsaddle            >= 0.8.0.0 && < 0.10
+  if impl(ghcjs -any)
+    build-depends:       ghcjs-base
+    ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wmissing-import-lists -dedupe
+    cpp-options: -DGHCJS_BROWSER
+  if !impl(ghcjs -any)
+    -- build-depends:       jsaddle-webkit2gtk
+    build-depends:        jsaddle-warp
+                        , warp
+                        , wai-app-static
+                        , wai-middleware-static
+                        , websockets
+    ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wmissing-import-lists
+
+
+
+
