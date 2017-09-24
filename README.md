@@ -75,7 +75,7 @@ cabal build short --builddir=dist-ghc
 
 (or without the builddir.) In this shell, ghcid can be used:
 ```
-ghcid examples/reflexHtmlLeaEx.gs
+ghcid examples/reflexHtmlLeaEx.hs
 ```
 or even better, the auto-reloading can be used
 ```
