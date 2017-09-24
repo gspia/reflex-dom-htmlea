@@ -4,7 +4,8 @@
 ## Introduction
 
 This library provides fucntions that help to avoid non-conforming
-htlm and writing typos leading to runtime errors. 
+htlm and writing typos leading to runtime errors. Library provides
+a reasonable coverage of elements and attributes.
 
 So you can write
 
@@ -60,7 +61,9 @@ are more than wellcome!
 
 To build this library locally use reflex-platform's work-on script as follows:
 
-<path-to-platform>/reflex-platform/work-on ghc ./reflex-dom-htmlea
+```
+<path-to-platform>/reflex-platform/work-on ghc ./reflex-dom-htmlea.nix
+```
 
 This puts you into a nix shell that has GHC and the environment it needs. Then you can build with:
 
@@ -70,7 +73,7 @@ cabal build --builddir=dist-ghc
 cabal build short --builddir=dist-ghc
 ```
 
-(or without the builddir.) After the previous, ghcid can be used:
+(or without the builddir.) In this shell, ghcid can be used:
 ```
 ghcid examples/reflexHtmlLeaEx.gs
 ```
@@ -95,8 +98,10 @@ so that you can type
 cabal configure --ghcjs
 cabal build
 ```
-for a semi-fast build-cycle. The build results can be found from
-dist/build/reflexHtmlLeaEx/reflexHtmlLeaEx.jsexe -directory.
+for a semi-fast build-cycle. The build results can be found in
+`dist/build/reflexHtmlLeaEx/reflexHtmlLeaEx.jsexe` -directory. Note that 
+in order to see the fig in the example, you have to manually copy it into 
+the `...reflexHtmlLeaEx.jsexe/figs`-directory.
 
 
 To build in NixOs, just type nix-build. It assumes ghcjs and builds accordingly.
