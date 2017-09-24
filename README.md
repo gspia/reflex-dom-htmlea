@@ -117,7 +117,7 @@ haskellPackageOverrides = self: super: {
   reflex-dom-htmlea = self.callPackage ~/git/reflex-dom-htmlea {};
 };
 ```
-into '~/.config/nixpkgs/config.nix'. My nix-setup is somewhat vaguely
+into `~/.config/nixpkgs/config.nix`. My nix-setup is somewhat vaguely
 described in 
 [nixos-adventure](https://github.com/gspia/half-baked/tree/master/hb8-nixos-adventure) 
 notes.
