@@ -130,7 +130,7 @@ described in
 notes. For another example, see [7guis-relfex-nix]().
 
 
-## About nix-files and their orgnization
+## About nix-files and their organization
 
 The default.nix assumes ghcjs and is used by nix-build.
 
