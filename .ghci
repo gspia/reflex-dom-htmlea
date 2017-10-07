@@ -1,2 +1,2 @@
-:set -isrc:examples:test
-:load examples/reflexHtmlLeaEx.hs
+:set -isrc:examples/lib:test
+:load examples/app-wai/Main.hs

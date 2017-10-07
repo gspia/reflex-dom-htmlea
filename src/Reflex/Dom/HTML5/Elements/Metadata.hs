@@ -100,6 +100,11 @@ instance AttrMap EBase where
 instance Default EBase where
   def = EBase def def def def
 
+instance Monoid EBase where
+  mempty = def
+  mappend (EBase a1 a2 a3 a4) (EBase b1 b2 b3 b4)
+    = EBase (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+
 instance AttrHasGlobals EBase where
    attrSetGlobals p b = b { _eBaseGlobals = Just p }
 
@@ -184,6 +189,10 @@ instance AttrMap EBody where
 instance Default EBody where
   def = EBody def def
 
+instance Monoid EBody where
+  mempty = def
+  mappend (EBody a1 a2) (EBody b1 b2) = EBody (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EBody where
    attrSetGlobals p b = b { _eBodyGlobals = Just p }
 
@@ -265,6 +274,10 @@ instance AttrMap EHead where
 
 instance Default EHead where
   def = EHead def def
+
+instance Monoid EHead where
+  mempty = def
+  mappend (EHead a1 a2) (EHead b1 b2) = EHead (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EHead where
    attrSetGlobals p b = b { _eHeadGlobals = Just p }
@@ -352,6 +365,11 @@ instance AttrMap EHtml where
 
 instance Default EHtml where
   def = EHtml def def def
+
+instance Monoid EHtml where
+  mempty = def
+  mappend (EHtml a1 a2 a3) (EHtml b1 b2 b3)
+    = EHtml (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals EHtml where
    attrSetGlobals p b = b { _eHtmlGlobals = Just p }
@@ -463,6 +481,15 @@ instance AttrMap ELink where
 instance Default ELink where
   def = ELink def def def def def def def def def def def def
 
+instance Monoid ELink where
+  mempty = def
+  mappend
+    (ELink a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+    (ELink b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = ELink (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10)
+        (a11 <> b11) (a12 <> b12)
+
 instance AttrHasGlobals ELink where
    attrSetGlobals p b = b { _eLinkGlobals = Just p }
 
@@ -565,6 +592,11 @@ instance AttrMap EMeta where
 instance Default EMeta where
   def = EMeta def def def def def def
 
+instance Monoid EMeta where
+  mempty = def
+  mappend (EMeta a1 a2 a3 a4 a5 a6) (EMeta b1 b2 b3 b4 b5 b6)
+    = EMeta (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
+
 instance AttrHasGlobals EMeta where
    attrSetGlobals p b = b { _eMetaGlobals = Just p }
 
@@ -652,6 +684,10 @@ instance AttrMap ENoScript where
 
 instance Default ENoScript where
   def = ENoScript def def
+
+instance Monoid ENoScript where
+  mempty = def
+  mappend (ENoScript a1 a2) (ENoScript b1 b2) = ENoScript (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ENoScript where
    attrSetGlobals p b = b { _eNoScriptGlobals = Just p }
@@ -750,6 +786,14 @@ instance AttrMap EScript where
 instance Default EScript where
   def = EScript def def def def def def def def def
 
+instance Monoid EScript where
+  mempty = def
+  mappend
+    (EScript a1 a2 a3 a4 a5 a6 a7 a8 a9)
+    (EScript b1 b2 b3 b4 b5 b6 b7 b8 b9)
+    = EScript (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9)
+
 instance AttrHasGlobals EScript where
    attrSetGlobals p b = b { _eScriptGlobals = Just p }
 
@@ -847,6 +891,11 @@ instance AttrMap EStyle where
 instance Default EStyle where
   def = EStyle def def def def def
 
+instance Monoid EStyle where
+  mempty = def
+  mappend (EStyle a1 a2 a3 a4 a5) (EStyle b1 b2 b3 b4 b5)
+    = EStyle (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+
 instance AttrHasGlobals EStyle where
    attrSetGlobals p b = b { _eStyleGlobals = Just p }
 
@@ -932,6 +981,10 @@ instance AttrMap EMain where
 instance Default EMain where
   def = EMain def def
 
+instance Monoid EMain where
+  mempty = def
+  mappend (EMain a1 a2) (EMain b1 b2) = EMain (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EMain where
    attrSetGlobals p b = b { _eMainGlobals = Just p }
 
@@ -1006,8 +1059,6 @@ data ETemplate = ETemplate
   , _eTemplateCustom  :: Maybe Attr
   }
 
-
-
 instance AttrMap ETemplate where
   attrMap b = fold $ catMaybes
     [ attrMap <$> _eTemplateGlobals b
@@ -1015,6 +1066,10 @@ instance AttrMap ETemplate where
 
 instance Default ETemplate where
   def = ETemplate def def
+
+instance Monoid ETemplate where
+  mempty = def
+  mappend (ETemplate a1 a2) (ETemplate b1 b2) = ETemplate (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ETemplate where
    attrSetGlobals p b = b { _eTemplateGlobals = Just p }
@@ -1091,7 +1146,6 @@ data ETitle = ETitle
   }
 
 
-
 instance AttrMap ETitle where
   attrMap b = fold $ catMaybes
     [ attrMap <$> _eTitleGlobals b
@@ -1099,6 +1153,10 @@ instance AttrMap ETitle where
 
 instance Default ETitle where
   def = ETitle def def
+
+instance Monoid ETitle where
+  mempty = def
+  mappend (ETitle a1 a2) (ETitle b1 b2) = ETitle (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ETitle where
    attrSetGlobals p b = b { _eTitleGlobals = Just p }

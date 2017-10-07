@@ -1,4 +1,5 @@
-{ compiler   ? "ghcjs"
+{ reflex-platform ? import ./reflex-platform.nix
+, compiler   ? "ghcjs"
 } :
 # Note that default has ghcjs as default compiler while 
 # shell.nix has ghc. This way we can use ghcid and some other tools
@@ -7,18 +8,19 @@
 let
   initialNixpkgs = import <nixpkgs> {};
 
-  sources = {
-    reflex-platform = initialNixpkgs.pkgs.fetchFromGitHub {
-      owner  = "reflex-frp";
-      repo   = "reflex-platform";
-      rev    = "b7c00b3574d0ef42974eda0f2812c794c7b5d4f3";
-      sha256 = "1jfz17y2fq051caby4y4aslxrpvgwwa30ivfw0l5wn5pp5zlrpad";
-    };
-  };
+  /* sources = { */
+  /*   reflex-platform = initialNixpkgs.pkgs.fetchFromGitHub { */
+  /*     owner  = "reflex-frp"; */
+  /*     repo   = "reflex-platform"; */
+  /*     rev    = "b7c00b3574d0ef42974eda0f2812c794c7b5d4f3"; */
+  /*     sha256 = "1jfz17y2fq051caby4y4aslxrpvgwwa30ivfw0l5wn5pp5zlrpad"; */
+  /*   }; */
+  /* }; */
+  /* reflex-platform = import sources.reflex-platform {}; */
 
-  reflex-platform = import sources.reflex-platform {};
   pkgs  = reflex-platform.nixpkgs.pkgs;
   hpkgs = initialNixpkgs.pkgs.haskellPackages;
+
 
   indexHtml = ''
     <!DOCTYPE html>
@@ -28,7 +30,7 @@ let
       </head>
       <body>
       </body>
-      <script language="javascript" src="js/reflexHtmlLeaEx.min.js"></script>
+      <script language="javascript" src="js/htmlLeaEx.min.js"></script>
     </html>
   '';
 
@@ -42,16 +44,16 @@ let
       mkdir -p $out
       mkdir -p $out/css
       mkdir -p $out/figs
-      cp ./figs/* $out/figs/
-      mkdir -p $out/js
-      cp $out/bin/reflexHtmlLeaEx.jsexe/all.js $out/js/reflexHtmlLeaEx.js
-      cd $out/bin/reflexHtmlLeaEx.jsexe
-      closure-compiler all.js --compilation_level=ADVANCED_OPTIMIZATIONS --isolation_mode=IIFE --assume_function_wrapper --jscomp_off="*" --externs=all.js.externs > $out/js/reflexHtmlLeaEx.min.js
-      cat <<EOF > $out/index.html
-        ${indexHtml}
-      EOF
     '';
   };
+#       cp ./figs/* $out/figs/
+#       mkdir -p $out/js
+#       cp $out/bin/htmlLeaEx.jsexe/all.js $out/js/htmlLeaEx.js
+#       cd $out/bin/htmlLeaEx.jsexe
+#       closure-compiler all.js --compilation_level=ADVANCED_OPTIMIZATIONS --isolation_mode=IIFE --assume_function_wrapper --jscomp_off="*" --externs=all.js.externs > $out/js/htmlLeaEx.min.js
+#       cat <<EOF > $out/index.html
+#         ${indexHtml}
+#       EOF
 # Note that if editor makes comments with the /* */, then inside the above shell 
 # script (the above '' ''-block) those /**/-blocks are not recognized as comments.
 # In nix-lang /* */ work as comments.
@@ -96,12 +98,14 @@ let
     overrides = (self: super: {
       ghc = super.ghc // { withPackages = super.ghc.withHoogle; };
       ghcWithPackages = self.ghc.withPackages;
+      wai-middleware-static = pkgs.haskell.lib.dontCheck (super.wai-middleware-static);
     });
   };
-
   htmlea-code-base = 
     haskellPackages.callPackage ./reflex-dom-htmlea.nix { inherit compiler; };
   htmlea-code = 
     pkgs.haskell.lib.overrideCabal htmlea-code-base adjust;
-in
-  htmlea-code
+in 
+  htmlea-code 
+
+

@@ -76,6 +76,10 @@ instance AttrMap ECaption where
 instance Default ECaption where
   def = ECaption def def
 
+instance Monoid ECaption where
+  mempty = def
+  mappend (ECaption a1 a2) (ECaption b1 b2) = ECaption (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ECaption where
    attrSetGlobals p b = b { _eCaptionGlobals = Just p }
 
@@ -158,6 +162,10 @@ instance AttrMap ECol where
 
 instance Default ECol where
   def = ECol def def def
+
+instance Monoid ECol where
+  mempty = def
+  mappend (ECol a1 a2 a3) (ECol b1 b2 b3) = ECol (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals ECol where
    attrSetGlobals p b = b { _eColGlobals = Just p }
@@ -243,6 +251,11 @@ instance AttrMap EColGroup where
 
 instance Default EColGroup where
   def = EColGroup def def def
+
+instance Monoid EColGroup where
+  mempty = def
+  mappend (EColGroup a1 a2 a3) (EColGroup b1 b2 b3)
+    = EColGroup (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals EColGroup where
    attrSetGlobals p b = b { _eColGroupGlobals = Just p }
@@ -332,6 +345,10 @@ instance AttrMap ETable where
 instance Default ETable where
   def = ETable def def
 
+instance Monoid ETable where
+  mempty = def
+  mappend (ETable a1 a2) (ETable b1 b2) = ETable (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ETable where
    attrSetGlobals p b = b { _eTableGlobals = Just p }
 
@@ -415,6 +432,10 @@ instance AttrMap EThead where
 instance Default EThead where
   def = EThead def def
 
+instance Monoid EThead where
+  mempty = def
+  mappend (EThead a1 a2) (EThead b1 b2) = EThead (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EThead where
    attrSetGlobals p b = b { _eTheadGlobals = Just p }
 
@@ -495,6 +516,10 @@ instance AttrMap ETbody where
 
 instance Default ETbody where
   def = ETbody def def
+
+instance Monoid ETbody where
+  mempty = def
+  mappend (ETbody a1 a2) (ETbody b1 b2) = ETbody (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ETbody where
    attrSetGlobals p b = b { _eTbodyGlobals = Just p }
@@ -579,6 +604,10 @@ instance AttrMap ETfoot where
 instance Default ETfoot where
   def = ETfoot def def
 
+instance Monoid ETfoot where
+  mempty = def
+  mappend (ETfoot a1 a2) (ETfoot b1 b2) = ETfoot (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ETfoot where
    attrSetGlobals p b = b { _eTfootGlobals = Just p }
 
@@ -661,6 +690,10 @@ instance AttrMap ETr where
 
 instance Default ETr where
   def = ETr def def
+
+instance Monoid ETr where
+  mempty = def
+  mappend (ETr a1 a2) (ETr b1 b2) = ETr (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ETr where
    attrSetGlobals p b = b { _eTrGlobals = Just p }
@@ -754,6 +787,12 @@ instance AttrMap ETh where
 
 instance Default ETh where
   def = ETh def def def def def def def
+
+instance Monoid ETh where
+  mempty = def
+  mappend (ETh a1 a2 a3 a4 a5 a6 a7) (ETh b1 b2 b3 b4 b5 b6 b7)
+    = ETh (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7)
 
 instance AttrHasGlobals ETh where
    attrSetGlobals p b = b { _eThGlobals = Just p }
@@ -849,6 +888,11 @@ instance AttrMap ETd where
 instance Default ETd where
   def = ETd def def def def def
 
+instance Monoid ETd where
+  mempty = def
+  mappend (ETd a1 a2 a3 a4 a5) (ETd b1 b2 b3 b4 b5)
+    = ETd (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+
 instance AttrHasGlobals ETd where
    attrSetGlobals p b = b { _eTdGlobals = Just p }
 
@@ -915,7 +959,4 @@ eTdD' b = elDynAttr' "td" (attrMap <$> b)
 
 eTdD :: forall t m a. MonadWidget t m => Dynamic t ETd -> m a -> m a
 eTdD b children = snd <$> eTdD' b children
-
-
-
 

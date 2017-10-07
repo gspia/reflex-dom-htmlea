@@ -131,6 +131,13 @@ instance AttrMap EArea where
 instance Default EArea where
   def = EArea def def def def def def def def def def def def
 
+instance Monoid EArea where
+  mempty = def
+  mappend (EArea a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+          (EArea b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = EArea (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
+        (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10) (a11 <> b11) (a12 <> b12)
+
 instance AttrHasGlobals EArea where
    attrSetGlobals p b = b { _eAreaGlobals = Just p }
 
@@ -241,6 +248,12 @@ instance AttrMap EAudio where
 instance Default EAudio where
   def = EAudio def def def def def def def def def
 
+instance Monoid EAudio where
+  mempty = def
+  mappend (EAudio a1 a2 a3 a4 a5 a6 a7 a8 a9)
+          (EAudio b1 b2 b3 b4 b5 b6 b7 b8 b9)
+    = EAudio (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+             (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9)
 
 instance AttrHasGlobals EAudio where
    attrSetGlobals p b = b { _eAudioGlobals = Just p }
@@ -349,6 +362,11 @@ instance AttrMap ECanvas where
 instance Default ECanvas where
   def = ECanvas def def def def
 
+instance Monoid ECanvas where
+  mempty = def
+  mappend (ECanvas a1 a2 a3 a4) (ECanvas b1 b2 b3 b4)
+    = ECanvas (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+
 instance AttrHasGlobals ECanvas where
    attrSetGlobals p b = b { _eCanvasGlobals = Just p }
 
@@ -447,6 +465,11 @@ instance AttrMap EIFrame where
 instance Default EIFrame where
   def = EIFrame def def def def def def def
 
+instance Monoid EIFrame where
+  mempty = def
+  mappend (EIFrame a1 a2 a3 a4 a5 a6 a7) (EIFrame b1 b2 b3 b4 b5 b6 b7)
+    = EIFrame (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+        (a5 <> b5) (a6 <> b6) (a7 <> b7)
 
 instance AttrHasGlobals EIFrame where
    attrSetGlobals p b = b { _eIFrameGlobals = Just p }
@@ -573,6 +596,12 @@ instance AttrMap EImg where
 instance Default EImg where
   def = EImg def def def def def def def def def def def def
 
+instance Monoid EImg where
+  mempty = def
+  mappend (EImg a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+          (EImg b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = EImg (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
+       (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10) (a11 <> b11) (a12 <> b12)
 
 instance AttrHasGlobals EImg where
    attrSetGlobals p b = b { _eImgGlobals = Just p }
@@ -682,6 +711,10 @@ instance AttrMap EMap where
 instance Default EMap where
   def = EMap def def def
 
+instance Monoid EMap where
+  mempty = def
+  mappend (EMap a1 a2 a3) (EMap b1 b2 b3) = EMap (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
 instance AttrHasGlobals EMap where
    attrSetGlobals p b = b { _eMapGlobals = Just p }
 
@@ -781,6 +814,13 @@ instance AttrMap EObject where
 instance Default EObject where
   def = EObject def def def def def def def def def
 
+instance Monoid EObject where
+  mempty = def
+  mappend (EObject a1 a2 a3 a4 a5 a6 a7 a8 a9)
+          (EObject b1 b2 b3 b4 b5 b6 b7 b8 b9)
+    = EObject (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9)
+
 instance AttrHasGlobals EObject where
    attrSetGlobals p b = b { _eObjectGlobals = Just p }
 
@@ -875,6 +915,11 @@ instance AttrMap EParam where
 instance Default EParam where
   def = EParam def def def def
 
+instance Monoid EParam where
+  mempty = def
+  mappend (EParam a1 a2 a3 a4) (EParam b1 b2 b3 b4)
+    = EParam (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+
 instance AttrHasGlobals EParam where
    attrSetGlobals p b = b { _eParamGlobals = Just p }
 
@@ -960,6 +1005,10 @@ instance AttrMap EPicture where
 
 instance Default EPicture where
   def = EPicture def def
+
+instance Monoid EPicture where
+  mempty = def
+  mappend (EPicture a1 a2) (EPicture b1 b2) = EPicture (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EPicture where
    attrSetGlobals p b = b { _ePictureGlobals = Just p }
@@ -1053,6 +1102,12 @@ instance AttrMap ESource where
 
 instance Default ESource where
   def = ESource def def def def def def def
+
+instance Monoid ESource where
+  mempty = def
+  mappend (ESource a1 a2 a3 a4 a5 a6 a7) (ESource b1 b2 b3 b4 b5 b6 b7)
+    = ESource (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7)
 
 instance AttrHasGlobals ESource where
    attrSetGlobals p b = b { _eSourceGlobals = Just p }
@@ -1151,6 +1206,12 @@ instance AttrMap ETrack where
 
 instance Default ETrack where
   def = ETrack def def def def def def def
+
+instance Monoid ETrack where
+  mempty = def
+  mappend (ETrack a1 a2 a3 a4 a5 a6 a7) (ETrack b1 b2 b3 b4 b5 b6 b7)
+    = ETrack (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7)
 
 instance AttrHasGlobals ETrack where
    attrSetGlobals p b = b { _eTrackGlobals = Just p }
@@ -1264,6 +1325,12 @@ instance AttrMap EVideo where
 instance Default EVideo where
   def = EVideo def def def def def def def def def def def def
 
+instance Monoid EVideo where
+  mempty = def
+  mappend (EVideo a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+          (EVideo b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = EVideo (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
+        (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10) (a11 <> b11) (a12 <> b12)
 
 instance AttrHasGlobals EVideo where
    attrSetGlobals p b = b { _eVideoGlobals = Just p }

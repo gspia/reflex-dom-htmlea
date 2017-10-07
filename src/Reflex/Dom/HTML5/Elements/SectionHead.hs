@@ -76,6 +76,10 @@ instance AttrMap EArticle where
 instance Default EArticle where
   def = EArticle def def
 
+instance Monoid EArticle where
+  mempty = def
+  mappend (EArticle a1 a2) (EArticle b1 b2) = EArticle (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EArticle where
    attrSetGlobals p b = b { _eArticleGlobals = Just p }
 
@@ -157,6 +161,10 @@ instance AttrMap EAside where
 
 instance Default EAside where
   def = EAside def def
+
+instance Monoid EAside where
+  mempty = def
+  mappend (EAside a1 a2) (EAside b1 b2) = EAside (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EAside where
    attrSetGlobals p b = b { _eAsideGlobals = Just p }
@@ -240,6 +248,10 @@ instance AttrMap ENav where
 instance Default ENav where
   def = ENav def def
 
+instance Monoid ENav where
+  mempty = def
+  mappend (ENav a1 a2) (ENav b1 b2) = ENav (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ENav where
    attrSetGlobals p b = b { _eNavGlobals = Just p }
 
@@ -321,6 +333,10 @@ instance AttrMap ESection where
 
 instance Default ESection where
   def = ESection def def
+
+instance Monoid ESection where
+  mempty = def
+  mappend (ESection a1 a2) (ESection b1 b2) = ESection (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ESection where
    attrSetGlobals p b = b { _eSectionGlobals = Just p }
@@ -405,6 +421,10 @@ instance AttrMap EH1 where
 instance Default EH1 where
   def = EH1 def def
 
+instance Monoid EH1 where
+  mempty = def
+  mappend (EH1 a1 a2) (EH1 b1 b2) = EH1 (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EH1 where
    attrSetGlobals p b = b { _eH1Globals = Just p }
 
@@ -485,6 +505,10 @@ instance AttrMap EH2 where
 
 instance Default EH2 where
   def = EH2 def def
+
+instance Monoid EH2 where
+  mempty = def
+  mappend (EH2 a1 a2) (EH2 b1 b2) = EH2 (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EH2 where
    attrSetGlobals p b = b { _eH2Globals = Just p }
@@ -567,6 +591,10 @@ instance AttrMap EH3 where
 instance Default EH3 where
   def = EH3 def def
 
+instance Monoid EH3 where
+  mempty = def
+  mappend (EH3 a1 a2) (EH3 b1 b2) = EH3 (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EH3 where
    attrSetGlobals p b = b { _eH3Globals = Just p }
 
@@ -647,6 +675,10 @@ instance AttrMap EH4 where
 
 instance Default EH4 where
   def = EH4 def def
+
+instance Monoid EH4 where
+  mempty = def
+  mappend (EH4 a1 a2) (EH4 b1 b2) = EH4 (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EH4 where
    attrSetGlobals p b = b { _eH4Globals = Just p }
@@ -729,6 +761,10 @@ instance AttrMap EH5 where
 instance Default EH5 where
   def = EH5 def def
 
+instance Monoid EH5 where
+  mempty = def
+  mappend (EH5 a1 a2) (EH5 b1 b2) = EH5 (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EH5 where
    attrSetGlobals p b = b { _eH5Globals = Just p }
 
@@ -809,6 +845,10 @@ instance AttrMap EH6 where
 
 instance Default EH6 where
   def = EH6 def def
+
+instance Monoid EH6 where
+  mempty = def
+  mappend (EH6 a1 a2) (EH6 b1 b2) = EH6 (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EH6 where
    attrSetGlobals p b = b { _eH6Globals = Just p }

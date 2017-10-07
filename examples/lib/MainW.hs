@@ -1,30 +1,13 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP #-}
 
-module Main where
+module MainW where
 
 import Reflex.Dom.Core (text, display, count, elAttr, (=:), (&),
                        mainWidget, MonadWidget, foldDyn, Dynamic)
 import Data.Default (def)
 import Data.Monoid ((<>))
 import Language.Javascript.JSaddle (JSM)
-
-#ifdef ghcjs_HOST_OS
-import Language.Javascript.JSaddle (liftJSM)
-#else
--- import Language.Javascript.JSaddle.WebKitGTK (run)
-import Language.Javascript.JSaddle.Run        (syncPoint)
-import Language.Javascript.JSaddle.Warp as JSW (run)
-import Language.Javascript.JSaddle.WebSockets (debugWrapper, jsaddleWithAppOr)
-import Network.Wai                            (Application)
-import Network.Wai.Handler.Warp               (defaultSettings, run, runSettings
-                                              , setPort, setTimeout)
-import Network.WebSockets (defaultConnectionOptions)
-import Network.Wai.Application.Static
-import WaiAppStatic.Types
-#endif
-
 
 import Reflex.Dom.HTML5.Attrs as A (Globals, AnyAttr, id_, URL(URL), className,
                                    placeholder, srcDoc, src, width, href,
@@ -33,38 +16,6 @@ import Reflex.Dom.HTML5.Attrs as A (Globals, AnyAttr, id_, URL(URL), className,
 import Reflex.Dom.HTML5.Elements as E (eInput, eEmbedC, eIFrameC, eBN, eA,
                                       eP, eAC, ePN, eH1N, eDivN, eUlN, eLiN,
                                       eLi, eOlN, eOl, eBr_, eH2N)
-
-------------------------------------------------------------------------------
-------------------------------------------------------------------------------
-
-
-main :: IO ()
-#ifdef ghcjs_HOST_OS
-main = liftJSM mainW
-#else
-main = JSW.run 8000 $ mainW
-
--- | A @main@ for doing development.
-devMain :: Application -> JSM () -> Int -> IO ()
-devMain backend frontend port = do
-  putStrLn $ "Running dev server on localhost:" <> show port
-  app <- jsaddleWithAppOr
-    defaultConnectionOptions
-    (frontend >> syncPoint)
-    backend
-  runSettings (defaultSettings & setTimeout 3600 & setPort port) app
-
--- | A version of @devMain@ that can be used with @ghcid --test@ to get an auto-reloading server.
-devMainAutoReload :: Application -> JSM () -> Int -> IO ()
-devMainAutoReload backend frontend port =
-  debugWrapper $ \refreshMiddleware registerContext ->
-    devMain (refreshMiddleware backend) (registerContext >> frontend) port
-
-staticServer :: Application
-staticServer = staticApp ((defaultFileServerSettings "./static") & noCache)
-  where noCache s = s { ssMaxAge = MaxAgeSeconds 0 }
-
-#endif
 
 ------------------------------------------------------------------------------
 
@@ -79,7 +30,7 @@ intro :: MonadWidget t m => m ()
 intro = do
   eDivN $ do
     ePN $ do
-      text "Why? Reflex-Dom htmlea-lib "
+      text "Why? Reflex-dom-htmlea -lib "
       eBN $ text " helps "
       text $ " to avoid some of the run-time "
        <> "errors that are very easy to introduce with typos in attribute or "
@@ -111,8 +62,8 @@ caveats = do
   eDivN $ do
     ePN $ text "See README.md"
     ePN $ text $ "This lib is probably going to go through some "
-            <> "renaming, reshaping and other things as this is the "
-            <> "first public version of it. "
+            <> "renaming, reshaping and other things as this lib "
+            <> "is still in its infancy. "
             <> "Author is open to suggestions, PRs etc. (with usual disclaimers). "
     ePN $ text $ "And bugs are more than likely. There ain't any "
             <> "test cases (just an example program) so some of the "

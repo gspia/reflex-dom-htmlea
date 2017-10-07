@@ -152,6 +152,12 @@ instance AttrMap EA where
 instance Default EA where
   def = EA def def def def def def def def
 
+instance Monoid EA where
+  mempty = def
+  mappend (EA a1 a2 a3 a4 a5 a6 a7 a8) (EA b1 b2 b3 b4 b5 b6 b7 b8)
+    = EA (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8)
+
 
 instance AttrHasGlobals EA where
    attrSetGlobals p b = b { _eAGlobals = Just p }
@@ -283,6 +289,13 @@ instance AttrMap EButton where
 instance Default EButton where
   def = EButton def def def def def def def def def def def def
 
+instance Monoid EButton where
+  mempty = def
+  mappend (EButton a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+          (EButton b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = EButton (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <>b5) (a6 <> b6)
+        (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10) (a11 <> b11) (a12 <> b12)
+
 
 instance AttrHasGlobals EButton where
    attrSetGlobals p b = b { _eButtonGlobals = Just p }
@@ -397,6 +410,11 @@ instance AttrMap EDetails where
 instance Default EDetails where
   def = EDetails def def def
 
+instance Monoid EDetails where
+  mempty = def
+  mappend (EDetails a1 a2 a3) (EDetails b1 b2 b3)
+    = EDetails (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
 instance AttrHasGlobals EDetails where
    attrSetGlobals p b = b { _eDetailsGlobals = Just p }
 
@@ -496,6 +514,11 @@ instance AttrMap EEmbed where
 
 instance Default EEmbed where
   def = EEmbed def def def def def def
+
+instance Monoid EEmbed where
+  mempty = def
+  mappend (EEmbed a1 a2 a3 a4 a5 a6) (EEmbed b1 b2 b3 b4 b5 b6)
+    = EEmbed (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
 
 
 instance AttrHasGlobals EEmbed where
@@ -603,40 +626,40 @@ eEmbedCD bDyn = do
 -- width
 --
 data EInput = EInput
-  { _eInputGlobals        :: Maybe Globals
-  , _eInputAccept         :: Maybe Accept
-  , _eInputAlt            :: Maybe Alt_
-  , _eInputAutoComplete   :: Maybe AutoComplete
-  , _eInputAutoFocus      :: Maybe AutoFocus
-  , _eInputChecked        :: Maybe Checked
-  , _eInputDirName        :: Maybe DirName
-  , _eInputDisabled       :: Maybe Disabled
-  , _eInputForm           :: Maybe Form
-  , _eInputFormAction     :: Maybe FormAction
-  , _eInputFormEncType    :: Maybe FormEncType
-  , _eInputFormMethod     :: Maybe FormMethod
-  , _eInputFormNoValidate :: Maybe FormNoValidate
-  , _eInputFormTarget     :: Maybe FormTarget
-  , _eInputHeight         :: Maybe Height
-  , _eInputInputMode      :: Maybe InputMode
-  , _eInputList           :: Maybe List
-  , _eInputMax            :: Maybe Max
-  , _eInputMaxLength      :: Maybe MaxLength
-  , _eInputMin            :: Maybe Min
-  , _eInputMinLength      :: Maybe MinLength
-  , _eInputMultiple       :: Maybe Multiple
-  , _eInputName           :: Maybe Name
-  , _eInputPattern        :: Maybe Pattern
-  , _eInputPlaceholder    :: Maybe Placeholder
-  , _eInputReadOnly       :: Maybe ReadOnly
-  , _eInputRequired       :: Maybe Required
-  , _eInputSize           :: Maybe Size
-  , _eInputSrc            :: Maybe Src
-  , _eInputStep           :: Maybe Step
-  , _eInputType           :: Maybe InputType
-  , _eInputValueText      :: Maybe ValueText
-  , _eInputWidth          :: Maybe Width
-  , _eInputCustom         :: Maybe Attr
+  { _eInputGlobals        :: Maybe Globals        -- 1.
+  , _eInputAccept         :: Maybe Accept         -- 2.
+  , _eInputAlt            :: Maybe Alt_           -- 3.
+  , _eInputAutoComplete   :: Maybe AutoComplete   -- 4.
+  , _eInputAutoFocus      :: Maybe AutoFocus      -- 5.
+  , _eInputChecked        :: Maybe Checked        -- 6.
+  , _eInputDirName        :: Maybe DirName        -- 7.
+  , _eInputDisabled       :: Maybe Disabled       -- 8.
+  , _eInputForm           :: Maybe Form           -- 9.
+  , _eInputFormAction     :: Maybe FormAction     -- 10.
+  , _eInputFormEncType    :: Maybe FormEncType    -- 11.
+  , _eInputFormMethod     :: Maybe FormMethod     -- 12.
+  , _eInputFormNoValidate :: Maybe FormNoValidate -- 13.
+  , _eInputFormTarget     :: Maybe FormTarget     -- 14.
+  , _eInputHeight         :: Maybe Height         -- 15.
+  , _eInputInputMode      :: Maybe InputMode      -- 16.
+  , _eInputList           :: Maybe List           -- 17.
+  , _eInputMax            :: Maybe Max            -- 18.
+  , _eInputMaxLength      :: Maybe MaxLength      -- 19.
+  , _eInputMin            :: Maybe Min            -- 20.
+  , _eInputMinLength      :: Maybe MinLength      -- 21.
+  , _eInputMultiple       :: Maybe Multiple       -- 22.
+  , _eInputName           :: Maybe Name           -- 23.
+  , _eInputPattern        :: Maybe Pattern        -- 24.
+  , _eInputPlaceholder    :: Maybe Placeholder    -- 25.
+  , _eInputReadOnly       :: Maybe ReadOnly       -- 26.
+  , _eInputRequired       :: Maybe Required       -- 27.
+  , _eInputSize           :: Maybe Size           -- 28.
+  , _eInputSrc            :: Maybe Src            -- 29.
+  , _eInputStep           :: Maybe Step           -- 30.
+  , _eInputType           :: Maybe InputType      -- 31.
+  , _eInputValueText      :: Maybe ValueText      -- 32.
+  , _eInputWidth          :: Maybe Width          -- 33.
+  , _eInputCustom         :: Maybe Attr           -- 34.
   }
 
 
@@ -682,6 +705,21 @@ instance Default EInput where
   def = EInput def def def def def def def def def def def def
                 def def def def def def def def def def def def
                 def def def def def def def def def def
+
+instance Monoid EInput where
+  mempty = def
+  mappend
+    (EInput a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17
+      a18 a19 a20 a21 a22 a23 a24 a25 a26 a27 a28 a29 a30 a31 a32 a33 a34)
+    (EInput b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17
+      b18 b19 b20 b21 b22 b23 b24 b25 b26 b27 b28 b29 b30 b31 b32 b33 b34)
+    = EInput (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10)
+        (a11 <> b11) (a12 <> b12) (a13 <> b13) (a14 <> b14) (a15 <> b15)
+        (a16 <> b16) (a17 <> b17) (a18 <> b18) (a19 <> b19) (a20 <> b20)
+        (a21 <> b21) (a22 <> b22) (a23 <> b23) (a24 <> b24) (a25 <> b25)
+        (a26 <> b26) (a27 <> b27) (a28 <> b28) (a29 <> b29) (a30 <> b30)
+        (a31 <> b31) (a32 <> b32) (a33 <> b33) (a34 <> b34)
 
 
 instance AttrHasGlobals EInput where
@@ -832,6 +870,12 @@ instance AttrMap EKeygen where
 instance Default EKeygen where
   def = EKeygen def def def def def def def
 
+instance Monoid EKeygen where
+  mempty = def
+  mappend (EKeygen a1 a2 a3 a4 a5 a6 a7) (EKeygen b1 b2 b3 b4 b5 b6 b7)
+    = EKeygen (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7)
+
 
 instance AttrHasGlobals EKeygen where
    attrSetGlobals p b = b { _eKeygenGlobals = Just p }
@@ -927,10 +971,13 @@ instance AttrMap ELabel where
 instance Default ELabel where
   def = ELabel def def def
 
+instance Monoid ELabel where
+  mempty = def
+  mappend (ELabel a1 a2 a3) (ELabel b1 b2 b3)
+    = ELabel (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals ELabel where
    attrSetGlobals p b = b { _eLabelGlobals = Just p }
-
 
 -- Global attributes require the following instances.
 instance AttrHasAccessKey ELabel
@@ -1046,10 +1093,15 @@ instance AttrMap ESelect where
 instance Default ESelect where
   def = ESelect def def def def def def def def def
 
+instance Monoid ESelect where
+  mempty = def
+  mappend (ESelect a1 a2 a3 a4 a5 a6 a7 a8 a9)
+          (ESelect b1 b2 b3 b4 b5 b6 b7 b8 b9)
+    = ESelect (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9)
 
 instance AttrHasGlobals ESelect where
    attrSetGlobals p b = b { _eSelectGlobals = Just p }
-
 
 -- Global attributes require the following instances.
 instance AttrHasAccessKey ESelect
@@ -1181,10 +1233,17 @@ instance AttrMap ETextArea where
 instance Default ETextArea where
   def = ETextArea def def def def def def def def def def def def def def def
 
+instance Monoid ETextArea where
+  mempty = def
+  mappend
+    (ETextArea a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15)
+    (ETextArea b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15)
+    = ETextArea (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10)
+        (a11 <> b11) (a12 <> b12) (a13 <> b13) (a14 <> b14) (a15 <> b15)
 
 instance AttrHasGlobals ETextArea where
    attrSetGlobals p b = b { _eTextAreaGlobals = Just p }
-
 
 -- Global attributes require the following instances.
 instance AttrHasAccessKey ETextArea

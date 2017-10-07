@@ -68,26 +68,32 @@ To build this library locally use reflex-platform's work-on script as follows:
 This puts you into a nix shell that has GHC and the environment it needs. Then you can build with:
 
 ```
-cabal configure --builddir=dist-ghc
-cabal build --builddir=dist-ghc
-cabal build short --builddir=dist-ghc
+cabal new-configure 
+cabal new-build all
 ```
 
-(or without the builddir.) In this shell, ghcid can be used:
+In this shell, ghcid can be used:
 ```
-ghcid examples/reflexHtmlLeaEx.hs
+ghcid examples/app-wai/Main.hs
 ```
 or even better, the auto-reloading can be used
 ```
 ./dev-server.sh
 ```
 and then you can point your browser at localhost:8000.
+If you want to copy the executables to, say mydir, you can
+```
+find . -path "./dist*" -executable -type f -exec cp '{}' mydir/ \;
+```
+If you do copying and if you want to see the fig, copy the figs-dir too.
+The kit-executable is using webkit2gtk and wai-executable start warp-server 
+(at localhost:8000).
 
-At the moment (Sept 2017) this library cannot initialize work-on-shell with 
+At the moment (Oct 2017) this library cannot initialize work-on-shell with 
 ghcjs. (This is probably due to some minor thing.)
 
-You can go to nix-shell directly, then start editor (vim) and hlint and
-some other tools are available (see the tool list in default.nix).
+You can go to nix-shell directly, then start editor. Tools like hlint 
+are available (see the tool list in default.nix).
 
 You can go to nix-shell also with
 ```
@@ -95,17 +101,18 @@ nix-shell --argstr "compiler" "ghcjs"
 ```
 so that you can type
 ```
-cabal configure --ghcjs
-cabal build
+cabal new-configure --ghcjs
+cabal new-build all
 ```
 for a semi-fast build-cycle. The build results can be found in
-`dist/build/reflexHtmlLeaEx/reflexHtmlLeaEx.jsexe` -directory. Note that 
-in order to see the fig in the example, you have to manually copy it into 
-the `...reflexHtmlLeaEx.jsexe/figs`-directory.
+`./dist-newstyle/build/x86_64-linux/ghcjs-0.2.1/htmlLeaExs-0.1.1.0/c/htmlLeaEx/build/htmlLeaEx/htmlLeaEx.jsexe` 
+-directory. 
+Note that in order to see the fig in the example, you have to manually copy 
+it into the `...htmlLeaEx.jsexe/figs`-directory.
 
 
 To build in NixOs, just type nix-build. It assumes ghcjs and builds accordingly.
-This also builds the example-app and puts it into the result-directory.
+(At the moment this doesn't build the example app. You have to do it in one of the above ways.)
 
 If you want to use this in your own modules, you have to add this package
 to the list of packages so that nix can find it. Assuming git cloning, 
@@ -120,7 +127,7 @@ haskellPackageOverrides = self: super: {
 into `~/.config/nixpkgs/config.nix`. My nix-setup is somewhat vaguely
 described in 
 [nixos-adventure](https://github.com/gspia/half-baked/tree/master/hb8-nixos-adventure) 
-notes.
+notes. For another example, see [7guis-relfex-nix]().
 
 
 ## About nix-files and their orgnization

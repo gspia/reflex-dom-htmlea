@@ -113,6 +113,10 @@ instance AttrMap EAbbr where
 instance Default EAbbr where
   def = EAbbr def def
 
+instance Monoid EAbbr where
+  mempty = def
+  mappend (EAbbr a1 a2) (EAbbr b1 b2) = EAbbr (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EAbbr where
    attrSetGlobals p b = b { _eAbbrGlobals = Just p }
 
@@ -198,6 +202,10 @@ instance AttrMap EAddress where
 instance Default EAddress where
   def = EAddress def def
 
+instance Monoid EAddress where
+  mempty = def
+  mappend (EAddress a1 a2) (EAddress b1 b2) = EAddress (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EAddress where
    attrSetGlobals p b = b { _eAddressGlobals = Just p }
 
@@ -279,6 +287,10 @@ instance AttrMap EB where
 
 instance Default EB where
   def = EB def def
+
+instance Monoid EB where
+  mempty = def
+  mappend (EB a1 a2) (EB b1 b2) = EB (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EB where
    attrSetGlobals p b = b { _eBGlobals = Just p }
@@ -362,6 +374,10 @@ instance AttrMap EBdi where
 instance Default EBdi where
   def = EBdi def def
 
+instance Monoid EBdi where
+  mempty = def
+  mappend (EBdi a1 a2) (EBdi b1 b2) = EBdi (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EBdi where
    attrSetGlobals p b = b { _eBdiGlobals = Just p }
 
@@ -443,6 +459,10 @@ instance AttrMap EBdo where
 
 instance Default EBdo where
   def = EBdo def def
+
+instance Monoid EBdo where
+  mempty = def
+  mappend (EBdo a1 a2) (EBdo b1 b2) = EBdo (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EBdo where
    attrSetGlobals p b = b { _eBdoGlobals = Just p }
@@ -527,6 +547,11 @@ instance AttrMap EBlockQuote where
 
 instance Default EBlockQuote where
   def = EBlockQuote def def def
+
+instance Monoid EBlockQuote where
+  mempty = def
+  mappend (EBlockQuote a1 a2 a3) (EBlockQuote b1 b2 b3)
+    = EBlockQuote (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals EBlockQuote where
    attrSetGlobals p b = b { _eBlockQuoteGlobals = Just p }
@@ -616,6 +641,10 @@ instance AttrMap EBr where
 instance Default EBr where
   def = EBr def def
 
+instance Monoid EBr where
+  mempty = def
+  mappend (EBr a1 a2) (EBr b1 b2) = EBr (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EBr where
    attrSetGlobals p b = b { _eBrGlobals = Just p }
 
@@ -704,6 +733,10 @@ instance AttrMap ECite where
 instance Default ECite where
   def = ECite def def
 
+instance Monoid ECite where
+  mempty = def
+  mappend (ECite a1 a2) (ECite b1 b2) = ECite (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ECite where
    attrSetGlobals p b = b { _eCiteGlobals = Just p }
 
@@ -785,6 +818,10 @@ instance AttrMap ECode where
 
 instance Default ECode where
   def = ECode def def
+
+instance Monoid ECode where
+  mempty = def
+  mappend (ECode a1 a2) (ECode b1 b2) = ECode (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ECode where
    attrSetGlobals p b = b { _eCodeGlobals = Just p }
@@ -871,6 +908,11 @@ instance AttrMap EData where
 instance Default EData where
   def = EData def def def
 
+instance Monoid EData where
+  mempty = def
+  mappend (EData a1 a2 a3) (EData b1 b2 b3)
+    = EData (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
 instance AttrHasGlobals EData where
    attrSetGlobals p b = b { _eDataGlobals = Just p }
 
@@ -955,6 +997,10 @@ instance AttrMap EDataList where
 
 instance Default EDataList where
   def = EDataList def def
+
+instance Monoid EDataList where
+  mempty = def
+  mappend (EDataList a1 a2) (EDataList b1 b2) = EDataList (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EDataList where
    attrSetGlobals p b = b { _eDataListGlobals = Just p }
@@ -1042,6 +1088,11 @@ instance AttrMap EDel where
 instance Default EDel where
   def = EDel def def def def
 
+instance Monoid EDel where
+  mempty = def
+  mappend (EDel a1 a2 a3 a4) (EDel b1 b2 b3 b4)
+    = EDel (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+
 instance AttrHasGlobals EDel where
    attrSetGlobals p b = b { _eDelGlobals = Just p }
 
@@ -1127,6 +1178,10 @@ instance AttrMap EDd where
 instance Default EDd where
   def = EDd def def
 
+instance Monoid EDd where
+  mempty = def
+  mappend (EDd a1 a2) (EDd b1 b2) = EDd (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EDd where
    attrSetGlobals p b = b { _eDdGlobals = Just p }
 
@@ -1208,6 +1263,10 @@ instance AttrMap EDfn where
 
 instance Default EDfn where
   def = EDfn def def
+
+instance Monoid EDfn where
+  mempty = def
+  mappend (EDfn a1 a2) (EDfn b1 b2) = EDfn (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EDfn where
    attrSetGlobals p b = b { _eDfnGlobals = Just p }
@@ -1292,6 +1351,11 @@ instance AttrMap EDialog where
 
 instance Default EDialog where
   def = EDialog def def def
+
+instance Monoid EDialog where
+  mempty = def
+  mappend (EDialog a1 a2 a3) (EDialog b1 b2 b3)
+    = EDialog (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals EDialog where
    attrSetGlobals p b = b { _eDialogGlobals = Just p }
@@ -1378,6 +1442,10 @@ instance AttrMap EDiv where
 instance Default EDiv where
   def = EDiv def def
 
+instance Monoid EDiv where
+  mempty = def
+  mappend (EDiv a1 a2) (EDiv b1 b2) = EDiv (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EDiv where
    attrSetGlobals p b = b { _eDivGlobals = Just p }
 
@@ -1461,6 +1529,10 @@ instance AttrMap EDl where
 instance Default EDl where
   def = EDl def def
 
+instance Monoid EDl where
+  mempty = def
+  mappend (EDl a1 a2) (EDl b1 b2) = EDl (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EDl where
    attrSetGlobals p b = b { _eDlGlobals = Just p }
 
@@ -1543,6 +1615,10 @@ instance AttrMap EDt where
 instance Default EDt where
   def = EDt def def
 
+instance Monoid EDt where
+  mempty = def
+  mappend (EDt a1 a2) (EDt b1 b2) = EDt (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EDt where
    attrSetGlobals p b = b { _eDtGlobals = Just p }
 
@@ -1624,6 +1700,10 @@ instance AttrMap EEm where
 
 instance Default EEm where
   def = EEm def def
+
+instance Monoid EEm where
+  mempty = def
+  mappend (EEm a1 a2) (EEm b1 b2) = EEm (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EEm where
    attrSetGlobals p b = b { _eEmGlobals = Just p }
@@ -1712,6 +1792,11 @@ instance AttrMap EFieldSet where
 
 instance Default EFieldSet where
   def = EFieldSet def def def def def
+
+instance Monoid EFieldSet where
+  mempty = def
+  mappend (EFieldSet a1 a2 a3 a4 a5) (EFieldSet b1 b2 b3 b4 b5)
+    = EFieldSet (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
 
 instance AttrHasGlobals EFieldSet where
    attrSetGlobals p b = b { _eFieldSetGlobals = Just p }
@@ -1802,6 +1887,11 @@ instance AttrMap EFigCaption where
 instance Default EFigCaption where
   def = EFigCaption def def
 
+instance Monoid EFigCaption where
+  mempty = def
+  mappend (EFigCaption a1 a2) (EFigCaption b1 b2)
+    = EFigCaption (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EFigCaption where
    attrSetGlobals p b = b { _eFigCaptionGlobals = Just p }
 
@@ -1884,6 +1974,10 @@ instance AttrMap EFigure where
 instance Default EFigure where
   def = EFigure def def
 
+instance Monoid EFigure where
+  mempty = def
+  mappend (EFigure a1 a2) (EFigure b1 b2) = EFigure (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EFigure where
    attrSetGlobals p b = b { _eFigureGlobals = Just p }
 
@@ -1965,6 +2059,10 @@ instance AttrMap EFooter where
 
 instance Default EFooter where
   def = EFooter def def
+
+instance Monoid EFooter where
+  mempty = def
+  mappend (EFooter a1 a2) (EFooter b1 b2) = EFooter (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EFooter where
    attrSetGlobals p b = b { _eFooterGlobals = Just p }
@@ -2065,6 +2163,13 @@ instance AttrMap EForm where
 instance Default EForm where
   def = EForm def def def def def def def def def def
 
+instance Monoid EForm where
+  mempty = def
+  mappend (EForm a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
+    (EForm b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
+      = EForm (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+              (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10)
+
 instance AttrHasGlobals EForm where
    attrSetGlobals p b = b { _eFormGlobals = Just p }
 
@@ -2158,6 +2263,10 @@ instance AttrMap EHeader where
 instance Default EHeader where
   def = EHeader def def
 
+instance Monoid EHeader where
+  mempty = def
+  mappend (EHeader a1 a2) (EHeader b1 b2) = EHeader (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EHeader where
    attrSetGlobals p b = b { _eHeaderGlobals = Just p }
 
@@ -2240,6 +2349,10 @@ instance AttrMap EHr where
 instance Default EHr where
   def = EHr def def
 
+instance Monoid EHr where
+  mempty = def
+  mappend (EHr a1 a2) (EHr b1 b2) = EHr (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EHr where
    attrSetGlobals p b = b { _eHrGlobals = Just p }
 
@@ -2321,6 +2434,10 @@ instance AttrMap EI where
 
 instance Default EI where
   def = EI def def
+
+instance Monoid EI where
+  mempty = def
+  mappend (EI a1 a2) (EI b1 b2) = EI (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EI where
    attrSetGlobals p b = b { _eIGlobals = Just p }
@@ -2409,6 +2526,11 @@ instance AttrMap EIns where
 instance Default EIns where
   def = EIns def def def def
 
+instance Monoid EIns where
+  mempty = def
+  mappend (EIns a1 a2 a3 a4) (EIns b1 b2 b3 b4)
+    = EIns (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+
 instance AttrHasGlobals EIns where
    attrSetGlobals p b = b { _eInsGlobals = Just p }
 
@@ -2494,6 +2616,10 @@ instance AttrMap EKbd where
 instance Default EKbd where
   def = EKbd def def
 
+instance Monoid EKbd where
+  mempty = def
+  mappend (EKbd a1 a2) (EKbd b1 b2) = EKbd (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EKbd where
    attrSetGlobals p b = b { _eKbdGlobals = Just p }
 
@@ -2577,6 +2703,10 @@ instance AttrMap ELi where
 
 instance Default ELi where
   def = ELi def def def
+
+instance Monoid ELi where
+  mempty = def
+  mappend (ELi a1 a2 a3) (ELi b1 b2 b3) = ELi (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
 instance AttrHasGlobals ELi where
    attrSetGlobals p b = b { _eLiGlobals = Just p }
@@ -2662,6 +2792,10 @@ instance AttrMap ELegend where
 instance Default ELegend where
   def = ELegend def def
 
+instance Monoid ELegend where
+  mempty = def
+  mappend (ELegend a1 a2) (ELegend b1 b2) = ELegend (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ELegend where
    attrSetGlobals p b = b { _eLegendGlobals = Just p }
 
@@ -2743,6 +2877,10 @@ instance AttrMap EMark where
 
 instance Default EMark where
   def = EMark def def
+
+instance Monoid EMark where
+  mempty = def
+  mappend (EMark a1 a2) (EMark b1 b2) = EMark (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EMark where
    attrSetGlobals p b = b { _eMarkGlobals = Just p }
@@ -2831,6 +2969,11 @@ instance AttrMap EMenu where
 
 instance Default EMenu where
   def = EMenu def def def def
+
+instance Monoid EMenu where
+  mempty = def
+  mappend (EMenu a1 a2 a3 a4) (EMenu b1 b2 b3 b4)
+    = EMenu (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
 instance AttrHasGlobals EMenu where
    attrSetGlobals p b = b { _eMenuGlobals = Just p }
@@ -2927,6 +3070,12 @@ instance AttrMap EMenuItem where
 
 instance Default EMenuItem where
   def = EMenuItem def def def def def def def
+
+instance Monoid EMenuItem where
+  mempty = def
+  mappend (EMenuItem a1 a2 a3 a4 a5 a6 a7) (EMenuItem b1 b2 b3 b4 b5 b6 b7)
+    = EMenuItem (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+        (a6 <> b6) (a7 <> b7)
 
 instance AttrHasGlobals EMenuItem where
    attrSetGlobals p b = b { _eMenuItemGlobals = Just p }
@@ -3028,6 +3177,12 @@ instance AttrMap EMeter where
 instance Default EMeter where
   def = EMeter def def def def def def def def
 
+instance Monoid EMeter where
+  mempty = def
+  mappend (EMeter a1 a2 a3 a4 a5 a6 a7 a8) (EMeter b1 b2 b3 b4 b5 b6 b7 b8)
+    = EMeter (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+             (a6 <> b6) (a7 <> b7) (a8 <> b8)
+
 instance AttrHasGlobals EMeter where
    attrSetGlobals p b = b { _eMeterGlobals = Just p }
 
@@ -3125,6 +3280,11 @@ instance AttrMap EOl where
 instance Default EOl where
   def = EOl def def def def def
 
+instance Monoid EOl where
+  mempty = def
+  mappend (EOl a1 a2 a3 a4 a5) (EOl b1 b2 b3 b4 b5)
+    = EOl (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+
 instance AttrHasGlobals EOl where
    attrSetGlobals p b = b { _eOlGlobals = Just p }
 
@@ -3220,6 +3380,11 @@ instance Default EOptGroup where
 instance AttrHasGlobals EOptGroup where
    attrSetGlobals p b = b { _eOptGroupGlobals = Just p }
 
+instance Monoid EOptGroup where
+  mempty = def
+  mappend (EOptGroup a1 a2 a3 a4) (EOptGroup b1 b2 b3 b4)
+    = EOptGroup (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+
 -- Global attributes require the following instances.
 instance AttrHasAccessKey EOptGroup
   where attrSetAccessKey p g = g { _eOptGroupGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eOptGroupGlobals g))) }
@@ -3310,6 +3475,11 @@ instance AttrMap EOption where
 
 instance Default EOption where
   def = EOption def def def def def def
+
+instance Monoid EOption where
+  mempty = def
+  mappend (EOption a1 a2 a3 a4 a5 a6) (EOption b1 b2 b3 b4 b5 b6)
+    = EOption (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
 
 instance AttrHasGlobals EOption where
    attrSetGlobals p b = b { _eOptionGlobals = Just p }
@@ -3405,6 +3575,11 @@ instance AttrMap EOutput where
 instance Default EOutput where
   def = EOutput def def def def def
 
+instance Monoid EOutput where
+  mempty = def
+  mappend (EOutput a1 a2 a3 a4 a5) (EOutput b1 b2 b3 b4 b5)
+    = EOutput (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+
 instance AttrHasGlobals EOutput where
    attrSetGlobals p b = b { _eOutputGlobals = Just p }
 
@@ -3492,6 +3667,10 @@ instance AttrMap EP where
 instance Default EP where
   def = EP def def
 
+instance Monoid EP where
+  mempty = def
+  mappend (EP a1 a2) (EP b1 b2) = EP (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EP where
    attrSetGlobals p b = b { _ePGlobals = Just p }
 
@@ -3573,6 +3752,10 @@ instance AttrMap EPre where
 
 instance Default EPre where
   def = EPre def def
+
+instance Monoid EPre where
+  mempty = def
+  mappend (EPre a1 a2) (EPre b1 b2) = EPre (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EPre where
    attrSetGlobals p b = b { _ePreGlobals = Just p }
@@ -3659,6 +3842,11 @@ instance AttrMap EProgress where
 
 instance Default EProgress where
   def = EProgress def def def def
+
+instance Monoid EProgress where
+  mempty = def
+  mappend (EProgress a1 a2 a3 a4) (EProgress b1 b2 b3 b4)
+    = EProgress (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
 instance AttrHasGlobals EProgress where
    attrSetGlobals p b = b { _eProgressGlobals = Just p }
@@ -3748,6 +3936,10 @@ instance AttrMap EQ_ where
 instance Default EQ_ where
   def = EQ_ def def def
 
+instance Monoid EQ_ where
+  mempty = def
+  mappend (EQ_ a1 a2 a3) (EQ_ b1 b2 b3) = EQ_ (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
 instance AttrHasGlobals EQ_ where
    attrSetGlobals p b = b { _eQGlobals = Just p }
 
@@ -3832,6 +4024,10 @@ instance AttrMap ERb where
 instance Default ERb where
   def = ERb def def
 
+instance Monoid ERb where
+  mempty = def
+  mappend (ERb a1 a2) (ERb b1 b2) = ERb (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ERb where
    attrSetGlobals p b = b { _eRbGlobals = Just p }
 
@@ -3914,6 +4110,10 @@ instance AttrMap ERp where
 
 instance Default ERp where
   def = ERp def def
+
+instance Monoid ERp where
+  mempty = def
+  mappend (ERp a1 a2) (ERp b1 b2) = ERp (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ERp where
    attrSetGlobals p b = b { _eRpGlobals = Just p }
@@ -3998,6 +4198,10 @@ instance AttrMap ERt where
 instance Default ERt where
   def = ERt def def
 
+instance Monoid ERt where
+  mempty = def
+  mappend (ERt a1 a2) (ERt b1 b2) = ERt (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ERt where
    attrSetGlobals p b = b { _eRtGlobals = Just p }
 
@@ -4079,6 +4283,10 @@ instance AttrMap ERtc where
 
 instance Default ERtc where
   def = ERtc def def
+
+instance Monoid ERtc where
+  mempty = def
+  mappend (ERtc a1 a2) (ERtc b1 b2) = ERtc (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ERtc where
    attrSetGlobals p b = b { _eRtcGlobals = Just p }
@@ -4162,6 +4370,10 @@ instance AttrMap ERuby where
 instance Default ERuby where
   def = ERuby def def
 
+instance Monoid ERuby where
+  mempty = def
+  mappend (ERuby a1 a2) (ERuby b1 b2) = ERuby (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ERuby where
    attrSetGlobals p b = b { _eRubyGlobals = Just p }
 
@@ -4243,6 +4455,10 @@ instance AttrMap ES where
 
 instance Default ES where
   def = ES def def
+
+instance Monoid ES where
+  mempty = def
+  mappend (ES a1 a2) (ES b1 b2) = ES (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ES where
    attrSetGlobals p b = b { _eSGlobals = Just p }
@@ -4326,6 +4542,10 @@ instance AttrMap ESamp where
 instance Default ESamp where
   def = ESamp def def
 
+instance Monoid ESamp where
+  mempty = def
+  mappend (ESamp a1 a2) (ESamp b1 b2) = ESamp (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ESamp where
    attrSetGlobals p b = b { _eSampGlobals = Just p }
 
@@ -4407,6 +4627,10 @@ instance AttrMap ESmall where
 
 instance Default ESmall where
   def = ESmall def def
+
+instance Monoid ESmall where
+  mempty = def
+  mappend (ESmall a1 a2) (ESmall b1 b2) = ESmall (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ESmall where
    attrSetGlobals p b = b { _eSmallGlobals = Just p }
@@ -4490,6 +4714,10 @@ instance AttrMap ESpan where
 instance Default ESpan where
   def = ESpan def def
 
+instance Monoid ESpan where
+  mempty = def
+  mappend (ESpan a1 a2) (ESpan b1 b2) = ESpan (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ESpan where
    attrSetGlobals p b = b { _eSpanGlobals = Just p }
 
@@ -4571,6 +4799,10 @@ instance AttrMap EStrong where
 
 instance Default EStrong where
   def = EStrong def def
+
+instance Monoid EStrong where
+  mempty = def
+  mappend (EStrong a1 a2) (EStrong b1 b2) = EStrong (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EStrong where
    attrSetGlobals p b = b { _eStrongGlobals = Just p }
@@ -4654,6 +4886,10 @@ instance AttrMap ESub where
 instance Default ESub where
   def = ESub def def
 
+instance Monoid ESub where
+  mempty = def
+  mappend (ESub a1 a2) (ESub b1 b2) = ESub (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ESub where
    attrSetGlobals p b = b { _eSubGlobals = Just p }
 
@@ -4736,6 +4972,10 @@ instance AttrMap ESummary where
 instance Default ESummary where
   def = ESummary def def
 
+instance Monoid ESummary where
+  mempty = def
+  mappend (ESummary a1 a2) (ESummary b1 b2) = ESummary (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals ESummary where
    attrSetGlobals p b = b { _eSummaryGlobals = Just p }
 
@@ -4817,6 +5057,10 @@ instance AttrMap ESup where
 
 instance Default ESup where
   def = ESup def def
+
+instance Monoid ESup where
+  mempty = def
+  mappend (ESup a1 a2) (ESup b1 b2) = ESup (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals ESup where
    attrSetGlobals p b = b { _eSupGlobals = Just p }
@@ -4902,6 +5146,11 @@ instance AttrMap ETime where
 instance Default ETime where
   def = ETime def def def
 
+instance Monoid ETime where
+  mempty = def
+  mappend (ETime a1 a2 a3) (ETime b1 b2 b3)
+    = ETime (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
 instance AttrHasGlobals ETime where
    attrSetGlobals p b = b { _eTimeGlobals = Just p }
 
@@ -4986,6 +5235,10 @@ instance AttrMap EU where
 instance Default EU where
   def = EU def def
 
+instance Monoid EU where
+  mempty = def
+  mappend (EU a1 a2) (EU b1 b2) = EU (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EU where
    attrSetGlobals p b = b { _eUGlobals = Just p }
 
@@ -5067,6 +5320,10 @@ instance AttrMap EUl where
 
 instance Default EUl where
   def = EUl def def
+
+instance Monoid EUl where
+  mempty = def
+  mappend (EUl a1 a2) (EUl b1 b2) = EUl (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EUl where
    attrSetGlobals p b = b { _eUlGlobals = Just p }
@@ -5150,6 +5407,10 @@ instance AttrMap EVar where
 instance Default EVar where
   def = EVar def def
 
+instance Monoid EVar where
+  mempty = def
+  mappend (EVar a1 a2) (EVar b1 b2) = EVar (a1 <> b1) (a2 <> b2)
+
 instance AttrHasGlobals EVar where
    attrSetGlobals p b = b { _eVarGlobals = Just p }
 
@@ -5231,6 +5492,10 @@ instance AttrMap EWbr where
 
 instance Default EWbr where
   def = EWbr def def
+
+instance Monoid EWbr where
+  mempty = def
+  mappend (EWbr a1 a2) (EWbr b1 b2) = EWbr (a1 <> b1) (a2 <> b2)
 
 instance AttrHasGlobals EWbr where
    attrSetGlobals p b = b { _eWbrGlobals = Just p }

@@ -135,10 +135,11 @@ abbr i = attrSetAbbr (Abbr i)
 
 instance Monoid Abbr where
   mappend (Abbr a) (Abbr b) = Abbr (a <> " " <> b)
-  mempty = Abbr T.empty
+  mempty = def
 
 instance (Reflex t, AttrHasAbbr a) => AttrHasAbbr (Dynamic t a) where
   attrSetAbbr c = fmap (attrSetAbbr c)
+
 
 ------------------------------------------------------------------------------
 
@@ -166,6 +167,10 @@ accT2txt (AcceptExt m) = "." <> m
 instance AttrMap Accept where
   attrMap (Accept i) = "accept" =: foldr (\at b -> b <> "," <> accT2txt at) T.empty i
 
+instance Monoid Accept where
+  mappend (Accept a) (Accept b) = Accept (a ++ b)
+  mempty = def
+
 class AttrHasAccept a where
   attrSetAccept :: Accept -> a -> a
 
@@ -177,10 +182,6 @@ addAccept :: (AttrHasAccept a, AttrGetAccept a) => AcceptToken -> a -> a
 addAccept t i = attrSetAccept (Accept $ t:tLst) i
   where
     (Accept tLst) = attrGetAccept i
-
-instance Monoid Accept where
-  mappend (Accept a) (Accept b) = Accept (a ++ b)
-  mempty = Accept []
 
 instance (Reflex t, AttrHasAccept a) => AttrHasAccept (Dynamic t a) where
   attrSetAccept c = fmap (attrSetAccept c)
@@ -199,16 +200,16 @@ instance Default AcceptCharSet where
 instance AttrMap AcceptCharSet where
   attrMap (AcceptCharSet i) = "accept-charset" =: i
 
+instance Monoid AcceptCharSet where
+  mappend (AcceptCharSet a) (AcceptCharSet b) = AcceptCharSet (a <> " " <> b)
+  mempty = AcceptCharSet T.empty
+
 class AttrHasAcceptCharSet a where
   attrSetAcceptCharSet :: AcceptCharSet -> a -> a
 
 -- |
 acceptCharSet :: AttrHasAcceptCharSet a => Text -> a -> a
 acceptCharSet i = attrSetAcceptCharSet (AcceptCharSet i)
-
-instance Monoid AcceptCharSet where
-  mappend (AcceptCharSet a) (AcceptCharSet b) = AcceptCharSet (a <> " " <> b)
-  mempty = AcceptCharSet T.empty
 
 instance (Reflex t, AttrHasAcceptCharSet a) => AttrHasAcceptCharSet (Dynamic t a) where
   attrSetAcceptCharSet c = fmap (attrSetAcceptCharSet c)
@@ -224,6 +225,10 @@ instance Default Action where
 
 instance AttrMap Action where
   attrMap (Action (URL h)) = "action" =: h
+
+instance Monoid Action where
+  mappend _a b = b
+  mempty = def
 
 class AttrHasAction a where
   attrSetAction :: Action -> a -> a
@@ -246,6 +251,10 @@ instance Default AllowFullScreen where
 
 instance AttrMap AllowFullScreen where
   attrMap AllowFullScreen = "allowfullscreen" =: T.empty
+
+instance Monoid AllowFullScreen where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasAllowFullScreen a where
   attrSetAllowFullScreen :: AllowFullScreen -> a -> a
@@ -271,6 +280,10 @@ instance Default Alt_ where
 instance AttrMap Alt_ where
   attrMap (Alt_ t) = "alt" =: t
 
+instance Monoid Alt_ where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasAlt a where
   attrSetAlt :: Alt_ -> a -> a
 
@@ -287,10 +300,15 @@ instance (Reflex t, AttrHasAlt a) => AttrHasAlt (Dynamic t a) where
 data Async = Async
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default Async where
+  def = Async
 
 instance AttrMap Async where
   attrMap Async = "async" =: T.empty
+
+instance Monoid Async where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasAsync a where
   attrSetAsync :: Async -> a -> a
@@ -316,16 +334,16 @@ instance Default AutoComplete where
 instance AttrMap AutoComplete where
   attrMap (AutoComplete i) = "autocomplete" =: i
 
+instance Monoid AutoComplete where
+  mappend (AutoComplete a) (AutoComplete b) = AutoComplete (a <> " " <> b)
+  mempty = def
+
 class AttrHasAutoComplete a where
   attrSetAutoComplete :: AutoComplete -> a -> a
 
 -- |
 autoComplete :: AttrHasAutoComplete a => Text -> a -> a
 autoComplete i = attrSetAutoComplete (AutoComplete i)
-
-instance Monoid AutoComplete where
-  mappend (AutoComplete a) (AutoComplete b) = AutoComplete (a <> " " <> b)
-  mempty = AutoComplete T.empty
 
 instance (Reflex t, AttrHasAutoComplete a) => AttrHasAutoComplete (Dynamic t a) where
   attrSetAutoComplete c = fmap (attrSetAutoComplete c)
@@ -341,6 +359,10 @@ instance Default AutoFocus where
 
 instance AttrMap AutoFocus where
   attrMap AutoFocus = "autofocus" =: T.empty
+
+instance Monoid AutoFocus where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasAutoFocus a where
   attrSetAutoFocus :: AutoFocus -> a -> a
@@ -363,6 +385,10 @@ instance Default Autoplay where
 
 instance AttrMap Autoplay where
   attrMap Autoplay = "autoplay" =: T.empty
+
+instance Monoid Autoplay where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasAutoplay a where
   attrSetAutoplay :: Autoplay -> a -> a
@@ -388,6 +414,10 @@ instance AttrMap ButtonType where
   attrMap BTreset  = "type" =: "reset"
   attrMap BTbutton = "type" =: "button"
   attrMap BTmenu   = "type" =: "menu"
+
+instance Monoid ButtonType where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasButtonType a where
   attrSetButtonType :: ButtonType -> a -> a
@@ -417,6 +447,10 @@ instance Default CharSet where
 instance AttrMap CharSet where
   attrMap (CharSet t) = "charset" =: t
 
+instance Monoid CharSet where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasCharSet a where
   attrSetCharSet :: CharSet -> a -> a
 
@@ -439,6 +473,10 @@ instance Default Checked where
 instance AttrMap Checked where
   attrMap Checked = "checked" =: T.empty
 
+instance Monoid Checked where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasChecked a where
   attrSetChecked :: Checked -> a -> a
 
@@ -459,6 +497,10 @@ instance Default Cite where
 
 instance AttrMap Cite where
   attrMap (Cite (URL i)) = "cite" =: i
+
+instance Monoid Cite where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasCite a where
   attrSetCite :: Cite -> a -> a
@@ -482,6 +524,10 @@ newtype Cols = Cols Int
 instance AttrMap Cols where
   attrMap (Cols i) = "cols" =: T.pack (show i)
 
+instance Monoid Cols where
+  mappend _ b = b
+  mempty = Cols 1
+
 class AttrHasCols a where
   attrSetCols :: Cols -> a -> a
 
@@ -503,6 +549,10 @@ newtype ColSpan = ColSpan Int
 
 instance AttrMap ColSpan where
   attrMap (ColSpan i) = "colspan" =: T.pack (show i)
+
+instance Monoid ColSpan where
+  mappend _ b = b
+  mempty = ColSpan 1
 
 class AttrHasColSpan a where
   attrSetColSpan :: ColSpan -> a -> a
@@ -528,6 +578,10 @@ instance Default Content where
 instance AttrMap Content where
   attrMap (Content t) = "content" =: t
 
+instance Monoid Content where
+  mappend (Content a) (Content b) = Content (a <> ", " <> b)
+  mempty = def
+
 class AttrHasContent a where
   attrSetContent :: Content -> a -> a
 
@@ -549,6 +603,10 @@ instance Default Controls where
 
 instance AttrMap Controls where
   attrMap Controls = "controls" =: T.empty
+
+instance Monoid Controls where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasControls a where
   attrSetControls :: Controls -> a -> a
@@ -586,6 +644,11 @@ instance AttrMap Coords where
   attrMap (CoordsPolygon cplst)     = "coords" =: fold (cp2txt <$> cplst)
   attrMap (CoordsRectangle cp1 cp2) = "coords" =: (cp2txt cp1 <> cp2txt cp2)
 
+instance Monoid Coords where
+  mappend (CoordsPolygon as) (CoordsPolygon bs) = CoordsPolygon (as ++ bs)
+  mappend _ b = b
+  mempty = def
+
 class AttrHasCoords a where
   attrSetCoords :: Coords -> a -> a
 
@@ -617,6 +680,10 @@ instance AttrMap CrossOrigin where
   attrMap COusecredentials = "crossorigin" =: "use-credentials"
   attrMap COnocors         = "crossorigin" =: T.empty
 
+instance Monoid CrossOrigin where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasCrossOrigin a where
   attrSetCrossOrigin :: CrossOrigin -> a -> a
 
@@ -640,6 +707,10 @@ instance Default DataUrl where
 
 instance AttrMap DataUrl where
   attrMap (DataUrl (URL i)) = "data" =: i
+
+instance Monoid DataUrl where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasDataUrl a where
   attrSetDataUrl :: DataUrl -> a -> a
@@ -666,6 +737,10 @@ instance Default DataValue where
 instance AttrMap DataValue where
   attrMap (DataValue i) = "value" =: i
 
+instance Monoid DataValue where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasDataValue a where
   attrSetDataValue :: DataValue -> a -> a
 
@@ -691,6 +766,10 @@ instance Default DateTime where
 instance AttrMap DateTime where
   attrMap (DateTime i) = "datetime" =: i
 
+instance Monoid DateTime where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasDateTime a where
   attrSetDateTime :: DateTime -> a -> a
 
@@ -711,6 +790,11 @@ newtype Default_ = Default_ Text
 instance AttrMap Default_ where
   attrMap (Default_ t) = "default" =: t
 
+-- Is this ok at all?
+instance Monoid Default_ where
+  mappend _ b = b
+  mempty = Default_ "default"
+
 class AttrHasDefault a where
   attrSetDefault :: Default_ -> a -> a
 
@@ -727,10 +811,15 @@ instance (Reflex t, AttrHasDefault a) => AttrHasDefault (Dynamic t a) where
 data Defer = Defer
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default Defer where
+  def = Defer
 
 instance AttrMap Defer where
   attrMap Defer = "defer" =: T.empty
+
+instance Monoid Defer where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasDefer a where
   attrSetDefer :: Defer -> a -> a
@@ -751,6 +840,10 @@ newtype DirName = DirName Text
 
 instance AttrMap DirName where
   attrMap (DirName t) = "dirname" =: t
+
+instance Monoid DirName where
+  mappend _ b = b
+  mempty = DirName "dirname" -- Is this ok at all?
 
 class AttrHasDirName a where
   attrSetDirName :: DirName -> a -> a
@@ -774,6 +867,10 @@ instance Default Disabled where
 instance AttrMap Disabled where
   attrMap Disabled = "disabled" =: T.empty
 
+instance Monoid Disabled where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasDisabled a where
   attrSetDisabled :: Disabled -> a -> a
 
@@ -796,6 +893,10 @@ instance Default Download where
 
 instance AttrMap Download where
   attrMap (Download t) = "download" =: t
+
+instance Monoid Download where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasDownload a where
   attrSetDownload :: Download -> a -> a
@@ -821,6 +922,10 @@ instance AttrMap EncType where
   attrMap ETmulti = "enctype" =: "multipart/form-data"
   attrMap ETtext  = "enctype" =: "text/plain"
 
+instance Monoid EncType where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasEncType a where
   attrSetEncType :: EncType -> a -> a
 
@@ -845,6 +950,10 @@ instance Default ForId where
 
 instance AttrMap ForId where
   attrMap (ForId f) = "for" =: f
+
+instance Monoid ForId where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasForId a where
   attrSetForId :: ForId -> a -> a
@@ -876,6 +985,10 @@ instance Default Form where
 instance AttrMap Form where
   attrMap (Form (FormId f)) = "form" =: f
 
+instance Monoid Form where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasForm a where
   attrSetForm :: Form -> a -> a
 
@@ -897,6 +1010,10 @@ instance Default FormAction where
 
 instance AttrMap FormAction where
   attrMap (FormAction (URL h)) = "formaction" =: h
+
+instance Monoid FormAction where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasFormAction a where
   attrSetFormAction :: FormAction -> a -> a
@@ -921,6 +1038,10 @@ instance AttrMap FormEncType where
   attrMap FETapp   = "formenctype" =: "application/x-www-form-urlencoded"
   attrMap FETmulti = "formenctype" =: "multipart/form-data"
   attrMap FETtext  = "formenctype" =: "text/plain"
+
+instance Monoid FormEncType where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasFormEncType a where
   attrSetFormEncType :: FormEncType -> a -> a
@@ -948,6 +1069,10 @@ instance AttrMap FormMethod where
   attrMap FMpost   = "formmethod" =: "post"
   attrMap FMdialog = "formmethod" =: "dialog"
 
+instance Monoid FormMethod where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasFormMethod a where
   attrSetFormMethod :: FormMethod -> a -> a
 
@@ -970,6 +1095,10 @@ instance Default FormNoValidate where
 
 instance AttrMap FormNoValidate where
   attrMap FormNoValidate = "formnovalidate" =: T.empty
+
+instance Monoid FormNoValidate where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasFormNoValidate a where
   attrSetFormNoValidate :: FormNoValidate -> a -> a
@@ -999,6 +1128,10 @@ instance AttrMap FormTarget where
   attrMap FTparent   = "formtarget" =: "_parent"
   attrMap FTtop      = "formtarget" =: "_top"
   attrMap (FTname t) = "formtarget" =: t
+
+instance Monoid FormTarget where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasFormTarget a where
   attrSetFormTarget :: FormTarget -> a -> a
@@ -1031,6 +1164,10 @@ instance Default Headers where
 instance AttrMap Headers where
   attrMap (Headers i) = "headers" =: i
 
+instance Monoid Headers where
+  mappend (Headers a) (Headers b) = Headers (a <> " " <> b)
+  mempty = def
+
 class AttrHasHeaders a where
   attrSetHeaders :: Headers -> a -> a
 
@@ -1062,6 +1199,10 @@ instance Default Height where
 instance AttrMap Height where
   attrMap (Height i) = "height" =: T.pack (show i)
 
+instance Monoid Height where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasHeight a where
   attrSetHeight :: Height -> a -> a
 
@@ -1082,6 +1223,10 @@ newtype High = High Double
 
 instance AttrMap High where
   attrMap (High d) = "high" =: T.pack (show d)
+
+instance Monoid High where
+  mappend _ b = b
+  mempty = High 0 -- Is this ok?
 
 class AttrHasHigh a where
   attrSetHigh :: High -> a -> a
@@ -1104,6 +1249,10 @@ instance Default Href where
 
 instance AttrMap Href where
   attrMap (Href (URL h)) = "href" =: h
+
+instance Monoid Href where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasHref a where
   attrSetHref :: Href -> a -> a
@@ -1130,6 +1279,10 @@ instance Default HrefLang where
 instance AttrMap HrefLang where
   attrMap (HrefLang t) = "hreflang" =: t
 
+instance Monoid HrefLang where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasHrefLang a where
   attrSetHrefLang :: HrefLang -> a -> a
 
@@ -1154,6 +1307,10 @@ instance Default HttpEquiv where
 instance AttrMap HttpEquiv where
   attrMap (HttpEquiv t) = "http-equiv" =: t
 
+instance Monoid HttpEquiv where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasHttpEquiv a where
   attrSetHttpEquiv :: HttpEquiv -> a -> a
 
@@ -1175,6 +1332,10 @@ instance Default Icon where
 
 instance AttrMap Icon where
   attrMap (Icon t) = "icon" =: t
+
+instance Monoid Icon where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasIcon a where
   attrSetIcon :: Icon -> a -> a
@@ -1209,6 +1370,10 @@ instance AttrMap InputMode where
   attrMap IMtel            = "inputmode" =: "tel"
   attrMap IMemail          = "inputmode" =: "email"
   attrMap IMurl            = "inputmode" =: "url"
+
+instance Monoid InputMode where
+  mappend _ b = b
+  mempty = IMlatin -- Is this ok at all?
 
 class AttrHasInputMode a where
   attrSetInputMode :: InputMode -> a -> a
@@ -1272,6 +1437,10 @@ instance AttrMap InputType where
   attrMap ITurl            = "type" =: "url"
   attrMap ITweek           = "type" =: "week"
 
+instance Monoid InputType where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasInputType a where
   attrSetInputType :: InputType -> a -> a
 
@@ -1321,6 +1490,10 @@ instance Default Integrity where
 instance AttrMap Integrity where
   attrMap (Integrity i) = "integrity" =: i
 
+instance Monoid Integrity where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasIntegrity a where
   attrSetIntegrity :: Integrity -> a -> a
 
@@ -1342,6 +1515,10 @@ instance Default IsMap where
 
 instance AttrMap IsMap where
   attrMap IsMap = "ismap" =: T.empty
+
+instance Monoid IsMap where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasIsMap a where
   attrSetIsMap :: IsMap -> a -> a
@@ -1369,6 +1546,10 @@ instance AttrMap KeyType where
   attrMap KTrsa = "keytype" =: "rsa"
   attrMap KTdsa = "keytype" =: "dsa"
   attrMap KTec  = "keytype" =: "ec"
+
+instance Monoid KeyType where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasKeyType a where
   attrSetKeyType :: KeyType -> a -> a
@@ -1400,6 +1581,10 @@ instance AttrMap Kind where
   attrMap KindChapters  = "kind" =: "chapters"
   attrMap KindMetadata  = "kind" =: "metadata"
 
+instance Monoid Kind where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasKind a where
   attrSetKind :: Kind -> a -> a
 
@@ -1427,6 +1612,10 @@ instance Default Label where
 instance AttrMap Label where
   attrMap (Label t) = "label" =: t
 
+instance Monoid Label where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasLabel a where
   attrSetLabel :: Label -> a -> a
 
@@ -1450,6 +1639,10 @@ instance Default List where
 instance AttrMap List where
   attrMap (List t) = "list" =: t
 
+instance Monoid List where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasList a where
   attrSetList :: List -> a -> a
 
@@ -1471,6 +1664,10 @@ instance Default LongDesc where
 
 instance AttrMap LongDesc where
   attrMap (LongDesc (URL u)) = "longdesc" =: u
+
+instance Monoid LongDesc where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasLongDesc a where
   attrSetLongDesc :: LongDesc -> a -> a
@@ -1494,6 +1691,10 @@ instance Default Loop where
 instance AttrMap Loop where
   attrMap Loop = "loop" =: T.empty
 
+instance Monoid Loop where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasLoop a where
   attrSetLoop :: Loop -> a -> a
 
@@ -1516,6 +1717,10 @@ newtype Low = Low Double
 instance AttrMap Low where
   attrMap (Low d) = "low" =: T.pack (show d)
 
+instance Monoid Low where
+  mappend _ b = b
+  mempty = Low 0
+
 class AttrHasLow a where
   attrSetLow :: Low -> a -> a
 
@@ -1534,6 +1739,10 @@ newtype Manifest = Manifest URL
 
 instance AttrMap Manifest where
   attrMap (Manifest (URL u)) = "manifest" =: u
+
+instance Monoid Manifest where
+  mappend _ b = b
+  mempty = Manifest (URL "")  -- Is this ok at all?
 
 class AttrHasManifest a where
   attrSetManifest :: Manifest -> a -> a
@@ -1562,6 +1771,10 @@ instance AttrMap Max where
   attrMap (MaxD i) = "max" =: T.pack (show i)
   attrMap (MaxT i) = "max" =: i
 
+instance Monoid Max where
+  mappend _ b = b
+  mempty = MaxT ""
+
 class AttrHasMax a where
   attrSetMax :: Max -> a -> a
 
@@ -1588,6 +1801,10 @@ newtype MaxLength = MaxLength Int
 
 instance AttrMap MaxLength where
   attrMap (MaxLength i) = "max" =: T.pack (show i)
+
+instance Monoid MaxLength where
+  mappend _ b = b
+  mempty = MaxLength 0
 
 class AttrHasMaxLength a where
   attrSetMaxLength :: MaxLength -> a -> a
@@ -1629,6 +1846,10 @@ instance AttrMap Media where
   attrMap (Media MQtv)         = "media" =: "tv"
   attrMap (Media (MQ t))       = "media" =: t
 
+instance Monoid Media where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasMedia a where
   attrSetMedia :: Media -> a -> a
 
@@ -1667,6 +1888,10 @@ instance Default MediaType where
 instance AttrMap MediaType where
   attrMap (MediaType t) = "type" =: t
 
+instance Monoid MediaType where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasMediaType a where
   attrSetMediaType :: MediaType -> a -> a
 
@@ -1697,6 +1922,10 @@ instance Default Menu where
 instance AttrMap Menu where
   attrMap (Menu (MenuId i)) = "menu" =: i
 
+instance Monoid Menu where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasMenu a where
   attrSetMenu :: Menu -> a -> a
 
@@ -1719,6 +1948,10 @@ instance Default MenuItemType where
 instance AttrMap MenuItemType where
   attrMap MITcommand = "type" =: "command"
 
+instance Monoid MenuItemType where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasMenuItemType a where
   attrSetMenuItemType :: MenuItemType -> a -> a
 
@@ -1740,6 +1973,10 @@ instance Default MenuType where
 
 instance AttrMap MenuType where
   attrMap MTContext = "type" =: "context"
+
+instance Monoid MenuType where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasMenuType a where
   attrSetMenuType :: MenuType -> a -> a
@@ -1764,6 +2001,10 @@ instance AttrMap Method where
   attrMap Mget    = "method" =: "get"
   attrMap Mpost   = "method" =: "post"
   attrMap Mdialog = "method" =: "dialog"
+
+instance Monoid Method where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasMethod a where
   attrSetMethod :: Method -> a -> a
@@ -1794,6 +2035,10 @@ instance AttrMap Min where
   attrMap (MinD i) = "min" =: T.pack (show i)
   attrMap (MinT i) = "min" =: i
 
+instance Monoid Min where
+  mappend _ b = b
+  mempty = MinT ""  -- Is this ok at all?
+
 class AttrHasMin a where
   attrSetMin :: Min -> a -> a
 
@@ -1821,6 +2066,10 @@ newtype MinLength = MinLength Int
 instance AttrMap MinLength where
   attrMap (MinLength i) = "min" =: T.pack (show i)
 
+instance Monoid MinLength where
+  mappend _ b = b
+  mempty = MinLength 0
+
 class AttrHasMinLength a where
   attrSetMinLength :: MinLength -> a -> a
 
@@ -1837,10 +2086,15 @@ instance (Reflex t, AttrHasMinLength a) => AttrHasMinLength (Dynamic t a) where
 data Multiple = Multiple
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default Multiple where
+  def = Multiple
 
 instance AttrMap Multiple where
   attrMap Multiple = "multiple" =: T.empty
+
+instance Monoid Multiple where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasMultiple a where
   attrSetMultiple :: Multiple -> a -> a
@@ -1863,6 +2117,10 @@ instance Default Muted where
 
 instance AttrMap Muted where
   attrMap Muted = "muted" =: T.empty
+
+instance Monoid Muted where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasMuted a where
   attrSetMuted :: Muted -> a -> a
@@ -1888,6 +2146,10 @@ instance Default Name where
 instance AttrMap Name where
   attrMap NameCharset = "name" =: "_charset_"
   attrMap (Name h)    = "name" =: h
+
+instance Monoid Name where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasName a where
   attrSetName :: Name -> a -> a
@@ -1915,6 +2177,10 @@ instance Default Nonce where
 instance AttrMap Nonce where
   attrMap (Nonce t) = "nonce" =: t
 
+instance Monoid Nonce where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasNonce a where
   attrSetNonce :: Nonce -> a -> a
 
@@ -1935,6 +2201,10 @@ instance Default NoValidate where
 
 instance AttrMap NoValidate where
   attrMap NoValidate = "novalidate" =: T.empty
+
+instance Monoid NoValidate where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasNoValidate a where
   attrSetNoValidate :: NoValidate -> a -> a
@@ -1962,6 +2232,10 @@ instance AttrMap OlType where
   attrMap OlLowRoman = "type" =: "i"
   attrMap OlUpRoman  = "type" =: "I"
 
+instance Monoid OlType where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasOlType a where
   attrSetOlType :: OlType -> a -> a
 
@@ -1988,6 +2262,10 @@ instance Default Open where
 instance AttrMap Open where
   attrMap Open = "open" =: T.empty
 
+instance Monoid Open where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasOpen a where
   attrSetOpen :: Open -> a -> a
 
@@ -2008,6 +2286,10 @@ newtype Optimum = Optimum Double
 
 instance AttrMap Optimum where
   attrMap (Optimum d) = "optimum" =: T.pack (show d)
+
+instance Monoid Optimum where
+  mappend _ b = b
+  mempty = Optimum 0
 
 class AttrHasOptimum a where
   attrSetOptimum :: Optimum -> a -> a
@@ -2031,6 +2313,10 @@ instance Default Pattern where
 
 instance AttrMap Pattern where
   attrMap (Pattern t) = "pattern" =: t
+
+instance Monoid Pattern where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasPattern a where
   attrSetPattern :: Pattern -> a -> a
@@ -2056,6 +2342,10 @@ instance Default Placeholder where
 instance AttrMap Placeholder where
   attrMap (Placeholder t) = "placeholder" =: t
 
+instance Monoid Placeholder where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasPlaceholder a where
   attrSetPlaceholder :: Placeholder -> a -> a
 
@@ -2074,6 +2364,10 @@ newtype Poster = Poster URL
 
 instance AttrMap Poster where
   attrMap (Poster (URL u)) = "poster" =: u
+
+instance Monoid Poster where
+  mappend _ b = b
+  mempty = Poster (URL "")
 
 class AttrHasPoster a where
   attrSetPoster :: Poster -> a -> a
@@ -2099,6 +2393,10 @@ instance AttrMap Preload where
   attrMap PLmetadata = "preload" =: "metadata"
   attrMap PLauto     = "preload" =: "auto"
 
+instance Monoid Preload where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasPreload a where
   attrSetPreload :: Preload -> a -> a
 
@@ -2117,10 +2415,15 @@ instance (Reflex t, AttrHasPreload a) => AttrHasPreload (Dynamic t a) where
 data ReadOnly = ReadOnly
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default ReadOnly where
+  def = ReadOnly
 
 instance AttrMap ReadOnly where
   attrMap ReadOnly = "readonly" =: T.empty
+
+instance Monoid ReadOnly where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasReadOnly a where
   attrSetReadOnly :: ReadOnly -> a -> a
@@ -2178,6 +2481,10 @@ instance AttrMap Rel where
   attrMap (RelL LTstylesheet) = "rel" =: "stylesheet"
   attrMap (RelA LTtag)        = "rel" =: "tag"
 
+instance Monoid Rel where
+  mappend _ b = b
+  mempty = def
+
 -- Wish list: change so that we can support html elements appropriately.
 -- That is, make separation for links, and a's and areas.
 class AttrHasRel a where
@@ -2230,6 +2537,10 @@ instance AttrMap ReferrerPolicy where
   attrMap RPstrictoriginwhencrossorigin = "referrerpolicy" =: "strict-origin-when-cross-origin"
   attrMap RPunsafeurl                   = "referrerpolicy" =: "unsafe-url"
 
+instance Monoid ReferrerPolicy where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasReferrerPolicy a where
   attrSetReferrerPolicy :: ReferrerPolicy -> a -> a
 
@@ -2258,10 +2569,15 @@ instance (Reflex t, AttrHasReferrerPolicy a) => AttrHasReferrerPolicy (Dynamic t
 data Required = Required
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default Required where
+  def = Required
 
 instance AttrMap Required where
   attrMap Required = "required" =: T.empty
+
+instance Monoid Required where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasRequired a where
   attrSetRequired :: Required -> a -> a
@@ -2279,11 +2595,16 @@ instance (Reflex t, AttrHasRequired a) => AttrHasRequired (Dynamic t a) where
 data Reversed = Reversed
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default Reversed where
+  def = Reversed
 
 instance AttrMap Reversed where
   attrMap Reversed = "reversed" =: T.empty
   -- attrMap Reversed = "reversed" =: "reversed"
+
+instance Monoid Reversed where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasReversed a where
   attrSetReversed :: Reversed -> a -> a
@@ -2307,6 +2628,10 @@ newtype Rows = Rows Int
 instance AttrMap Rows where
   attrMap (Rows i) = "rows" =: T.pack (show i)
 
+instance Monoid Rows where
+  mappend _ b = b
+  mempty = Rows 1
+
 class AttrHasRows a where
   attrSetRows :: Rows -> a -> a
 
@@ -2328,6 +2653,10 @@ newtype RowSpan = RowSpan Int
 
 instance AttrMap RowSpan where
   attrMap (RowSpan i) = "rowspan" =: T.pack (show i)
+
+instance Monoid RowSpan where
+  mappend _ b = b
+  mempty = RowSpan 1
 
 class AttrHasRowSpan a where
   attrSetRowSpan :: RowSpan -> a -> a
@@ -2368,6 +2697,10 @@ instance AttrMap Sandbox where
   attrMap (Sandbox []) = Map.empty
   attrMap (Sandbox sbTokenLst) = "sandbox" =:
     foldMap (\t -> sbText t <> " ") sbTokenLst
+
+instance Monoid Sandbox where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasSandbox a where
   attrSetSandbox :: Sandbox -> a -> a
@@ -2413,6 +2746,10 @@ instance AttrMap Scope where
   attrMap ScopeColGroup = "scope" =: "colgroup"
   attrMap ScopeAuto = "scope" =: "auto"
 
+instance Monoid Scope where
+  mappend _ b = b
+  mempty = ScopeAuto  -- Is this ok at all?
+
 class AttrHasScope a where
   attrSetScope :: Scope -> a -> a
 
@@ -2444,6 +2781,10 @@ instance AttrMap ScriptType where
   attrMap STmodule                 = "type" =: "module"
   attrMap (STother (MediaType mt)) = "type" =: mt
 
+instance Monoid ScriptType where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasScriptType a where
   attrSetScriptType :: ScriptType -> a -> a
 
@@ -2465,10 +2806,15 @@ instance (Reflex t, AttrHasScriptType a) => AttrHasScriptType (Dynamic t a) wher
 data Selected = Selected
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- No default.
+instance Default Selected where
+  def = Selected
 
 instance AttrMap Selected where
   attrMap Selected = "selected" =: T.empty
+
+instance Monoid Selected where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasSelected a where
   attrSetSelected :: Selected -> a -> a
@@ -2495,6 +2841,10 @@ instance AttrMap Shape where
   attrMap ShapePolygon   = "shape" =: "poly"
   attrMap ShapeRectangle = "shape" =: "rect"
 
+instance Monoid Shape where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasShape a where
   attrSetShape :: Shape -> a -> a
 
@@ -2519,6 +2869,10 @@ newtype Size = Size Int
 
 instance AttrMap Size where
   attrMap (Size i) = "size" =: T.pack (show i)
+
+instance Monoid Size where
+  mappend _ b = b
+  mempty = Size 0
 
 class AttrHasSize a where
   attrSetSize :: Size -> a -> a
@@ -2559,8 +2913,7 @@ class AttrHasSizes a where
 class AttrGetSizes a where
   attrGetSizes :: a -> Sizes
 
-instance Monoid Sizes
-  where
+instance Monoid Sizes where
     mempty = Sizes []
     mappend (Sizes a) (Sizes b) = Sizes (a <> b)
 
@@ -2601,6 +2954,10 @@ instance Default Span where
 instance AttrMap Span where
   attrMap (Span i) = "span" =: T.pack (show i)
 
+instance Monoid Span where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasSpan a where
   attrSetSpan :: Span -> a -> a
 
@@ -2623,6 +2980,10 @@ instance Default Src where
 -- |
 instance AttrMap Src where
   attrMap (Src (URL t)) = "src" =: t
+
+instance Monoid Src where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasSrc a where
   attrSetSrc :: Src -> a -> a
@@ -2647,16 +3008,17 @@ instance Default SrcDoc where
 instance AttrMap SrcDoc where
   attrMap (SrcDoc i) = "srcdoc" =: i
 
+-- ok?
+instance Monoid SrcDoc where
+  mappend (SrcDoc a) (SrcDoc b) = SrcDoc (a <> " " <> b)
+  mempty = SrcDoc T.empty
+
 class AttrHasSrcDoc a where
   attrSetSrcDoc :: SrcDoc -> a -> a
 
 -- |
 srcDoc :: AttrHasSrcDoc a => Text -> a -> a
 srcDoc i = attrSetSrcDoc (SrcDoc i)
-
-instance Monoid SrcDoc where
-  mappend (SrcDoc a) (SrcDoc b) = SrcDoc (a <> " " <> b)
-  mempty = SrcDoc T.empty
 
 instance (Reflex t, AttrHasSrcDoc a) => AttrHasSrcDoc (Dynamic t a) where
   attrSetSrcDoc c = fmap (attrSetSrcDoc c)
@@ -2673,6 +3035,10 @@ instance Default SrcLang where
 
 instance AttrMap SrcLang where
   attrMap (SrcLang i) = "srclang" =: i
+
+instance Monoid SrcLang where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasSrcLang a where
   attrSetSrcLang :: SrcLang -> a -> a
@@ -2708,6 +3074,21 @@ instance AttrMap SrcSetW where
 instance AttrMap SrcSetP where
   attrMap (SrcSetP icsLst) = "srcset" =:
     foldr (\(URL u,d) a -> a <> ", " <> u <> " " <> T.pack (show d) <> "x") T.empty icsLst
+
+-- TODO! TODO! TODO!
+instance Monoid SrcSet where
+  mappend _ b = b
+  mempty = def
+
+-- TODO! TODO! TODO!
+instance Monoid SrcSetW where
+  mappend _ b = b
+  mempty = def
+
+-- TODO! TODO! TODO!
+instance Monoid SrcSetP where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasSrcSet a where
   attrSetSrcSet :: SrcSet -> a -> a
@@ -2763,6 +3144,10 @@ newtype Start = Start Int
 instance AttrMap Start where
   attrMap (Start i) = "start" =: T.pack (show i)
 
+instance Monoid Start where
+  mappend _ b = b
+  mempty = Start 0
+
 class AttrHasStart a where
   attrSetStart :: Start -> a -> a
 
@@ -2785,6 +3170,10 @@ instance AttrMap Step where
   attrMap StepAny   = "step" =: "any"
   attrMap (StepI i) = "step" =: T.pack (show i)
   attrMap (StepD i) = "step" =: T.pack (show i)
+
+instance Monoid Step where
+  mappend _ b = b
+  mempty = StepAny
 
 class AttrHasStep a where
   attrSetStep :: Step -> a -> a
@@ -2817,6 +3206,10 @@ instance AttrMap Target where
   attrMap Ttop      = "target" =: "_top"
   attrMap (Tname t) = "target" =: t
 
+instance Monoid Target where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasTarget a where
   attrSetTarget :: Target -> a -> a
 
@@ -2846,6 +3239,10 @@ instance Default TypeMustMatch where
 instance AttrMap TypeMustMatch where
   attrMap TypeMustMatch = "typemustmatch" =: T.empty
 
+instance Monoid TypeMustMatch where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasTypeMustMatch a where
   attrSetTypeMustMatch :: TypeMustMatch -> a -> a
 
@@ -2868,6 +3265,10 @@ instance Default UseMap where
 
 instance AttrMap UseMap where
   attrMap (UseMap t) = "usemap" =: t
+
+instance Monoid UseMap where
+  mappend _ b = b
+  mempty = def
 
 class AttrHasUseMap a where
   attrSetUseMap :: UseMap -> a -> a
@@ -2892,6 +3293,10 @@ instance Default ValueText where
 instance AttrMap ValueText where
   attrMap (ValueText t) = "value" =: t
 
+instance Monoid ValueText where
+  mappend (ValueText a) (ValueText b) = ValueText (a <> " " <> b)
+  mempty = def
+
 class AttrHasValueText a where
   attrSetValueText :: ValueText -> a -> a
 
@@ -2912,6 +3317,10 @@ newtype ValueName = ValueName Double
 instance AttrMap ValueName where
   attrMap (ValueName t) = "value" =: T.pack (show t)
 
+instance Monoid ValueName where
+  mappend _ b = b
+  mempty = ValueName 0  -- Is this ok? TODO!
+
 class AttrHasValueName a where
   attrSetValueName :: ValueName -> a -> a
 
@@ -2925,12 +3334,16 @@ instance (Reflex t, AttrHasValueName a) => AttrHasValueName (Dynamic t a) where
 ------------------------------------------------------------------------------
 
 -- |
--- Meter and progress -element's values are numbers.
+-- Meter and progress - element's values are numbers.
 newtype ValueNumber = ValueNumber Double
   deriving (Show, Read, Eq, Ord)
 
 instance AttrMap ValueNumber where
   attrMap (ValueNumber t) = "value" =: T.pack (show t)
+
+instance Monoid ValueNumber where
+  mappend _ b = b
+  mempty = ValueNumber 0
 
 class AttrHasValueNumber a where
   attrSetValueNumber :: ValueNumber -> a -> a
@@ -2953,6 +3366,10 @@ newtype ValueOlLi = ValueOlLi Int
 
 instance AttrMap ValueOlLi where
   attrMap (ValueOlLi t) = "value" =: T.pack (show t)
+
+instance Monoid ValueOlLi where
+  mappend _ b = b
+  mempty = ValueOlLi 0
 
 class AttrHasValueOlLi a where
   attrSetValueOlLi :: ValueOlLi -> a -> a
@@ -2977,6 +3394,10 @@ instance Default Width where
 instance AttrMap Width where
   attrMap (Width i) = "width" =: T.pack (show i)
 
+instance Monoid Width where
+  mappend _ b = b
+  mempty = def
+
 class AttrHasWidth a where
   attrSetWidth :: Width -> a -> a
 
@@ -2998,6 +3419,10 @@ data Wrap = WrapSoft | WrapHard
 instance AttrMap Wrap where
   attrMap WrapSoft = "wrap" =: "soft"
   attrMap WrapHard = "wrap" =: "hard"
+
+instance Monoid Wrap where
+  mappend _ b = b
+  mempty = WrapSoft  -- Is this ok at all?
 
 class AttrHasWrap a where
   attrSetWrap :: Wrap -> a -> a

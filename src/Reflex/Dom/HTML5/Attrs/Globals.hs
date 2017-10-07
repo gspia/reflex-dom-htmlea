@@ -887,35 +887,36 @@ class ( AttrHasAccessKey a, AttrHasAnmval a, AttrHasContentEditable a
 
 -- We can implement the monoid behaviour either here or for each attribute.
 -- It is done here as the mappend is meaningless for some of the fields.
--- For meaningless we choose the left most value, e.g. in a <> b that is a.
+-- For meaningless we choose the right most value, e.g. in a <> b that is a.
 -- ClassName, Style and Title attributes have monoid instances.
 -- Or should this be provided at all?
 instance Monoid Globals where
   mempty = def
   mappend
-    (Globals a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
     (Globals
-      _b1 b2 _b3 _b4 b5 b6 _b7 _b8 _b9 _b10 _b11 _b12 _b13 _b14 b15 _b16 b17 _b18)
+      _a1 a2 _a3 _a4 a5 a6 _a7 _a8 _a9 _a10 _a11 _a12 _a13 _a14 a15 _a16 a17 _a18)
+    (Globals
+       b1 b2  b3  b4 b5 b6  b7  b8  b9  b10  b11  b12  b13  b14 b15  b16 b17  b18)
       = Globals c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 c18
     where
-      c1 = a1
+      c1 = b1
       c2 = a2 <> b2
-      c3 = a3
-      c4 = a4
+      c3 = b3
+      c4 = b4
       c5 = a5 <> b5
       c6 = a6 <> b6
-      c7 = a7
-      c8 = a8
-      c9 = a9
-      c10 = a10
-      c11 = a11
-      c12 = a12
-      c13 = a13
-      c14 = a14
+      c7 = b7
+      c8 = b8
+      c9 = b9
+      c10 = b10
+      c11 = b11
+      c12 = b12
+      c13 = b13
+      c14 = b14
       c15 = a15 <> b15
-      c16 = a16
+      c16 = b16
       c17 = a17 <> b17
-      c18 = a18
+      c18 = b18
   -- mappend (Globals a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14)
   --         (Globals b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14)
   --   = Globals (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
