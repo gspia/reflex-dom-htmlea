@@ -3135,8 +3135,8 @@ instance (Reflex t, AttrHasSrcSetP a) => AttrHasSrcSetP (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
-newtype Start = Start Int
 -- |
+newtype Start = Start Int
   deriving (Show, Read, Eq, Ord)
 
 -- No default.

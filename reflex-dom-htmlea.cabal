@@ -5,7 +5,7 @@ name:                reflex-dom-htmlea
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.1.1.0
+version:             0.1.1.1
 synopsis:            A reflex-dom API for HTML elements and attributes.
 description:         This package introduces sets of functions for writing
                      html elements and attributes. This way the compiler

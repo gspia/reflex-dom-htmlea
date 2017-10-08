@@ -105,7 +105,7 @@ cabal new-configure --ghcjs
 cabal new-build all
 ```
 for a semi-fast build-cycle. The build results can be found in
-`./dist-newstyle/build/x86_64-linux/ghcjs-0.2.1/htmlLeaExs-0.1.1.0/c/htmlLeaEx/build/htmlLeaEx/htmlLeaEx.jsexe` 
+`./dist-newstyle/build/x86_64-linux/ghcjs-0.2.1/htmlLeaExs-0.1.1.1/c/htmlLeaEx/build/htmlLeaEx/htmlLeaEx.jsexe` 
 -directory. 
 Note that in order to see the fig in the example, you have to manually copy 
 it into the `...htmlLeaEx.jsexe/figs`-directory.
@@ -116,7 +116,7 @@ To build in NixOs, just type nix-build. It assumes ghcjs and builds accordingly.
 
 If you want to use this in your own modules, you have to add this package
 to the list of packages so that nix can find it. Assuming git cloning, 
-I put the following
+the following
 ```
 haskellPackageOverrides = self: super: {
   # nix-env -f "<nixpkgs>" -iA haskellPackages.reflex-dom-htmlea
@@ -124,8 +124,8 @@ haskellPackageOverrides = self: super: {
   reflex-dom-htmlea = self.callPackage ~/git/reflex-dom-htmlea {};
 };
 ```
-into `~/.config/nixpkgs/config.nix`. My nix-setup is somewhat vaguely
-described in 
+could find its way into `~/.config/nixpkgs/config.nix`. 
+My nix-setup is somewhat vaguely described in 
 [nixos-adventure](https://github.com/gspia/half-baked/tree/master/hb8-nixos-adventure) 
 notes. For another example, see [7guis-relfex-nix]().
 
