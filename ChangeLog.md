@@ -1,5 +1,9 @@
 # Revision history for reflex-dom-htmlea
 
+## 0.1.1.1 -- 2017-10-08
+
+* Fix on Start -attribute.
+
 ## 0.1.1.0 -- 2017-10-07
 
 * Added some Monoid instances.
