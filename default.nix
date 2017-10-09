@@ -70,11 +70,13 @@ let
   #  mkdir $out
   #  cp -r ./* $out/
   #'';
-  # phase = ["unpackPhase" "buildPhase" "installPhase"];
   adjust-for-ghc = drv: {
     executableSystemDepends = [
       reflex-platform.${compiler}.ghcid
+      reflex-platform.${compiler}.cabal-install
       # The next one is a nice example on how to wrap tools to nix env.
+    ];
+    buildDepends = [
       (pkgs.callPackage (import ./tools/nix-tags-haskell) {})
       hpkgs.ghc-mod
       hpkgs.hasktags

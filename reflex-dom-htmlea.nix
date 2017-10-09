@@ -8,7 +8,7 @@
 }:
 mkDerivation {
     pname = "reflex-dom-htmlea";
-    version = "0.1.1.1";
+    version = "0.1.1.2";
     src = ./.;
     isLibrary = true;
     isExecutable = true;
