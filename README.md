@@ -127,7 +127,8 @@ haskellPackageOverrides = self: super: {
 could find its way into `~/.config/nixpkgs/config.nix`. 
 My nix-setup is somewhat vaguely described in 
 [nixos-adventure](https://github.com/gspia/half-baked/tree/master/hb8-nixos-adventure) 
-notes. For another example, see [7guis-relfex-nix]().
+notes. For another example, see 
+[7guis-relfex-nix](https://github.com/gspia/7guis-reflex-nix).
 
 
 ## About nix-files and their organization
