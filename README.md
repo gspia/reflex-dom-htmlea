@@ -82,16 +82,6 @@ cabal new-build exe:tableEx
 cabal --project-file=cabal-ghcjs.project --builddir=dist-ghcjs new-build exe:exampleTbl
 ```
 
-If you want to compile the examples to android, the singletons-package is a
-bit problematic at the moment. (This lib may be split because of this.)
-If you comment the singletons-package from cabal-files and corresponding 
-modules (VS-ending and the examples), then the examples compile to android.
-
-<<<<<<< HEAD
-## About nix-files and their organization
-=======
->>>>>>> nextv
-
 For further information, see the following
 - [project-development documentation](https://github.com/reflex-frp/reflex-platform/blob/develop/docs/project-development.md)
 - [blanket project derivation (default.nix)](https://github.com/reflex-frp/reflex-platform/blob/develop/project/default.nix)
@@ -126,6 +116,10 @@ each other.
 Bugs are more than likely to be found, as this is early work
 and there are no test cases (except example-programs).
 
+If you want to compile the examples to android, the singletons-package is a
+bit problematic at the moment. (This lib may be split because of this.)
+If you comment the singletons-package from cabal-files and corresponding 
+modules (VS-ending and the examples), then the examples compile to android.
 
 
 ## Related work
