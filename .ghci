@@ -1,2 +1,5 @@
-:set -isrc:examples/lib:test
-:load examples/app-wai/Main.hs
+:set -iliblea/src:example1/lib:example2/lib:test
+:set prompt "> "
+-- Select one of the following
+-- :load example1/app-wai/Main.hs
+:load example2/app-wai/Main.hs
