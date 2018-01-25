@@ -1,4 +1,5 @@
-packages: 
+compiler: ghcjs
+packages:
   liblea/
   example1/
   exampleTbl/
