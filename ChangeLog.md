@@ -1,5 +1,10 @@
 # Revision history for reflex-dom-htmlea
 
+## 0.1.1.4 -- 2018-01-26
+
+* Changed the cabal-file position of the lib.
+* Small updates to the texts of introduction of the table examples.
+
 ## 0.1.1.3 -- 2018-01-25
 
 * Added some Semigroup instances

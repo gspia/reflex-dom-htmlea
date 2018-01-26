@@ -1,10 +1,7 @@
 {}:
 (import ./reflex-platform {}).project ({ pkgs, ... }: {
   packages = {
-    /* common = ./common; */
-    /* backend = ./backend; */
-    /* frontend = ./frontend; */
-    reflex-dom-htmlea  = ./liblea;
+    reflex-dom-htmlea  = ./.;
     example1 = ./example1;
     exampleTbl = ./exampleTbl;
   };
@@ -21,13 +18,8 @@
   /* }; */
 
   shells = {
-    /* ghc   = [ "liblea" ]; */
-    /* ghcjs = [ "liblea" ]; */
     ghc   = [ "reflex-dom-htmlea" "example1" "exampleTbl" ];
     ghcjs = [ "reflex-dom-htmlea" "example1" "exampleTbl" ];
-    /* ghcjs = [ "reflex-dom-htmlea" "example2" ]; */
-    /* ghcjs = [ "reflex-dom-htmlea" "example1" ]; */
-    /* ghcjs = [ "reflex-dom-htmlea" ]; */
   };
   tools = ghc: with ghc; [
     pkgs.haskellPackages.ghc-mod

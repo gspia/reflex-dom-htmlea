@@ -1,4 +1,4 @@
-name:                htmlLeaExs
+name:                example1
 version:             0.1.1.1
 synopsis:            Examples
 description:         Examples: for ghcid dev-work, for nix-build and
@@ -13,7 +13,7 @@ cabal-version:       >=1.24
 
 library
   exposed-modules:     MainW
-  hs-source-dirs:      lib
+  hs-source-dirs:      libEx1
   default-language:    Haskell2010
   build-depends:        base
                       , containers
@@ -25,12 +25,12 @@ library
                       , jsaddle
                       , reflex-dom-htmlea
 
-executable htmlLeaEx1
+executable example1
   main-is:           Main.hs
   hs-source-dirs:    app
   default-language:  Haskell2010
   build-depends:       base
-                     , htmlLeaExs
+                     , example1
                      , reflex-dom
                      , reflex-dom-core
   ghc-options: -Wall -Wincomplete-uni-patterns 

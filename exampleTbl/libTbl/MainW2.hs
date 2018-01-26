@@ -74,29 +74,23 @@ mainW = do
 intro :: MonadWidget t m => m ()
 intro =
     eDivN $ do
-        ePN $ text "Here we show one way to use table-component."
+        ePN $ text "Here we give examples, on how to use table-components."
         ePN $ text $
-            "Component-module defines different constituents along with " <>
-            "constructors to declare, initialize and use tables. " <>
-            "Especially, we have"
-        eUlN $ do
-            eLiN $ text "TdConfs and TdElems for the cell-contents,"
-            eLiN $ text
-              "TrConfs and TrElems for the row-contents, consisting of Td's,"
-            eLiN $ text "similarly, Tbodies consist of rows,"
-            eLiN $ text "and Ttables put Thead, Tbody and Tfoot together."
-        ePN $ text $
-            "Vector-Sized helps to ensure that header has the correct " <>
-            "number of rows."
-        ePN $ text $
-            "Tables come with two flavors, one where all the columns have " <>
-            "same type and the other where column-types can be different."
+          "Component-module defines different ways to " <>
+          "construct, declare, initialize and use tables. " <>
+          "Vector-Sized helps to ensure that header has the correct " <>
+          "number of rows."
 
 
 caveats :: MonadWidget t m => m ()
 caveats = do
     eH2N $ text "Caveats"
-    eDivN $ ePN $ text "Renamings are possible..."
+    eDivN $ do
+      ePN $ text "Renamings are possible..."
+      ePN $ text $ "If you want to try these on android, then vector-sized "
+        <> "version (mkTableVS) cannot be used "
+        <> "(singletons-package has problems with cross-compiling). "
+        <> "Those parts may get separated some day to another package. "
 
 
 --------------------------------------------------------------------------------

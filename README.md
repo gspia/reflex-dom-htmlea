@@ -87,7 +87,8 @@ For further information, see the following
 - [blanket project derivation (default.nix)](https://github.com/reflex-frp/reflex-platform/blob/develop/project/default.nix)
 - [reflex-project-skeleton](https://github.com/ElvishJerricco/reflex-project-skeleton)
 
-Note that if you have already obtained examples but want to update the reflex-platform, you can try, e.g.,
+Note that if you have already obtained repo but want to update the 
+reflex-platform, you can try, e.g.,
 
 ```
 git submodule foreach "(git checkout develop; git pull --recurse-submodules)&"

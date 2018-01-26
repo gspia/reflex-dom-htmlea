@@ -1,5 +1,5 @@
 name:                reflex-dom-htmlea
-version:             0.1.1.3
+version:             0.1.1.4
 synopsis:            A reflex-dom API for HTML elements and attributes.
 description:         This package introduces sets of functions for writing
                      html elements and attributes. This way the compiler
@@ -43,7 +43,7 @@ library
                        , Reflex.Dom.HTML5.Component.Table.TfootComb
                        , Reflex.Dom.HTML5.Component.Table.TableVSHo
 
-  hs-source-dirs:      src
+  hs-source-dirs:      lib/src
   default-language:    Haskell2010
   build-depends:       base
                        , containers

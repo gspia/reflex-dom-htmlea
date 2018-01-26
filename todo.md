@@ -48,9 +48,9 @@ Further ideas
   in the code
 
 Other
-- ~~ reorganise lib and example app cabal -structure (so that lib is not
-  build twice) ~~ (Now using the "project"-setup.)
-- ~~ make checkable todo-list into the repo ~~
+- ~~reorganise lib and example app cabal -structure (so that lib is not
+  build twice)~~ (Now using the "project"-setup.)
+- ~~make checkable todo-list into the repo~~
 - add documentation - some haddock to re-exporting modules etc
 - implement proper test cases
 - extend current examples and add more examples

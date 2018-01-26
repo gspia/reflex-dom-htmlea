@@ -1,5 +1,5 @@
 compiler: ghcjs
 packages:
-  liblea/
+  reflex-dom-htmlea.cabal
   example1/
   exampleTbl/

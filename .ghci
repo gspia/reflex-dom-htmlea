@@ -1,5 +1,7 @@
-:set -iliblea/src:example1/lib:example2/lib:test
+:set -ilib/src:example1/libEx1:exampleTbl/libTbl:test
 :set prompt "> "
 -- Select one of the following
 -- :load example1/app-wai/Main.hs
-:load example2/app-wai/Main.hs
+-- :load exampleTbl/app-wai/Main.hs
+-- :load example1/app/Main.hs
+-- :load exampleTbl/app/Main.hs
