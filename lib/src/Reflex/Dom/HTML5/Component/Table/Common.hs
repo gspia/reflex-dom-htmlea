@@ -16,15 +16,118 @@ Maintainer  : gspia
 
 = TableCommon
 
+This module defines most of the functionality used with the tables.
+
+Idea shortly, if the defaults are not providing what is needed:
+
+    * Try different cell drawing function, like 'drawDivContent',
+      write your own (take one as a starting point).
+      Note that the drawing-function is most likely closely tied
+      to the input the 'mkTableV' is given.
+    * Try different listen-functions, like 'listenMe',
+      write your own (take one as a starting point).
+    * Try different act-functions to handle state management,
+      like 'actMU', write you own (take one as a starting point).
+
+You can also override the functions that combine state management,
+drawing and event listening. The function that takes the input vectors
+and table definitions, is reasonable short as well (so that it is easy to
+write a new one if the above ones don't give enough flexibility).
+
+The combining functions are defined in the modules:
+
+    * "TdComb"
+    * "ThComb"
+    * "TfootComb"
+
 -}
 
-module Reflex.Dom.HTML5.Component.Table.Common where
+module Reflex.Dom.HTML5.Component.Table.Common
+    (
+    -- * Data structures
+    --
+    -- ** Captions and table behavior
+    CaptionConf (..)
+    , captionConfText
+    , captionConfAttrs
+    , mkCaption
+    , CommonADEfuns (..)
+    , actListen
+    , actFu
+    , drawEl
+    , cellEv
+    , silentPlainADE
+    -- , defaultCommonADE
+
+    -- ** TableEvent and state management for a table
+    , TableEvent (..)
+    , teMe
+    , teMDown
+    , teMUp
+    , teMEnter
+    , TableState (..)
+    , tsTableEvent
+    , tsDynMInsideBody
+    , tsDynMOutsideBody
+    , tsDynDOn
+    , tsDynUOn
+    , tsDynDPress
+    , tsDynURelease
+    , tsDynEnter
+    , tsDynUpLDownR
+    , TableOtherEvs (..)
+    , eMEnterBody
+    , eMLeaveBody
+    , updateTableState
+
+    -- * Cell drawing functions
+    , drawDivContent
+    , drawDivContentS
+    , drawDivContentEx
+    , drawDivActElemEx
+    , drawDivAECntEx
+
+    -- * State management
+    --
+    -- ** State management for the normal usage
+    , actMD
+    , actMU
+    , actSwitchMU
+    , actAreaMDUsel
+    , actSwitchMDUsel
+    , actNone
+
+    -- ** Simple primitives
+    --
+    -- | See examples on how to use primitives to construct tables to see,
+    -- how to use the following three functions.
+    , actUniqPrim
+    , actSwitchPrim
+    , actGroupsPrim
+
+
+    -- * Event helpers
+    , tableEventsEnLe
+    , tableEventsNone
+    , tblEvFiring
+    , cellEvF
+    , cellNoEvs
+    , mouseInEvent
+    , mouseOutEvent
+
+    -- ** Event helpers for mkRow
+    , teFilterMD
+    , teFilterMU
+    , teFilterMEnter
+    , teFilterNone
+
+    ) where
 
 import           Control.Arrow                  ((***))
+import           Control.Lens
 import           Control.Monad.Fix
 import           Data.Default                   (Default, def)
 import           Data.Semigroup                 ((<>))
-import           Data.Set                       (Set)
 import qualified Data.Set                       as Set
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
@@ -38,6 +141,7 @@ import qualified GHCJS.DOM.Types                as DOM
 import           Language.Javascript.JSaddle
 
 
+import           Reflex.Dom.HTML5.Component.Table.StateInfo
 import           Reflex.Dom.HTML5.Attrs.Globals
 import           Reflex.Dom.HTML5.Elements
 
@@ -50,161 +154,98 @@ import           Reflex.Dom.HTML5.Elements
 --------------------------------------------------------------------------------
 
 -- | Caption-element definitions (attributes and text).
-data CaptionDef t = CaptionDef
-    { _captionDefText  :: Text  -- ^ caption text
-    , _captionDefAttrs :: Dynamic t ECaption -- ^ caption attributes
+data CaptionConf t = CaptionConf
+    { _captionConfText  :: Text  -- ^ caption text
+    , _captionConfAttrs :: Dynamic t ECaption -- ^ caption attributes
     }
+
+-- | A lens.
+captionConfText :: Lens' (CaptionConf t) Text
+captionConfText f (CaptionConf txt attrs) = fmap (`CaptionConf` attrs) (f txt)
+
+-- | A lens.
+captionConfAttrs :: Lens' (CaptionConf t) (Dynamic t ECaption)
+captionConfAttrs f (CaptionConf txt attrs) = fmap (CaptionConf txt) (f attrs)
 
 -- | Construct the html for the caption, if present.
 mkCaption ∷ forall t m. (Reflex t, DomBuilder t m, PostBuild t m)
-          ⇒ Maybe (CaptionDef t) -- ^ Caption definitions, see 'CaptionDef'.
+          ⇒ Maybe (CaptionConf t) -- ^ Caption definitions, see 'CaptionConf'.
           → m ()
 mkCaption mcapdef =
     case mcapdef of
-        Just capdef ->
-            eCaptionD (_captionDefAttrs capdef) $ text $ _captionDefText capdef
+        Just capdef -> eCaptionD (_captionConfAttrs capdef) $
+            text $ _captionConfText capdef
         Nothing     -> blank
 
 --------------------------------------------------------------------------------
 
--- | ActElem represents a table cell, row or column. It also has a value for
--- no cell. The main use is to keep track, which cells have been "selected".
-data ActElem
-    = ActERC (Int, Int) -- ^ A single cell in a table (in body), (row, column).
-    | ActErow Int       -- ^ A single row
-    | ActEcolh Int       -- ^ A column header-cell
-    | ActEcols Int       -- ^ A column sum-cell
-    | ActEnone          -- ^ This refers to not any cell in a particular table.
-    deriving (Eq, Show, Ord)
-
-instance Default ActElem where
-    def = ActEnone
-
-
--- | ActiveGroup contains a set of 'ActElem'-data.
--- The main use is to have allow to listen states and state changes of
--- a group of ActElems, see below.
-newtype ActiveGroup =
-    ActiveGroup (Set ActElem)
-    deriving (Eq, Show, Ord)
-
-instance Default ActiveGroup where
-    def = ActiveGroup def
-
--- | ActiveState keeps track if the ActElem is active, activable etc.
-data ActiveState t = ActiveState
-    { _activeStateMe        :: ActElem
-    , _activeStateActive    :: Dynamic t Bool
-    , _activeStateActivable :: Dynamic t Bool
-    , _activeStateListen    :: Dynamic t ActiveGroup -- ^ A group to listen.
-    , _activeStateActiveCl  :: Dynamic t [ClassName]
-    , _activeStateNotActiveCl  :: Dynamic t [ClassName]
-    , _activeStateNotActivableCl  :: Dynamic t [ClassName]
-    -- ^ Html class attributes. This could be used to allow individual
-    -- activation effects.
-    -- If there is need beyond class-attributes (to set other attributes based
-    -- on if the cell is active or activable), then it is better to implement
-    -- a variant of drawXX-function and use it.
+-- | Common functions interface for tbody (table cell) and headers.
+-- This way headers can have their own functions compared to the tbody.
+data CommonADEfuns t m a = CommonADEfuns
+    { _actListen :: ActiveState t → ActiveState t
+    -- ^ I.e. 'listenMe' - what cells we are listening and how.
+    , _actFu :: Dynamic t (Maybe [ActiveState t])
+             → Event t (TableEvent t)
+             → TableState t
+             → ActiveState t → m (ActiveState t)
+    -- ^ I.e. 'actMU' or 'actMD' - how to activate the cells.
+    , _drawEl :: a → ActiveState t
+              → m (Element EventResult (DomBuilderSpace m) t)
+    -- ^ I.e. 'drawDivAECnt', how to draw a cell.
+    , _cellEv :: ActiveState t → Element EventResult (DomBuilderSpace m) t
+              → m (TableEvent t)
+    -- ^ I.e. 'cellEvF'.
     }
 
--- makeLenses ''ActiveState
+-- | A lens.
+actListen :: Lens' (CommonADEfuns t m a) (ActiveState t -> ActiveState t)
+actListen f (CommonADEfuns f1 f2 f3 f4) =
+    fmap (\g -> CommonADEfuns g f2 f3 f4) (f f1)
 
-instance Reflex t ⇒ Default (ActiveState t) where
-    def = ActiveState
-            ActEnone
-            (constDyn False) -- active
-            (constDyn True)  -- activable
-            (constDyn def)
-            (constDyn []) (constDyn []) (constDyn [])
+-- | A lens.
+actFu :: Lens' (CommonADEfuns t m a)
+    (Dynamic t (Maybe [ActiveState t])
+    -> Event t (TableEvent t)
+    -> TableState t
+    -> ActiveState t
+    -> m (ActiveState t))
+actFu f (CommonADEfuns f1 f2 f3 f4) =
+    fmap (\g -> CommonADEfuns f1 g f3 f4) (f f2)
+
+-- | A lens.
+drawEl :: Lens (CommonADEfuns t m a) (CommonADEfuns t m b)
+    (a → ActiveState t → m
+        (Element EventResult (DomBuilderSpace m) t))
+    (b → ActiveState t → m
+        (Element EventResult (DomBuilderSpace m) t))
+drawEl f (CommonADEfuns f1 f2 f3 f4) =
+    fmap (\g -> CommonADEfuns f1 f2 g f4) (f f3)
+
+-- | A lens.
+cellEv :: Lens' (CommonADEfuns t m a)
+    (ActiveState t → Element EventResult (DomBuilderSpace m) t → m (TableEvent t))
+cellEv f (CommonADEfuns f1 f2 f3 f4) = fmap (CommonADEfuns f1 f2 f3) (f f4)
+
+-- makeLenses ''CommonADEfuns
 
 --------------------------------------------------------------------------------
 
--- | Activate a cell when clicked.
-listenMe ∷ forall t. Reflex t ⇒ ActElem → ActiveState t
-listenMe me = actstate me & \d -> d {_activeStateListen = constDyn ag }
-  where
-    ag = ActiveGroup $ Set.singleton me
-    actstate txt = def { _activeStateMe = txt }
-    -- actstate txt = def & set activeStateMe txt
-
--- | Activate several cells at a time: based on activation of another cell,
--- the cell using this is activated.
-listenList ∷ forall t. Reflex t ⇒ [ActElem] → ActElem → ActiveState t
--- listenList lst me = actstate me & set activeStateListen (constDyn ag)
-listenList lst me = actstate me & \d -> d { _activeStateListen = constDyn ag }
-  where
-    ag = ActiveGroup $ Set.fromList $ me : lst
-    actstate txt = def { _activeStateMe = txt }
-    -- actstate txt = def & set activeStateMe txt
-
--- | Activate another cell based on a click somewhere else.
--- A cell using this cannot be activated directly by clicking on it.
-listenListNotMe ∷ forall t. Reflex t ⇒ [ActElem] → ActElem → ActiveState t
-listenListNotMe lst me = actstate me & \d -> d { _activeStateListen = constDyn ag}
--- listenListNotMe lst me = actstate me & set activeStateListen (constDyn ag)
-  where
-    ag = ActiveGroup $ Set.fromList lst
-    actstate txt = def { _activeStateMe = txt }
-    -- actstate txt = def & set activeStateMe txt
+instance (Reflex t, MonadHold t m, TriggerEvent t m, MonadFix m
+                   , DomBuilder t m, PostBuild t m, MonadJSM m, Show a
+                   , DomBuilderSpace m ~ GhcjsDomSpace)
+       ⇒ Default (CommonADEfuns t m a)
+ where
+   def = CommonADEfuns listenMe actMU drawDivContentS cellEvF
 
 
--- | Common parts for the 'listenHeadMe' and 'listenFootMe'.
-listenHeadFoot ∷ forall t. Reflex t ⇒ (ActElem → [ActElem])
-               → ActElem → ActiveState t
-listenHeadFoot f me = actstate me & \d -> d {_activeStateListen = constDyn ag}
--- listenHeadFoot f me = actstate me & set activeStateListen (constDyn ag)
-  where
-    ag = ActiveGroup $ Set.fromList $ me: f me
-    actstate txt = def { _activeStateMe = txt }
-    -- actstate txt = def & set activeStateMe txt
+--------------------------------------------------------------------------------
 
--- | Activate a cell when clicked or when the column header is clicked.
-listenHeadMe ∷ forall t. Reflex t ⇒ ActElem → ActiveState t
-listenHeadMe = listenHeadFoot myHead
-  where
-    myHead ∷ ActElem → [ActElem]
-    myHead (ActERC (_,j)) = [ActEcolh j]
-    myHead a              = [a]
-    -- On other cases, we don't have additional sources to listen.
-
--- | Activate a cell when clicked or when the column header is clicked.
-listenFootMe ∷ forall t. Reflex t ⇒ ActElem → ActiveState t
-listenFootMe = listenHeadFoot myFoot
-  where
-    myFoot ∷ ActElem → [ActElem]
-    myFoot (ActERC (_,j)) = [ActEcols j]
-    myFoot a              = [a]
-    -- On other cases, we don't have additional sources to listen.
-
--- | Activate a cell when clicked or when the column header or foot is clicked.
-listenHeadFootMe ∷ forall t. Reflex t ⇒ ActElem → ActiveState t
-listenHeadFootMe = listenHeadFoot myHF
-  where
-    myHF ∷ ActElem → [ActElem]
-    myHF (ActERC (_,j)) = [ActEcolh j, ActEcols j]
-    myHF a              = [a]
-    -- On other cases, we don't have additional sources to listen.
-
--- | Activate a column header when clicked on any of the column cells
--- (including sum-cells on footer) or on the column header.
-listenMyCol ∷ forall t. Reflex t ⇒ Int → ActElem → ActiveState t
-listenMyCol rows me = actstate me & \d -> d {_activeStateListen = constDyn ag}
--- listenMyCol rows me = actstate me & set activeStateListen (constDyn ag)
-  where
-    -- ag = ActiveGroup $ Set.fromList $ me: genElems
-    ag = ActiveGroup $ Set.fromList elems2listen
-    actstate txt = def { _activeStateMe = txt }
-    -- actstate txt = def & set activeStateMe txt
-    col = case me of
-                ActEcolh j   -> j
-                ActEcols j   -> j
-                ActErow _    -> -1
-                ActERC (_,j) -> j
-                ActEnone     -> -1
-    elems2listen = if col < 0
-                      then []
-                      else [ ActERC (x,col) | x <- [0..(rows-1)]]
-                          ++ [ActEcolh col, ActEcols col]
+-- | No cell is listening for events and no cell is having activity management.
+silentPlainADE :: (Reflex t, MonadHold t m, TriggerEvent t m, MonadFix m
+                  , DomBuilder t m, PostBuild t m, MonadJSM m, Show a
+                  , DomBuilderSpace m ~ GhcjsDomSpace)
+               ⇒ CommonADEfuns t m a
+silentPlainADE = CommonADEfuns listenNoOne actNone drawDivContentS cellNoEvs
 
 --------------------------------------------------------------------------------
 
@@ -212,13 +253,32 @@ listenMyCol rows me = actstate me & \d -> d {_activeStateListen = constDyn ag}
 -- This is part the result that table-component returns (see 'TableState').
 -- It tells the cell and event that is happening on the cell.
 data TableEvent t = TableEvent
-    { _teMe     :: ActiveState t -- ^ "Name of the cell", a bit duplication as
-                                 -- the same information is contained in
-                                 -- the events below.
-    , _teMDown  :: Event t (ActiveState t) -- ^ MouseDown event firing on ActElem.
-    , _teMUp    :: Event t (ActiveState t) -- ^ MouseUp event firing on ActElem.
-    , _teMEnter :: Event t (ActiveState t) -- ^ MouseEnter event firing on ActElem.
+    { _teMe     :: ActiveState t
+    -- ^ "Name of the cell", a bit duplication as the same information is
+    -- contained in the events below.
+    , _teMDown  :: Event t (ActiveState t)
+    -- ^ MouseDown event firing on ActElem.
+    , _teMUp    :: Event t (ActiveState t)
+    -- ^ MouseUp event firing on ActElem.
+    , _teMEnter :: Event t (ActiveState t)
+    -- ^ MouseEnter event firing on ActElem.
     }
+
+-- | A lens.
+teMe :: Lens' (TableEvent t) (ActiveState t)
+teMe f (TableEvent f1 f2 f3 f4) = fmap (\g -> TableEvent g f2 f3 f4) (f f1)
+
+-- | A lens.
+teMDown :: Lens' (TableEvent t) (Event t (ActiveState t))
+teMDown f (TableEvent f1 f2 f3 f4) = fmap (\g -> TableEvent f1 g f3 f4) (f f2)
+
+-- | A lens.
+teMUp :: Lens' (TableEvent t) (Event t (ActiveState t))
+teMUp f (TableEvent f1 f2 f3 f4) = fmap (\g -> TableEvent f1 f2 g f4) (f f3)
+
+-- | A lens.
+teMEnter :: Lens' (TableEvent t) (Event t (ActiveState t))
+teMEnter f (TableEvent f1 f2 f3 f4) = fmap (TableEvent f1 f2 f3) (f f4)
 
 -- makeLenses ''TableEvent
 
@@ -246,6 +306,51 @@ data TableState t = TableState
     -- mouse movement with button down.
     }
 
+-- | A lens.
+tsTableEvent :: Lens' (TableState t) (Event t (TableEvent t))
+tsTableEvent f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState g f2 f3 f4 f5 f6 f7 f8 f9) (f f1)
+
+-- | A lens.
+tsDynMInsideBody :: Lens' (TableState t) (Dynamic t Bool)
+tsDynMInsideBody f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 g f3 f4 f5 f6 f7 f8 f9) (f f2)
+
+-- | A lens.
+tsDynMOutsideBody :: Lens' (TableState t) (Dynamic t Bool)
+tsDynMOutsideBody f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 f2 g f4 f5 f6 f7 f8 f9) (f f3)
+
+-- | A lens.
+tsDynDOn :: Lens' (TableState t) (Dynamic t Bool)
+tsDynDOn f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 f2 f3 g f5 f6 f7 f8 f9) (f f4)
+
+-- | A lens.
+tsDynUOn :: Lens' (TableState t) (Dynamic t Bool)
+tsDynUOn f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 f2 f3 f4 g f6 f7 f8 f9) (f f5)
+
+-- | A lens.
+tsDynDPress :: Lens' (TableState t) (Dynamic t (ActiveState t))
+tsDynDPress f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 f2 f3 f4 f5 g f7 f8 f9) (f f6)
+
+-- | A lens.
+tsDynURelease :: Lens' (TableState t) (Dynamic t (ActiveState t))
+tsDynURelease f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 f2 f3 f4 f5 f6 g f8 f9) (f f7)
+
+-- | A lens.
+tsDynEnter :: Lens' (TableState t) (Dynamic t (ActiveState t))
+tsDynEnter f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (\g -> TableState f1 f2 f3 f4 f5 f6 f7 g f9) (f f8)
+
+-- | A lens.
+tsDynUpLDownR :: Lens' (TableState t) (Dynamic t (ActiveState t, ActiveState t))
+tsDynUpLDownR f (TableState f1 f2 f3 f4 f5 f6 f7 f8 f9)
+  = fmap (TableState f1 f2 f3 f4 f5 f6 f7 f8) (f f9)
+
 -- makeLenses ''TableState
 
 -- Note that the default is in inconsistent state.
@@ -259,47 +364,26 @@ instance Reflex t ⇒ Default (TableState t) where
 
 
 
-mouseInEvent, mouseOutEvent ∷ Reflex t ⇒ TableState t → Event t ()
-mouseInEvent tblSt = () <$ ffilter (== True) (updated $ _tsDynMInsideBody tblSt)
-mouseOutEvent tblSt = () <$ ffilter (== True) (updated $ _tsDynMOutsideBody tblSt)
 
 --------------------------------------------------------------------------------
 
 data TableOtherEvs t = TableOtherEvs
-    { _eMEnterBody :: Event t (), -- ^ Fires when mouse enters the tbody.
-    _eMLeaveBody   :: Event t ()    -- ^ Fires when mouse leaves the tbody.
+    { _eMEnterBody :: Event t () -- ^ Fires when mouse enters the tbody.
+    , _eMLeaveBody :: Event t () -- ^ Fires when mouse leaves the tbody.
     }
+
+-- | A lens.
+eMEnterBody :: Lens' (TableOtherEvs t) (Event t ())
+eMEnterBody f (TableOtherEvs f1 f2) = fmap (`TableOtherEvs` f2) (f f1)
+
+-- | A lens.
+eMLeaveBody :: Lens' (TableOtherEvs t) (Event t ())
+eMLeaveBody f (TableOtherEvs f1 f2) = fmap (TableOtherEvs f1) (f f2)
+
 
 -- makeLenses ''TableOtherEvs
 instance Reflex t ⇒ Default (TableOtherEvs t) where
   def = TableOtherEvs never never
-
---------------------------------------------------------------------------------
-
-data CommonADEfuns t m a = CommonADEfuns
-    { _actSt :: ActElem → ActiveState t
-    -- ^ _actSt, i.e. 'listenMe' - what cells we are listening and how
-    , _actFu :: Event t (TableEvent t) → TableState t
-             → ActiveState t → m (ActiveState t)
-    -- ^ _actFu, i.e. 'actMU' or 'actMD' - how to activate the cells
-    , _drawEl :: ActElem → a → ActiveState t
-              → m (Element EventResult (DomBuilderSpace m) t)
-    -- ^ _drawEl, i.e. 'drawDivAECnt'
-    , _cellEv :: ActiveState t → Element EventResult (DomBuilderSpace m) t
-              → m (TableEvent t)
-    -- ^ _cellEv, i.e. 'cellEvF'
-    }
-
--- makeLenses ''CommonADEfuns
-
---------------------------------------------------------------------------------
-
-
-defaultCommonADE ∷ (Reflex t, MonadHold t m, TriggerEvent t m, MonadFix m
-                    , DomBuilder t m, PostBuild t m, MonadJSM m, Show a
-                    , DomBuilderSpace m ~ GhcjsDomSpace)
-                 ⇒ CommonADEfuns t m a
-defaultCommonADE = CommonADEfuns listenMe actMU drawDivAECntEx cellEvF
 
 
 --------------------------------------------------------------------------------
@@ -350,21 +434,35 @@ updateTableState tblOevs eTableEvent = do
 -- | Draw content on a div that allows events to go. The provided class-attributes
 -- for not activable, active and not active cells are used.
 -- Note that this is only used on how to show things.
-drawDivContent ∷ forall t m a. (Reflex t, DomBuilder t m, PostBuild t m
+drawDivContent ∷ forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                             , DomBuilderSpace m ~ GhcjsDomSpace)
+                ⇒ Text → ActiveState t
+                → m (Element EventResult (DomBuilderSpace m) t)
+drawDivContent = drawDCCommon id
+
+
+-- | Similar to 'drawDivContent' but the showed element is showable.
+drawDivContentS ∷ forall t m a. (Reflex t, DomBuilder t m, PostBuild t m
                                , Show a, DomBuilderSpace m ~ GhcjsDomSpace)
-               ⇒ ActElem → a → ActiveState t
-               → m (Element EventResult (DomBuilderSpace m) t)
-drawDivContent _me elm actS = do
-    -- let dA = view activeStateActive actS
-    --     dNA = not <$> view activeStateActivable actS
-    --     dACl = (`setClasses` def) <$> view activeStateActiveCl actS
-    --     dNACl = (`setClasses` def) <$> view activeStateNotActiveCl actS
-    --     dNAvCl = (`setClasses` def) <$> view activeStateNotActivableCl actS
+                ⇒ a → ActiveState t
+                → m (Element EventResult (DomBuilderSpace m) t)
+drawDivContentS = drawDCCommon (T.pack . show)
+
+
+-- | See 'drawDivContent'.
+drawDCCommon ∷ forall t m a. (Reflex t, DomBuilder t m, PostBuild t m
+                             , Show a, DomBuilderSpace m ~ GhcjsDomSpace)
+                ⇒ (a -> Text) -> a → ActiveState t
+                → m (Element EventResult (DomBuilderSpace m) t)
+drawDCCommon txtFun elm actS = do
     let dA = _activeStateActive actS
         dNA = not <$> _activeStateActivable actS
-        dACl = (`setClasses` def) <$> _activeStateActiveCl actS
-        dNACl = (`setClasses` def) <$> _activeStateNotActiveCl actS
-        dNAvCl = (`setClasses` def) <$> _activeStateNotActivableCl actS
+        -- dACl = (`setClasses` def) <$> _activeStateActiveCl actS
+        -- dNACl = (`setClasses` def) <$> _activeStateNotActiveCl actS
+        -- dNAvCl = (`setClasses` def) <$> _activeStateNotActivableCl actS
+        dAGl = (`attrSetGlobals` def) <$> _activeStateActiveGl actS
+        dNAGl = (`attrSetGlobals` def) <$> _activeStateNotActiveGl actS
+        dNAvGl = (`attrSetGlobals` def) <$> _activeStateNotActivableGl actS
         dUse =
             (\ba bna acl nacl navcl ->
                 if bna
@@ -373,9 +471,10 @@ drawDivContent _me elm actS = do
                        then acl
                        else nacl
             )
-            <$> dA <*> dNA <*> dACl <*> dNACl <*> dNAvCl
+            <$> dA <*> dNA <*> dAGl <*> dNAGl <*> dNAvGl
     (e,_) <- eDivD' dUse $
-      text $ T.pack . show $ elm
+        text $ txtFun elm
+      -- text $ T.pack . show $ elm
     pure e
 
 -- | An example of a function that draws a td-content. The drawing function is
@@ -385,64 +484,47 @@ drawDivContent _me elm actS = do
 -- information.
 drawDivContentEx ∷ forall t m a. (Reflex t, DomBuilder t m, PostBuild t m
                                 , Show a, DomBuilderSpace m ~ GhcjsDomSpace)
-               ⇒ ActElem → a → ActiveState t
+               ⇒ a → ActiveState t
                → m (Element EventResult (DomBuilderSpace m) t)
-drawDivContentEx _me elm actS = do
+drawDivContentEx elm actS = do
     (e,_) <- eDivN' $ do
-      text $ T.pack . show $ elm
-      -- dynText $ (T.pack . show) <$> view activeStateActive actS
-      dynText $ (T.pack . show) <$> _activeStateActive actS
+        text $ (T.pack . show $ elm) <> " : "
+        -- dynText $ (T.pack . show) <$> view activeStateActive actS
+        dynText $ (T.pack . show) <$> _activeStateActive actS
     pure e
 
 -- | An example of a function that draws a td-content.
 -- This function shows the ActElem only together with activity information.
 drawDivActElemEx ∷ forall t m a. (Reflex t, DomBuilder t m, PostBuild t m
                                 , DomBuilderSpace m ~ GhcjsDomSpace)
-               ⇒ ActElem → a → ActiveState t
+               ⇒ a → ActiveState t
                → m (Element EventResult (DomBuilderSpace m) t)
-drawDivActElemEx me _a actS = do
+drawDivActElemEx _a actS = do
     (e,_) <- eDivN' $ do
-      text $ T.pack . show $ me
-      -- dynText $ (T.pack . show) <$> view activeStateActive actS
-      dynText $ (T.pack . show) <$> _activeStateActive actS
+        text $ (T.pack . show $ view activeStateElem actS) <> " : "
+        -- dynText $ (T.pack . show) <$> view activeStateActive actS
+        dynText $ (T.pack . show) <$> _activeStateActive actS
     pure e
 
 -- | An example of a function that draws a td-content.
 -- This function shows both the ActElem and "cell contents".
 drawDivAECntEx ∷ forall t m a. (Reflex t, DomBuilder t m, PostBuild t m
                               , Show a, DomBuilderSpace m ~ GhcjsDomSpace)
-             ⇒ ActElem → a → ActiveState t
+             ⇒ a → ActiveState t
              → m (Element EventResult (DomBuilderSpace m) t)
-drawDivAECntEx me elm actS = do
+drawDivAECntEx elm actS = do
     (e,_) <- eDivN' $ do
-        text $ ps me <> ":" <> ps elm
+        -- text $ ps (view activeStateElem me) <> " : " <> ps elm <> " : "
+        text $ ps (view activeStateElem actS) <> " : " <> ps elm <> " : "
+
         -- dynText $ ps <$> view activeStateActive actS
         dynText $ ps <$> _activeStateActive actS
+        text " : avable "
+        dynText $ ps <$> view activeStateActivable actS
     pure e
       where
         ps ∷ Show b ⇒ b → T.Text
         ps = T.pack . show
-
---------------------------------------------------------------------------------
-
--- | Here we define, what events to track and how (e.g. we use preventDefault
--- so that when selecting several cells, the browser's text selection is not
--- used).
-cellEvF ∷ forall t m. (Reflex t, TriggerEvent t m, MonadJSM m,
-                       DomBuilderSpace m ~ GhcjsDomSpace)
-        -- ⇒ ActElem → Element EventResult (DomBuilderSpace m) t
-        ⇒ ActiveState t → Element EventResult (DomBuilderSpace m) t
-        → m (TableEvent t)
-cellEvF me e = do
-    let htT = DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw e
-    eMoDo <- wrapDomEvent htT (`DOM.on` DOM.mouseDown) DOM.preventDefault
-    eMoUp <- wrapDomEvent htT (`DOM.on` DOM.mouseUp) DOM.preventDefault
-    pure $ TableEvent me
-            (me <$ eMoDo)
-            (me <$ eMoUp)
-            -- (me <$ domEvent Mousedown e)
-            -- (me <$ domEvent Mouseup e)
-            (me <$ domEvent Mouseenter e)
 
 --------------------------------------------------------------------------------
 
@@ -458,80 +540,16 @@ duStd dDu = selminmax <$> dDu
     selminmax (ast1,ast2) = (dsa *** dsa) aep
         where
             dsa :: ActElem -> ActiveState t
-            dsa a = def & \d -> d { _activeStateMe = a }
-            -- dsa a = def & set activeStateMe a
+            dsa a = def & \d -> d { _activeStateElem = a }
+            -- dsa a = def & set activeStateElem a
             aep ::(ActElem, ActElem)
-            aep = smm (_activeStateMe ast1, _activeStateMe ast2)
-            -- aep = smm (view activeStateMe ast1, view activeStateMe ast2)
+            aep = smm (_activeStateElem ast1, _activeStateElem ast2)
+            -- aep = smm (view activeStateElem ast1, view activeStateElem ast2)
             --
             smm :: (ActElem, ActElem) -> (ActElem, ActElem)
             smm (ActERC (i1,j1), ActERC (i2,j2))
               = (ActERC (min i1 i2, min j1 j2), ActERC (max i1 i2, max j1 j2))
             smm a = a
-
---------------------------------------------------------------------------------
-
--- helper
-tblEvFiring ∷ forall t. Reflex t ⇒ [TableEvent t] → Event t (TableEvent t)
-tblEvFiring l = leftmost evl
-  where
-    evl ∷ [Event t (TableEvent t)]
-    evl = fmap tblEv2Ev l
-    tblEv2Ev ∷ TableEvent t → Event t (TableEvent t)
-    tblEv2Ev tbl@(TableEvent _me ec ed en) = tbl <$ leftmost [ec,ed,en]
-
---------------------------------------------------------------------------------
-
--- | Allows to build a simple state managing behaviour.
--- At most one cell can be active when changing states with actUniq.
--- Note: see the prim-examples on how to use this one.
-actUniq ∷ (Reflex t, MonadFix m, MonadHold t m)
-        ⇒ Event t ActElem → ActiveState t → m (ActiveState t)
-actUniq ev ac = mdo
-  -- let me = view activeStateMe ac
-  let me = _activeStateMe ac
-      --eAlreadyActive = ffilter (==True) $ tag (current dActive) ev
-      eAlreadyNotActive =ffilter (==False) $ tag (current dActive) ev
-      eMe = ffilter (==me) ev
-      eNotMe = difference (ffilter (/=me) ev) eAlreadyNotActive
-  dActive <- holdDyn False $ leftmost [True <$ eMe, False <$ eNotMe]
-  pure $ ac {_activeStateActive = dActive }
-  -- pure $ set activeStateActive dActive ac
-
--- | Allows to build a simple state managing behaviour.
--- Each cell is switchable separately with 'actSwitch'.
--- Note: see the prim-examples on how to use this one.
-actSwitch ∷ (Reflex t, MonadFix m, MonadHold t m)
-          ⇒ Event t ActElem → ActiveState t → m (ActiveState t)
-actSwitch ev ac = mdo
-  -- let me = view activeStateMe ac
-  let me = _activeStateMe ac
-      eMe = ffilter (==me) ev
-      eMe2T = ffilter (==False) $ tag (current dActive) eMe
-      eMe2F = ffilter (==True) $ tag (current dActive) eMe
-  dActive <- holdDyn False $ leftmost [True <$ eMe2T, False <$ eMe2F]
-  pure $ ac {_activeStateActive = dActive }
-  -- pure $ set activeStateActive dActive ac
-
--- | Allows to build a simple state managing behaviour.
--- A group activation: allows a cell to listen for the state of
--- other cells and change own state accordingly.
--- Note: see the prim-examples on how to use this one.
-actGroups ∷  (Reflex t, MonadFix m, MonadHold t m)
-          ⇒ Event t ActElem → ActiveState t → m (ActiveState t)
-actGroups ev ac = mdo
-  -- let me = view activeStateMe ac
-  let me = _activeStateMe ac
-      eAlreadyNotActive =ffilter (==False) $ tag (current dActive) ev
-      eNotMe = difference (ffilter (/=me) ev) eAlreadyNotActive
-      --
-      -- ev2 = attachPromptlyDyn (view activeStateListen ac) ev
-      ev2 = attachPromptlyDyn (_activeStateListen ac) ev
-      eMyLstG    = ffilter (\(ActiveGroup ags,ae) -> Set.member ae ags) ev2
-  dActive <- holdDyn False $ leftmost [True <$ eMyLstG, False <$ eNotMe]
-  pure $ ac {_activeStateActive = dActive }
-  -- pure $ set activeStateActive dActive ac
-
 
 --------------------------------------------------------------------------------
 
@@ -549,43 +567,65 @@ coincOnTableEvent evTbl = (me, evD, evU, evE)
 
 --------------------------------------------------------------------------------
 
+
 -- TODO! Change the following to work the TableResults instead of current way of
 -- having three parameters affecting the ActiveState changing function.
 -- This way, adding new parameters (or using states already formed) etc will
 -- become match easier.
+-- ???
 
 
 -- | State change management working with TableEvent events.
 -- ActiveState changes only by tracking mouseDown events and enabling listening
 -- those mouseDown events on a group of cells.
-actMD ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-      ⇒ Event t (TableEvent t) → TableState t → ActiveState t → m (ActiveState t)
-actMD evTbl _tblSt ac = do
+actMD ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m
+                      , PostBuild t m)
+      ⇒ Dynamic t (Maybe [ActiveState t])
+      -- ^ Information about activity states.
+      → Event t (TableEvent t)
+      -- ^ contains the cell info, who is firing an ev.
+      → TableState t
+      -- ^ Not used here.
+      → ActiveState t
+      -- ^ contains the cell info, whose state we are changing
+      → m (ActiveState t)
+actMD ma evTbl _tblSt ac = do
     let evD = coincidence $ _teMDown <$> evTbl :: Event t (ActiveState t)
-    actMDMUcommon evD ac
+    actMDMUcommon ma evD ac
 
 -- | State change management working with TableEvent events.
 -- ActiveState changes only by tracking mouseUp events and enabling listening
 -- those mouseUp events on a group of cells.
-actMU ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-      ⇒ Event t (TableEvent t) → TableState t → ActiveState t → m (ActiveState t)
-actMU evTbl _tblSt ac = do
+actMU ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m
+                      , PostBuild t m)
+      ⇒ Dynamic t (Maybe [ActiveState t])
+      -- ^ Information about activity states.
+      → Event t (TableEvent t)
+      -- ^ contains the cell info, who is firing an ev.
+      → TableState t
+      -- ^ Not used here.
+      → ActiveState t
+      -- ^ contains the cell info, whose state we are changing
+      → m (ActiveState t)
+actMU ma evTbl _tblSt ac = do
     let evU = coincidence $ _teMUp <$> evTbl :: Event t (ActiveState t)
-    actMDMUcommon evU ac
+    actMDMUcommon ma evU ac
 
--- Common parts of the 'actMD' and 'actMU'.
-actMDMUcommon ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-              ⇒ Event t (ActiveState t)
+-- | Common parts of the 'actMD' and 'actMU'.
+actMDMUcommon ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m
+                              , PostBuild t m)
+              ⇒ Dynamic t (Maybe [ActiveState t])
+              -- ^ Information about activity states.
+              → Event t (ActiveState t)
               -- ^ contains the cell info, who is firing an ev.
               → ActiveState t
               -- ^ contains the cell info, whose state we are changing
               → m (ActiveState t) -- ^ Return the changed state
-actMDMUcommon ev ac = mdo
-    -- let bAvable = current (view activeStateActivable ac)
-    let bAvable = current (_activeStateActivable ac)
-        -- ev2 = gate bAvable $ fmap (view activeStateMe) ev
-        -- ev3 = attachPromptlyDyn (view activeStateListen ac) ev2
-        ev2 = gate bAvable $ fmap _activeStateMe ev
+actMDMUcommon dma ev ac = mdo
+    evPB <- getPostBuild
+    let dAvable = isActivableDyn dma ac
+        eAveOnPB = tag (current $ isActiveDyn dma ac) evPB
+        ev2 = gate (current dAvable) $ fmap _activeStateElem ev
         ev3 = attachPromptlyDyn (_activeStateListen ac) ev2
         eMyLstG    = ffilter (\(ActiveGroup ags,ae) -> Set.member ae ags) ev3
         eNotMyLstG = ffilter (\(ActiveGroup ags,ae) -> Set.notMember ae ags) ev3
@@ -595,37 +635,61 @@ actMDMUcommon ev ac = mdo
         eM = gate bIsNot eMyLstG
         -- eNM = traceEvent "Common, eNM" eNM2
     -- dActive <- holdDyn False $ leftmost [True <$ eMyLstG, False <$ eNM]
-    dActive <- holdDyn False $ leftmost [True <$ eM, False <$ eNM]
-    pure $ ac {_activeStateActive = dActive }
-    -- pure $ set activeStateActive dActive ac
+    dActive <- holdDyn False $ leftmost [True <$ eM, False <$ eNM, eAveOnPB]
+    pure $ set activeStateNotActivableGl (getNotActivableGl dma ac)
+         $ set activeStateNotActiveGl (getNotActiveGl dma ac)
+         $ set activeStateActiveGl (getActiveGl dma ac)
+         $ set activeStateActivable dAvable
+         $ set activeStateActive dActive ac
+    -- if ma is not nothing
+    --    if a is empty, then bAvable = true
+    --    if a is not empty, then
+    --      if ac inside any a elem
+    --         then bAvable = a's value and dActive = a's value
+    --         else use the ac's current value
+    -- else use ac's current value
 
 
 -- | State change management working with TableEvent events.
 -- ActiveState changes only by tracking mouseUp events, and swithing between
 -- true and false on each click.
-actSwitchMU ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-            ⇒ Event t (TableEvent t) → TableState t
+actSwitchMU ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m, PostBuild t m)
+            ⇒ Dynamic t (Maybe [ActiveState t])
+            -- ^ Information about activity states.
+            → Event t (TableEvent t)
+            -- ^ contains the cell info, who is firing an ev.
+            → TableState t
+            -- ^ Not used here.
             → ActiveState t
+            -- ^ contains the cell info, whose state we are changing
             → m (ActiveState t)
-actSwitchMU evTbl _tblSt ac = mdo
-    -- let bAvable = current (view activeStateActivable ac)
-    let bAvable = current (_activeStateActivable ac)
-        -- (_me', _evD, evU, _evE) = coincOnTableEvent evTbl
-        --meac = view activeStateMe ac :: ActElem
-        meac = _activeStateMe ac :: ActElem
-        -- ev = coincidence $ me' <$ evU :: Event t ActElem
-        eMe = gate bAvable $ ffilter (==meac) $ _activeStateMe <$>
-            coincidence (_teMUp <$> evTbl)
-        eMe2T = ffilter (==False) $ tag (current dActive) eMe
-        eMe2F = ffilter (==True) $ tag (current dActive) eMe
+actSwitchMU dma ev _tblSt ac = mdo
+    evPB <- getPostBuild
+    let dAvable = isActivableDyn dma ac
+        eAveOnPB = tag bAve evPB
+        dAve = isActiveDyn dma ac
+        bAve = current dAve
+        -- meac = _activeStateElem ac :: ActElem
+        -- eMe = gate (current dAvable) $ ffilter (==meac) $ _activeStateElem <$>
+        --     coincidence (_teMUp <$> ev)
+        eMe = gate (current dAvable) $  _activeStateElem <$>
+            coincidence (_teMUp <$> ev)
+        eMe2 = attachPromptlyDyn (_activeStateListen ac) eMe
+        eMyLstG    = ffilter (\(ActiveGroup ags,ae) -> Set.member ae ags) eMe2
+        eMe2T = ffilter (==False) $ tag (current dActive) eMyLstG
+        eMe2F = ffilter (==True) $ tag (current dActive) eMyLstG
         bIsActive = current dActive
         bIsNot = fmap not bIsActive
         eMT = gate bIsNot eMe2T
         eMF = gate bIsActive eMe2F
+    -- dActive <- holdDyn False $ leftmost [True <$ eMyLstG, False <$ eNotMyLstG]
     -- dActive <- holdDyn False $ leftmost [True <$ eMe2T, False <$ eMe2F]
-    dActive <- holdDyn False $ leftmost [True <$ eMT, False <$ eMF]
-    pure $ ac {_activeStateActive = dActive }
-    -- pure $ set activeStateActive dActive ac
+    dActive <- holdDyn False $ leftmost [True <$ eMT, False <$ eMF, eAveOnPB]
+    pure $ set activeStateNotActivableGl (getNotActivableGl dma ac)
+         $ set activeStateNotActiveGl (getNotActiveGl dma ac)
+         $ set activeStateActiveGl (getActiveGl dma ac)
+         $ set activeStateActivable dAvable
+         $ set activeStateActive dActive ac
 
 
 -- | State change management working with TableEvent events.
@@ -636,12 +700,14 @@ actSwitchMU evTbl _tblSt ac = mdo
 -- selection will be initialized to not-selected when new
 -- mouseDown is occurring.
 actAreaMDUsel ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-              ⇒ Event t (TableEvent t) → TableState t
+              ⇒ Dynamic t (Maybe [ActiveState t])
+              → Event t (TableEvent t)
+              → TableState t
               → ActiveState t
               → m (ActiveState t)
 actAreaMDUsel = actAreaSelCommon cmnF
   where
-    cmnF eInsider eOutsider eMeDown evD evU = do
+    cmnF _ma2 eInsider eOutsider eMeDown evD evU = do
         a <- foldDyn (\f b -> f b) (Left False) $
             leftmost [ initLR2OnMDC <$ eMeDown
                      , initLR <$ evD
@@ -659,12 +725,14 @@ actAreaMDUsel = actAreaSelCommon cmnF
 -- When selecting overlapping area, the states of the overlapped cells are
 -- switched.
 actSwitchMDUsel ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-                ⇒ Event t (TableEvent t) → TableState t
+                ⇒ Dynamic t (Maybe [ActiveState t])
+                → Event t (TableEvent t)
+                → TableState t
                 → ActiveState t
                 → m (ActiveState t)
 actSwitchMDUsel = actAreaSelCommon cmnF
   where
-    cmnF eInsider eOutsider eMeDown evD evU = do
+    cmnF _ma2 eInsider eOutsider eMeDown evD evU = do
         a <- foldDyn (\f b -> f b) (Left False) $
             leftmost [ updLR2ROnMDC <$ eMeDown
                  , updLR2L <$ evD
@@ -674,39 +742,110 @@ actSwitchMDUsel = actAreaSelCommon cmnF
                  ]
         pure a
 
-
--- Hmm, it is possible to release mouse button on an area between cells.
--- We don't have an event for that situation.
--- This contains the common parts for the 'actAreaMDUsel' and 'actSwitchMDUsel'.
+-- | A common functionality for 'actSwitchMDUsel' and 'actAreaMDUsel'
 actAreaSelCommon ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
-                 ⇒ (Event t Bool → Event t Bool → Event t (ActiveState t)
+                 ⇒ (Dynamic t (Maybe [ActiveState t])
+                 → Event t Bool → Event t Bool → Event t (ActiveState t)
                  → Event t (ActiveState t) → Event t (ActiveState t)
-      → m (Dynamic t (Either Bool Bool)))
+                 → m (Dynamic t (Either Bool Bool)))
+      → Dynamic t (Maybe [ActiveState t])
       → Event t (TableEvent t) → TableState t
       → ActiveState t
       → m (ActiveState t)
-actAreaSelCommon cmnF evTbl tblSt ac = do
-    -- let bAvable = current (view activeStateActivable ac)
-    let bAvable = current (_activeStateActivable ac)
-        evTbl2 = gate bAvable evTbl
+actAreaSelCommon cmnF dma evTbl tblSt ac = do
+-- Hmm, it is possible to release mouse button on an area between cells.
+-- We don't have an event for that situation.
+-- This contains the common parts for the 'actAreaMDUsel' and 'actSwitchMDUsel'.
+--
+-- Note that we don't have activity initializing here yet. TODO! TODO!
+    let dAvable = isActivableDyn dma ac
+        -- dAve = isActiveDyn dma ac
+        -- bAve = current dAve
+        -- eAveOnPB = tag bAve evPB
+        evTbl2 = gate (current dAvable) evTbl
         (_evMe', evD, evU, _evE) = coincOnTableEvent evTbl2
         dDU = _tsDynUpLDownR tblSt :: Dynamic t (ActiveState t, ActiveState t)
-        dDUAE = fmap (_activeStateMe *** _activeStateMe) dDU
+        dDUAE = fmap (_activeStateElem *** _activeStateElem) dDU
             :: Dynamic t (ActElem, ActElem)
         -- dMoLe = _dMOutsideBody tblSt
         -- eMoLe = updated dMoLe
         eMoLe = mouseOutEvent tblSt
-        -- meac = view activeStateMe ac :: ActElem
-        meac = _activeStateMe ac :: ActElem
-        eMeDown = ffilter (\ast -> meac == _activeStateMe ast) evD
+        -- meac = view activeStateElem ac :: ActElem
+        meac = _activeStateElem ac :: ActElem
+        eMeDown = ffilter (\ast -> meac == _activeStateElem ast) evD
     bMoDo <- hold False $ leftmost [True <$ evD, False <$ evU, False <$ eMoLe]
     let dIsInside = fmap (`isInside` meac) dDUAE
         eInsider = gate bMoDo $ ffilter (==True) $ updated dIsInside
         eOutsider = gate bMoDo $ ffilter (==False) $ updated dIsInside
-    dActive2 <- cmnF eInsider eOutsider eMeDown evD evU
+    dActive2 <- cmnF dma eInsider eOutsider eMeDown evD evU
     let dActive = fmap fromEither dActive2
-    pure $ ac {_activeStateActive = dActive }
-    -- pure $ set activeStateActive dActive ac
+    pure $ set activeStateNotActivableGl (getNotActivableGl dma ac)
+         $ set activeStateNotActiveGl (getNotActiveGl dma ac)
+         $ set activeStateActiveGl (getActiveGl dma ac)
+         $ set activeStateActivable dAvable
+         $ set activeStateActive dActive ac
+
+
+-- | No states are tracked. This forwards the input state without changing it.
+actNone ∷ forall m t. (Reflex t, MonadFix m, MonadHold t m)
+      ⇒ Dynamic t (Maybe [ActiveState t]) → Event t (TableEvent t)
+      → TableState t → ActiveState t → m (ActiveState t)
+actNone _dma _evTbl _tblSt = pure
+
+
+
+--------------------------------------------------------------------------------
+
+-- | Allows to build a simple state managing behaviour.
+-- At most one cell can be active when changing states with 'actUniqPrim'.
+-- Note: see the prim-examples on how to use this one.
+actUniqPrim ∷ (Reflex t, MonadFix m, MonadHold t m)
+        ⇒ Event t ActElem → ActiveState t → m (ActiveState t)
+actUniqPrim ev ac = mdo
+  -- let me = view activeStateElem ac
+  let me = _activeStateElem ac
+      --eAlreadyActive = ffilter (==True) $ tag (current dActive) ev
+      eAlreadyNotActive =ffilter (==False) $ tag (current dActive) ev
+      eMe = ffilter (==me) ev
+      eNotMe = difference (ffilter (/=me) ev) eAlreadyNotActive
+  dActive <- holdDyn False $ leftmost [True <$ eMe, False <$ eNotMe]
+  pure $ ac {_activeStateActive = dActive }
+  -- pure $ set activeStateActive dActive ac
+
+-- | Allows to build a simple state managing behaviour.
+-- Each cell is switchable separately with 'actSwitchPrim'.
+-- Note: see the prim-examples on how to use this one.
+actSwitchPrim ∷ (Reflex t, MonadFix m, MonadHold t m)
+          ⇒ Event t ActElem → ActiveState t → m (ActiveState t)
+actSwitchPrim ev ac = mdo
+  -- let me = view activeStateElem ac
+  let me = _activeStateElem ac
+      eMe = ffilter (==me) ev
+      eMe2T = ffilter (==False) $ tag (current dActive) eMe
+      eMe2F = ffilter (==True) $ tag (current dActive) eMe
+  dActive <- holdDyn False $ leftmost [True <$ eMe2T, False <$ eMe2F]
+  pure $ ac {_activeStateActive = dActive }
+  -- pure $ set activeStateActive dActive ac
+
+-- | Allows to build a simple state managing behaviour.
+-- A group activation: allows a cell to listen for the state of
+-- other cells and change own state accordingly.
+-- Note: see the prim-examples on how to use this one.
+actGroupsPrim ∷  (Reflex t, MonadFix m, MonadHold t m)
+          ⇒ Event t ActElem → ActiveState t → m (ActiveState t)
+actGroupsPrim ev ac = mdo
+  -- let me = view activeStateElem ac
+  let me = _activeStateElem ac
+      eAlreadyNotActive =ffilter (==False) $ tag (current dActive) ev
+      eNotMe = difference (ffilter (/=me) ev) eAlreadyNotActive
+      --
+      -- ev2 = attachPromptlyDyn (view activeStateListen ac) ev
+      ev2 = attachPromptlyDyn (_activeStateListen ac) ev
+      eMyLstG    = ffilter (\(ActiveGroup ags,ae) -> Set.member ae ags) ev2
+  dActive <- holdDyn False $ leftmost [True <$ eMyLstG, False <$ eNotMe]
+  pure $ ac {_activeStateActive = dActive }
+  -- pure $ set activeStateActive dActive ac
+
 
 --------------------------------------------------------------------------------
 
@@ -735,22 +874,16 @@ updLROnEnter ∷ Either Bool Bool → Either Bool Bool
 updLROnEnter (Left b)  = Right (not b)
 updLROnEnter (Right b) = Right b
 
--- Not OK TODO! TODO! TODO! When column and row headers arrive, this should
--- be modified to take into account also those.
-isInside ∷ (ActElem,ActElem) → ActElem → Bool
-isInside (ActERC (xm,ym), ActERC (xM,yM)) (ActERC (x,y))
-    = xm <= x && x <= xM && ym <= y && y <= yM
-isInside _ _ = False
 
 --------------------------------------------------------------------------------
 
 -- | This brings in events that are used with tables but not given by "cells".
 -- See 'mkTableV' on a use. Helper.
-tableEvents ∷ forall t m. (Reflex t, TriggerEvent t m, MonadJSM m
+tableEventsEnLe ∷ forall t m. (Reflex t, TriggerEvent t m, MonadJSM m
                            , DomBuilderSpace m ~ GhcjsDomSpace)
             ⇒ Element EventResult (DomBuilderSpace m) t
             → m (TableOtherEvs t)
-tableEvents h = do
+tableEventsEnLe h = do
     let ht = DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw h
     eMoEn <- wrapDomEvent ht (`DOM.on` DOM.mouseEnter) DOM.preventDefault
     eMoLe <- wrapDomEvent ht (`DOM.on` DOM.mouseLeave) DOM.preventDefault
@@ -758,4 +891,85 @@ tableEvents h = do
     -- let eMoEn = domEvent Mouseenter htTable
     --     eMoLe = domEvent Mouseleave htTable
     -- pure $ TableOtherEvs eMoEn eMoLe
+
+--------------------------------------------------------------------------------
+
+-- | This brings in events that are used with tables but not given by "cells".
+-- See 'mkTableV' on a use. Helper.
+tableEventsNone ∷ forall t m. (Reflex t, TriggerEvent t m, MonadJSM m
+                           , DomBuilderSpace m ~ GhcjsDomSpace)
+            ⇒ Element EventResult (DomBuilderSpace m) t
+            → m (TableOtherEvs t)
+tableEventsNone _ = pure def
+
+
+--------------------------------------------------------------------------------
+
+-- | Here we define, what events to track and how (e.g. we use preventDefault
+-- so that when selecting several cells, the browser's text selection is not
+-- used).
+cellEvF ∷ forall t m. (Reflex t, TriggerEvent t m, MonadJSM m,
+                       DomBuilderSpace m ~ GhcjsDomSpace)
+        ⇒ ActiveState t → Element EventResult (DomBuilderSpace m) t
+        → m (TableEvent t)
+cellEvF me e = do
+    let htT = DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw e
+    eMoDo <- wrapDomEvent htT (`DOM.on` DOM.mouseDown) DOM.preventDefault
+    eMoUp <- wrapDomEvent htT (`DOM.on` DOM.mouseUp) DOM.preventDefault
+    pure $ TableEvent me
+            (me <$ eMoDo)
+            (me <$ eMoUp)
+            -- (me <$ domEvent Mousedown e)
+            -- (me <$ domEvent Mouseup e)
+            (me <$ domEvent Mouseenter e)
+
+-- | This does not track any events.
+cellNoEvs ∷ forall t m. (Reflex t, TriggerEvent t m, MonadJSM m
+                        , DomBuilderSpace m ~ GhcjsDomSpace)
+        ⇒ ActiveState t → Element EventResult (DomBuilderSpace m) t
+        → m (TableEvent t)
+cellNoEvs me _e = pure $ set teMe me def
+
+--------------------------------------------------------------------------------
+
+-- | Helper. 'mkTableV' uses this one.
+tblEvFiring ∷ forall t. Reflex t ⇒ [TableEvent t] → Event t (TableEvent t)
+tblEvFiring l = leftmost evl
+  where
+    evl ∷ [Event t (TableEvent t)]
+    evl = fmap tblEv2Ev l
+    tblEv2Ev ∷ TableEvent t → Event t (TableEvent t)
+    tblEv2Ev tbl@(TableEvent _me ec ed en) = tbl <$ leftmost [ec,ed,en]
+
+--------------------------------------------------------------------------------
+
+-- | Capture events when moving mouse out of table or in.
+-- These are used to handle, e.g.,  the behavior when pressing mouse button down
+-- and moving out of table area.
+mouseInEvent, mouseOutEvent ∷ Reflex t ⇒ TableState t → Event t ()
+mouseInEvent tblSt = () <$ ffilter (== True) (updated $ _tsDynMInsideBody tblSt)
+mouseOutEvent tblSt = () <$ ffilter (== True) (updated $ _tsDynMOutsideBody tblSt)
+
+
+--------------------------------------------------------------------------------
+
+-- | A Helper function to be used with 'mkRow' function. This is declared
+-- int the 'TableConf', see tableRowEvFilter.
+teFilterMD ∷ forall t. Reflex t ⇒ Event t (TableEvent t) → Event t ActElem
+teFilterMD evTE = _activeStateElem <$> coincidence (_teMDown <$> evTE )
+
+-- | A Helper function to be used with 'mkRow' function. This is declared
+-- int the 'TableConf', see tableRowEvFilter.
+teFilterMU ∷ forall t. Reflex t ⇒ Event t (TableEvent t) → Event t ActElem
+teFilterMU evTE =  _activeStateElem <$> coincidence (_teMUp <$> evTE )
+
+-- | A Helper function to be used with 'mkRow' function. This is declared
+-- int the 'TableConf', see tableRowEvFilter.
+teFilterMEnter ∷ forall t. Reflex t ⇒ Event t (TableEvent t) → Event t ActElem
+teFilterMEnter evTE =  _activeStateElem <$> coincidence (_teMEnter <$> evTE )
+
+-- | A Helper function to be used with 'mkRow' function. This is declared
+-- int the 'TableConf', see tableRowEvFilter.
+teFilterNone ∷ forall t. Reflex t ⇒ Event t (TableEvent t) → Event t ActElem
+teFilterNone _ = never
 

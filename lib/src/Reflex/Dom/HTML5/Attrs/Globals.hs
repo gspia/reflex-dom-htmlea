@@ -26,37 +26,41 @@ An example can be found in example-directory.
 The element constructing functions don't allow non-conforming
 HTML to be constructed directly. There are a few ways to by pass,
 in case there is some need:
-- el "element name" attrs ... can be used and combined with these
-- see AnyAttr (it is, however, incomplete)
-- addCustom can be used to add anything
+
+    * el "element name" attrs ... can be used and combined with these
+    * see AnyAttr (it is, however, incomplete)
+    * addCustom can be used to add anything
 
 
 == Notes
 
 For a list of attributes, see
-[w3c list](https://w3c.github.io/html/fullindex.html#index-elements).
+[w3c list](https://w3c.github.io/html/fullindex.html#index-elements)
 
 This file contains the global attributes that all elements have.
- * AccessKey       -- 1.
- * ContentEditable -- 3.
- * ContextMenu     -- 4.
- * ClassName       -- 5. Monoid
- * Dir             -- 7.
- * Draggable       -- 8.
- * Hidden          -- 9.
- * Id_             -- 10.
- * Lang            -- 11.
- * SpellCheck      -- 14.
- * Style           -- 15. Monoid
- * TabIndex        -- 16.
- * Title           -- 17. Monoid
- * Translate       -- 18.
+
+     * AccessKey       -- 1.
+     * ContentEditable -- 3.
+     * ContextMenu     -- 4.
+     * ClassName       -- 5. Monoid
+     * Dir             -- 7.
+     * Draggable       -- 8.
+     * Hidden          -- 9.
+     * Id_             -- 10.
+     * Lang            -- 11.
+     * SpellCheck      -- 14.
+     * Style           -- 15. Monoid
+     * TabIndex        -- 16.
+     * Title           -- 17. Monoid
+     * Translate       -- 18.
+
 
 Further, the global attributes include
- * aria-* family of attributes  -- 2.
- * data-* family of attributes  -- 6.
- * role -- 12.
- * slot -- 13.
+
+     * aria-* family of attributes  -- 2.
+     * data-* family of attributes  -- 6.
+     * role -- 12.
+     * slot -- 13.
 
 -}
 

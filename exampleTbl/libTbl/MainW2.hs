@@ -1,17 +1,14 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecursiveDo         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE UnicodeSyntax       #-}
 
 module MainW2 where
 
-import           Control.Arrow ((***))
--- import           Control.Lens
-import           Control.Monad ((<=<), join)
+import           Control.Arrow                          ((***))
+import           Control.Lens
+import           Control.Monad                          ((<=<), join)
 import           Control.Monad.Fix
 import           Data.Default
 import           Data.Semigroup                         ((<>))
@@ -22,54 +19,48 @@ import qualified Data.Text                              as T
 import           Language.Javascript.JSaddle
 import           Reflex
 import           Reflex.Dom                             hiding (mainWidget)
--- import           Reflex.Dom.Core                        (mainWidget)
+import           Reflex.Dom.Core                        (mainWidget)
 
-import           Data.Finite
-import           Data.Singletons
--- import           Data.Singletons.Decide
-import           Data.Singletons.TypeLits
-import qualified Data.Vector.Sized                      as V
 import qualified Data.Vector                            as W
-
--- import GHC.TypeLits
 
 --------------------------------------------------------------------------------
 
 import           Reflex.Dom.HTML5.Attrs                 as A
 import           Reflex.Dom.HTML5.Elements              as E
-import           Reflex.Dom.HTML5.Component.Table.Common
-import           Reflex.Dom.HTML5.Component.Table.TdComb
-import           Reflex.Dom.HTML5.Component.Table.ThComb
-import           Reflex.Dom.HTML5.Component.Table.TfootComb
-import           Reflex.Dom.HTML5.Component.TableV
-import           Reflex.Dom.HTML5.Component.TableVS
-import           Reflex.Dom.HTML5.Component.Table.TableVSHo
+import           Reflex.Dom.HTML5.Component.Table
 import           Reflex.Dom.HTML5.Elements.Tabular      as T
 
 --------------------------------------------------------------------------------
 
-mainW ∷ MonadWidget t m => m ()
-mainW = do
+mainW ∷ JSM ()
+mainW = mainWidget examples
+
+--------------------------------------------------------------------------------
+
+examples ∷ MonadWidget t m => m ()
+examples = do
     eH1N $ text "Welcome to reflex-dom-htmlea"
     intro
     caveats
     eH1N $ text "Vector input"
     exampleV1
-    exampleV2a
-    exampleV2b
-    exampleV2c
+    exampleV2
     exampleV3
     exampleV4
     exampleV5
-    eH1N $ text "Vector-sized input"
-    exampleVS1
-    exampleVS2
+    exampleV6
+    exampleV7
+    exampleV8
+    exampleV9
+    exampleV10
+    exampleV11
+    exampleV12
+    exampleV13
+    exampleV14
     eH1N $ text "Random primitive trials"
     examplePrim1
     examplePrim2
     examplePrim3
-    eH1N $ text "Another vector-sized thing (WIP - or to be removed)"
-    exampleVSHo1
 
 intro :: MonadWidget t m => m ()
 intro =
@@ -77,28 +68,24 @@ intro =
         ePN $ text "Here we give examples, on how to use table-components."
         ePN $ text $
           "Component-module defines different ways to " <>
-          "construct, declare, initialize and use tables. " <>
-          "Vector-Sized helps to ensure that header has the correct " <>
-          "number of rows."
+          "construct, declare, initialize and use tables. "
 
 
 caveats :: MonadWidget t m => m ()
 caveats = do
     eH2N $ text "Caveats"
-    eDivN $ do
+    eDivN $
       ePN $ text "Renamings are possible..."
-      ePN $ text $ "If you want to try these on android, then vector-sized "
-        <> "version (mkTableVS) cannot be used "
-        <> "(singletons-package has problems with cross-compiling). "
-        <> "Those parts may get separated some day to another package. "
 
 
 --------------------------------------------------------------------------------
 
-showRes :: forall t m. MonadWidget t m => TableState t -> m ()
+showRes :: forall t m.  (Reflex t, DomBuilder t m, PostBuild t m
+                        , MonadHold t m, MonadFix m)
+        => TableState t -> m ()
 showRes res = do
-    let eTxt = (_activeStateMe . _teMe) <$> _tsTableEvent res
-        eU = fmap _activeStateMe $
+    let eTxt = (_activeStateElem . _teMe) <$> _tsTableEvent res
+        eU = fmap _activeStateElem $
             coincidence $ _teMUp <$> _tsTableEvent res -- ::Event t (ActiveState t)
         dUD = _tsDynUpLDownR res
     dElm <- holdDyn ActEnone eTxt
@@ -109,7 +96,7 @@ showRes res = do
         text "Last (any) activity is on cell "
         dynText $ (T.pack . show) <$> dElm
         text " and entered cell "
-        dynText $ (T.pack . show . _activeStateMe) <$> _tsDynEnter res
+        dynText $ (T.pack . show . _activeStateElem) <$> _tsDynEnter res
     ePN $ do
         text "Mousebutton is down is "
         dynText $ (T.pack . show) <$> _tsDynDOn res
@@ -119,14 +106,14 @@ showRes res = do
         let dDact = _tsDynDPress res
         let dUact = _tsDynURelease res
         text "Pressed down on "
-        dynText $ (T.pack . show . _activeStateMe) <$> dDact
+        dynText $ (T.pack . show . _activeStateElem) <$> dDact
         text "."
         text " Pressdown cell is active is "
         eBN $ dynText $ (T.pack . show) <$> join (_activeStateActive <$> dDact)
         text " and activable is "
         eBN $ dynText $ (T.pack . show) <$> join (_activeStateActivable <$> dDact)
         text ". Released up on "
-        dynText $ (T.pack . show . _activeStateMe) <$> dUact
+        dynText $ (T.pack . show . _activeStateElem) <$> dUact
         text "."
         text " Releaseup cell is active is "
         eBN $ dynText $ (T.pack . show) <$> join (_activeStateActive <$> dUact)
@@ -137,7 +124,7 @@ showRes res = do
         text ", except when releasing btn outside table.)"
     ePN $ do
         text "upper left / lower right dyn is on "
-        dynText $ (T.pack . show .  (_activeStateMe *** _activeStateMe)) <$> dUD
+        dynText $ (T.pack . show .  (_activeStateElem *** _activeStateElem)) <$> dUD
     let dOut = _tsDynMOutsideBody res
         dIn  = _tsDynMInsideBody res
     dLInt :: Dynamic t Int <- count $ mouseOutEvent res
@@ -160,7 +147,7 @@ showRes res = do
 mkMat :: Int -> Int -> W.Vector (W.Vector (Int,Int))
 mkMat i j = W.fromList $ fmap W.fromList lstMat
   where
-    lstMat = [[ (a,b) | a <- [0..(i-1)]] | b <- [0..(j-1)]]
+    lstMat = [[ (b,a) | a <- [0..(i-1)]] | b <- [0..(j-1)]]
 
 mkChrMat :: Int -> Int -> W.Vector (W.Vector (Char,Char))
 mkChrMat i j =
@@ -170,214 +157,121 @@ mkChrMat i j =
 
 --------------------------------------------------------------------------------
 
-exampleV1 :: forall t m. (MonadWidget t m) => m ()
+exampleV1 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
 exampleV1 = do
-    let fs = CommonADEfuns
-            listenMe  -- each cell listens only events happening on it
-            actMU     -- and change states on mouse up -events
-            drawDivActElemEx -- how to draw/make each cell
-            cellEvF    -- how to construct the events cell is tracking/using
-        fns = defaultTdFuns { _tdfADEs = fs }
-        actelems :: W.Vector (W.Vector (Int,Int))
-        actelems = mkMat 3 8 -- if you change 3, change txtVec's below, too.
-        colVec :: W.Vector (Dynamic t ECol)
-        colVec = W.fromList $ constDyn <$>
-            [ style "background-color: lightgrey" def
-            , style "background-color: darkgrey" def
-            , style "background-color: lightgrey" def ]
-            -- [ style "background-color: yellow" def
-            -- , style "background-color: green" def
-            -- , style "background-color: red" def ]
-        txtVec :: W.Vector Text
-        txtVec = W.fromList ["col h1", " snd h", "colh3"]
-        txtSumVec :: W.Vector Text
-        txtSumVec = W.fromList ["sum 1", "sum 2", "sum 3"]
-        colDfs :: ColHeaderV t
-        colDfs = ColHeaderV colVec txtVec def
-        cPair = Just (defaultThFuns, colDfs)
-        sumDfs :: FootDefsV t
-        sumDfs = FootDefsV txtSumVec def
-        fPair = Just (defaultTfootFuns, sumDfs)
-        capDfs = Just (CaptionDef "This is the first table example" $
-            style ("background-color: black; color: white; " <>
-                   "letter-spacing: 2px; font-weight: bold")
-            def)
+    let cols = 3 :: Int
+        rows = 4 :: Int
+        matelms :: W.Vector (W.Vector (Int,Int))
+        matelms = mkMat cols rows
+        tableConf = silentPlainTableConfV
+            & set tableTableAttrV (style "border-collapse: collapse" def)
+            & set (tableTdFunsV . tdfTdAttr)
+              (const $ style "padding: 3px; background-color: lightgrey" def)
     eH2N $ text "exampleV1"
-    ePN $ text $ "Click and enter events, vector interface. Colgroup useage " <>
-        "and straigthforward decorations."
-    res :: TableState t <- mkTableV fns capDfs cPair fPair actelems
+    ePN $ text $ "Using td-attributes without events nor cell-states. Note "
+        <> "that result should not change when clicking or trying to select. "
+        <> "Function silentPlainTableConf can be used when only styling is "
+        <> "applied. "
+    res :: TableState t <- mkTableV tableConf matelms
+    showRes res
+
+
+--------------------------------------------------------------------------------
+
+exampleV2 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV2 = do
+    let cols = 6 :: Int
+        rows = 4 :: Int
+        tConf = set cellListenerBodyV (listenMyRow cols)
+            $ set tableTableAttrV (style "border-collapse: collapse" def)
+            $ set cellDrawBodyV drawDivContentEx def
+    eH2N $ text "exampleV2"
+    ePN $ text $ "Activating the whole row. No stylings, using draw-function "
+        <> "example that shows part of the internal state. "
+    res :: TableState t <- mkTableV tConf $ mkMat cols rows
     showRes res
 
 --------------------------------------------------------------------------------
 
-exampleV2a :: forall t m. (MonadWidget t m) => m ()
-exampleV2a = do
-    let fs = CommonADEfuns
-            listenMe  -- each cell listens only events happening on it
-            actSwitchMU -- we want state switching cells
-            drawDivContentEx -- we draw only the content into the div's
-            cellEvF
-        fns = defaultTdFuns { _tdfADEs = fs }
-        actelems :: W.Vector (W.Vector (Char,Char))
-        actelems = mkChrMat 3 3
-    eH2N $ text "exampleV2a"
-    ePN $ text "Click and enter events, state swithing, vector interface:"
-    res :: TableState t <- mkTableV fns Nothing Nothing Nothing actelems
-    showRes res
-
--- Switch the whole area of cells bounded by _dUpLDownR (upper left and
--- lower right corner or the mouse pressing).
-exampleV2b :: forall t m. (MonadWidget t m) => m ()
-exampleV2b = do
-    let fs = CommonADEfuns
-            listenMe
-            actAreaMDUsel
-            drawDivActElemEx -- we draw only the "cell meta info" into the div's
-            cellEvF
-        fns = defaultTdFuns { _tdfADEs = fs }
-    eH2N $ text "exampleV2b"
-    ePN $ text "State selection on a user selected area (single area)"
-    res :: TableState t <- mkTableV fns Nothing Nothing Nothing $ mkMat 4 4
-    showRes res
-
--- Switch the whole area of cells bounded by _dUpLDownR (upper left and
--- lower right corner or the mouse pressing).
-exampleV2c :: forall t m. (MonadWidget t m) => m ()
-exampleV2c = do
-    let fs = CommonADEfuns
-            listenMe  -- each cell listens only events happening on it
-            actSwitchMDUsel
-            drawDivActElemEx
-            cellEvF
-        fns = defaultTdFuns { _tdfADEs = fs }
-    eH2N $ text "exampleV2c"
-    ePN $ text "State swithing on a user selected area (multiple, overlapping)"
-    res :: TableState t <- mkTableV fns Nothing Nothing Nothing $ mkMat 4 4
-    showRes res
-
---------------------------------------------------------------------------------
-
--- This example corresponds to the examplesPrim3 (almost).
-exampleV3 :: forall t m. MonadWidget t m
-            => m ()
+exampleV3 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
 exampleV3 = do
-    let fs = CommonADEfuns
-            listenMe  -- each cell listens only events happening on it
-            actMU     -- and just mouse up -events
-            drawDivActElemEx   -- how to draw/make each cell
-            cellEvF   -- how to construct the events cell is tracking/using
-        -- tdF = exTdElm vlen :: TdFuns t m a -> ActElem -> a
-        --                    -> Event t (TableEvent t) -> TableState t
-        --                    -> m (TableEvent t)
-        -- fns = defaultTdFuns { _tdADEs = fs, _tdComb = exTdElm vlen }
-        -- fns = defaultTdFuns { _tdADEs = fs, _tdComb = tdF } :: TdFuns t m a
-        -- fns = defaultTdFuns { _tdADEs = fs, _tdComb = tdComb }
-        -- fns = defaultTdFuns { _tdADEs = fs } -- Works. Why the above ones don't?
-        fns = TdFuns fs (exTdElm vlen) (const def) (const def) def def
-        actelemr1, actelemr0 :: W.Vector (Int,Int)
-        actelemr0 = W.fromList [(0,0), (0,1), (0,2), (0,3), (0,4)]
-        actelemr1 = W.fromList [(1,0), (1,1), (1,2), (1,3), (1,4)]
-        actelems :: W.Vector (W.Vector (Int,Int))
-        actelems = W.fromList [actelemr0, actelemr1]
-        vlen = W.length actelemr0
+    let cols = 6 :: Int
+        rows = 4 :: Int
+        tConf = def & set cellListenerBodyV (listenMyRow cols)
+            & set cellDrawBodyV drawDivContentS
+            & set tableTableAttrV (style "border-collapse: collapse" def)
+            & set (tableTdFunsV . tdfTrAttr) trAttrfun
+            & set (tableTdFunsV . tdfTdAttr) (const $ style "padding: 5px" def)
     eH2N $ text "exampleV3"
-    ePN $ text $ "Click and enter events, custom elements inside td. "
-        <> "Rightmost cell is listening the cells on the left. "
-        <> "This example corresponds to the examplesPrim3"
-    res :: TableState t <- mkTableV fns Nothing Nothing Nothing actelems
+    ePN $ text "Coloring the whole row based on clicks with other decorations. "
+    res :: TableState t <- mkTableV tConf $ mkMat cols rows
+    showRes res
+
+
+--------------------------------------------------------------------------------
+
+exampleV4 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV4 = do
+    let cols = 6 :: Int
+        rows = 4 :: Int
+        tConf = def & set cellListenerBodyV (listenMyCol rows)
+            & set cellDrawBodyV drawDivContentS
+            -- & set cellDrawBodyV drawDivAECntEx
+            & set tableTableAttrV (style "border-collapse: collapse" def)
+            & set (tableTdFunsV . tdfTdAttr) myTdAttrF
+    eH2N $ text "exampleV4"
+    ePN $ text "Coloring the whole column based on clicks with other decorations. "
+    res :: TableState t <- mkTableV tConf $ mkMat cols rows
     showRes res
       where
-        -- See tdComb for the signature. This has one extra param to give
-        -- the length of a vector.
-        exTdElm :: (Reflex t, MonadHold t m, TriggerEvent t m
-                   , PostBuild t m, DomBuilder t m,  MonadJSM m
-                   , DomBuilderSpace m ~ GhcjsDomSpace)
-          => Int -> TdFuns t m a -> ActElem -> a -> Event t (TableEvent t)
-          -> TableState t -> m (TableEvent t)
-        exTdElm vl tdFuns me ipair eTB tblSt = do
-            let ActERC (x,y) = me
-            if y < (vl-1)
-               then tdComb tdFuns me ipair eTB tblSt
-               else do
-                   -- here we make an extra td that listens to the others
-                   let aercs = ActERC <$> [(x,0), (x,1), (x,2), (x,3)]
-                       tdades = _tdfADEs tdFuns
-                       tdF = tdFuns { _tdfADEs
-                         = tdades {_actSt = listenListNotMe aercs }}
-                       -- tdF = set (tdfADEs . actSt)
-                       -- (listenListNotMe aercs) tdFuns
-                   tdCombLstner tdF me ipair eTB tblSt
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+                  ( ast & set activeStateActiveGl (style "color: red" def)
+                  & set activeStateNotActiveGl (style "color: blue" def))
 
 --------------------------------------------------------------------------------
 
-exampleV4 :: forall t m. (MonadWidget t m) => m ()
-exampleV4 = do
-    let cols = 4 :: Int
-        rows = 4 :: Int
-        -- hns = set (thfADEs . actSt) (listenMyCol rows) defaultThFuns
-        -- foots = set (tfootADEs . actSt) (listenMyCol rows) defaultTfootFuns
-        hnsades = _thfADEs defaultThFuns
-        footades = _tfootADEs defaultTfootFuns
-        hns = defaultThFuns {_thfADEs = hnsades {_actSt = listenMyCol rows}}
-        foots = defaultTfootFuns {_tfootADEs = footades { _actSt =listenMyCol rows}}
-        fs = CommonADEfuns
-            listenHeadFootMe  -- each cell listens head, foot, and itself
-            actMU     -- and change states on mouse up -events
-            drawDivActElemEx -- how to draw/make each cell
-            cellEvF    -- how to construct the events cell is tracking/using
-        fns = defaultTdFuns { _tdfADEs = fs }
-        actelems :: W.Vector (W.Vector (Int,Int))
-        actelems = mkMat cols rows
-        colVec :: W.Vector (Dynamic t ECol)
-        colVec = W.fromList $
-            (\i -> constDyn $ if even i
-                   then style "background-color: lightgrey" def
-                   else style "background-color: darkgrey" def
-            ) <$> [1..cols]
-        txtVec :: W.Vector Text
-        txtVec = W.fromList $ (\i -> "Col H " <> (T.pack . show ) i) <$> [1..cols]
-        colDfs :: ColHeaderV t
-        colDfs = ColHeaderV colVec txtVec def
-        txtSumVec :: W.Vector Text
-        txtSumVec = W.fromList $ (\i -> "Sum " <> (T.pack . show ) i) <$> [1..cols]
-        sumDfs :: FootDefsV t
-        sumDfs = FootDefsV txtSumVec def
-        cPair = Just (hns, colDfs)
-        fPair = Just (foots, sumDfs)
-    eH2N $ text "exampleV4"
-    ePN $ text "Header events "
-    res :: TableState t <- mkTableV fns Nothing cPair fPair actelems
-    showRes res
-
---------------------------------------------------------------------------------
-
-exampleV5 :: forall t m. (MonadWidget t m) => m ()
+exampleV5 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
 exampleV5 = do
     let cols = 3 :: Int
         rows = 6 :: Int
         -- We use our own version of drawDivContent. Note that the header input
         -- is Text-type so there is no need to show it, while cell-contents are
         -- int-pairs and there is a need for showing and packing.
-        -- hns = set thfThAttr (const $ constDyn
-        --         $ style "width: 100px" def) $
-        --     set (thfADEs . drawEl) (drawDivContent2 id)  $
-        --     set (thfADEs . actSt) (listenMyCol rows) defaultThFuns
-        hnsades = _thfADEs defaultThFuns
-        hns = defaultThFuns
-            { _thfThAttr = const $ constDyn $ style "width: 100px" def
-            , _thfADEs = hnsades
-                { _drawEl = drawDivContent2 id
-                , _actSt = listenMyCol rows}
-            }
+        hns = set thfThAttr (const $ constDyn $ style "width: 100px" def) $
+            set (thfADEs . drawEl) drawDivContent  $
+            set (thfADEs . actListen) (listenMyCol rows) def
+                -- set (thfADEs . drawEl) (drawDivContent2 id)  $
         fs = CommonADEfuns
-            -- listenHeadFootMe actMU
-            ownListen actMU
-            (drawDivContent2 (T.pack . show) )
+            listenHeadFootMe actMU
+            -- drawDivAECntEx
+            drawDivContentS
             cellEvF
-        fns2 = defaultTdFuns { _tdfADEs = fs }
-        -- fns2 = set tdfADEs fs defaultTdFuns
-        actelms :: W.Vector (W.Vector (Int,Int))
-        actelms = mkMat cols rows
+            -- ownListen actMU
+            -- (drawDivContent2 (T.pack . show) )
+        fns2 = def & set tdfADEs fs & set tdfTdAttr myTdAttrF
+        -- Note that the use of our own td-attribute function will possibly
+        -- override the settings given in the table conf (see the not activable
+        -- configuration). It is quite easy to give overlapping definitions to
+        -- the same things (e.g. td-attributes of cells) and it can lead to
+        -- confusing situations...
+        matelms :: W.Vector (W.Vector (Int,Int))
+        matelms = mkMat cols rows
         colVc :: W.Vector (Dynamic t ECol)
         colVc = W.fromList $
             (\i -> constDyn $ if even i
@@ -386,201 +280,477 @@ exampleV5 = do
             ) <$> [1..cols]
         txtVc :: W.Vector Text
         txtVc = W.fromList $ (\i -> "Col H " <> (T.pack . show ) i) <$> [1..cols]
-        colDfs :: ColHeaderV t
-        colDfs = ColHeaderV colVc txtVc def
-        cPair = Just (hns, colDfs)
-        capDfs = Just (CaptionDef "Table example with class-attrs" $
+        colDfs :: Maybe (HeaderConfV t m)
+        colDfs = Just $ HeaderConfV hns colVc txtVc def
+        capDfs = Just (CaptionConf "Table example with td-attrs" $
             style ("background-color: black; color: white; " <>
                    "font-weight: bold") def)
+        -- tableConf = TableConf fns2 capDfs colDfs Nothing def tableEventsEnLe
+        tableConf = set tableTdFunsV fns2 $ set tableCaptionV capDfs
+            $ set tableHeaderV colDfs
+            -- $ set (tableTdFunsV . tdfTdAttr) mytdattrF -- hmm, see 2 lines above:
+            -- since we set fns2 later, it will override the earlier one.
+            $ set tableActivityConfV (constDyn $ Just [astNotActivable])
+            def
     eH2N $ text "exampleV5"
-    ePN $ text "Using class-attributes with the events and cell-states"
-    res :: TableState t <- mkTableV fns2 capDfs cPair Nothing actelms
+    ePN $ text $ "Using td-attributes with the events and cell-states. The first "
+        <> "row is not activable. "
+    res :: TableState t <- mkTableV tableConf matelms
     showRes res
       where
-        -- ownListen ae = actstate ae & set activeStateListen (constDyn ag)
-        ownListen ae = actstate ae & \d -> d {_activeStateListen = constDyn ag }
-            where
-                isFstRow (ActERC (x,y)) = x == 0
-                isFstRow _ = False
-                ag = ActiveGroup $ Set.fromList $ ae: myHF ae
-                -- actstate txt = def & set activeStateMe txt
-                actstate txt = def & \d -> d {_activeStateMe = txt }
-                    -- & set activeStateActivable
-                    & \g -> g { _activeStateActivable =
-                        if isFstRow ae
-                            then constDyn False
-                            else constDyn True
-                        }
-                myHF ∷ ActElem → [ActElem]
-                myHF (ActERC (_,j)) = [ActEcolh j, ActEcols j]
-                myHF a              = [a]
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+                  ( ast & set activeStateActiveGl (style "color: red" def)
+                  & set activeStateNotActiveGl (style "color: black" def)
+                  & set activeStateNotActivableGl
+                    (style "color: white; background-color: darkgray" def))
+        astNotActivable = def
+            & set activeStateElem (ActErow 0)
+            & set activeStateActivable (constDyn False)
+            & set activeStateNotActivableGl (style "background-color: blue" def)
+            -- The following won't take any effect as for cells that are not
+            -- activable, only the notActivableGl attributes will be used.
+            -- & set activeStateActiveGl (style "color: green" def)
+            -- & set activeStateNotActiveGl (style "color: red" def)
+
+      -- An example to play with:
+      --   ownListen ae = actstate ae & set activeStateListen (constDyn ag)
+      --       where
+      --           isFstRow (ActERC (x,y)) = x == 0
+      --           isFstRow _ = False
+      --           ag = ActiveGroup $ Set.fromList $ ae: myHF ae
+      --           actstate txt = def & set activeStateElem txt
+      --               & set activeStateActivable (
+      --                   if isFstRow ae
+      --                       then constDyn False
+      --                       else constDyn True)
+      --           myHF ∷ ActElem → [ActElem]
+      --           myHF (ActERC (_,j)) = [ActEcolh j, ActEcols j]
+      --           myHF a              = [a]
 
 
+-- An example to play with:
+-- drawDivContent2 fat _me elm actS = do
+--     let dA = view activeStateActive actS
+--         dNA = not <$> view activeStateActivable actS
+--         dAGl = view activeStateActiveGl actS
+--         dNAGl = view activeStateNotActiveGl actS
+--         dNAvGl = view activeStateNotActivableGl actS
+--         dUse = (\ba bna acl nacl navcl ->
+--             let (st,cl)
+--                     | bna = (style "background-color:darkgray", navcl)
+--                     | ba  = (style "color: red", acl)
+--                     | otherwise = (style "color: black", nacl)
+--             -- in style "text-align: center" <> st $ def
+--             in style "text-align: center" <> st $ attrSetGlobals cl def
+--                 ) <$> dA <*> dNA <*> dAGl <*> dNAGl <*> dNAvGl
+--     (e,_) <- eDivD' dUse $
+--       text $ fat elm
+--     pure e
 
-drawDivContent2 fat _me elm actS = do
-    -- let dA = view activeStateActive actS
-    --     dNA = not <$> view activeStateActivable actS
-    --     dACl = view activeStateActiveCl actS
-    --     dNACl = view activeStateNotActiveCl actS
-    --     dNAvCl = view activeStateNotActivableCl actS
-    let dA = _activeStateActive actS
-        dNA = not <$> _activeStateActivable actS
-        dACl = _activeStateActiveCl actS
-        dNACl = _activeStateNotActiveCl actS
-        dNAvCl = _activeStateNotActivableCl actS
-        dUse = (\ba bna acl nacl navcl ->
-            let (st,cl)
-                    | bna = (style "background-color:darkgray", navcl)
-                    | ba  = (style "color: red", acl)
-                    | otherwise = (style "color: black", nacl)
-            in setClasses cl $ style "text-align: center" <> st $ def
-                ) <$> dA <*> dNA <*> dACl <*> dNACl <*> dNAvCl
-    (e,_) <- eDivD' dUse $
-      text $ fat elm
-    pure e
+--------------------------------------------------------------------------------
+
+exampleV6 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV6 = do
+    let fs = CommonADEfuns
+            listenMe  -- each cell listens only events happening on it
+            actMU     -- and change states on mouse up -events
+            drawDivActElemEx -- how to draw/make each cell
+            cellEvF    -- how to construct the events cell is tracking/using
+        fns = def { _tdfADEs = fs } :: TdFuns t m (Int,Int)
+        elemMat :: W.Vector (W.Vector (Int,Int))
+        elemMat = mkMat 3 8 -- if you change 3, change txtVec's below, too.
+        colVec :: W.Vector (Dynamic t ECol)
+        colVec = W.fromList $ constDyn <$>
+            [ style "background-color: lightgrey" def
+            , style "background-color: darkgrey" def
+            , style "background-color: lightgrey" def ]
+        txtVec :: W.Vector Text
+        txtVec = W.fromList ["col h1", " snd h", "colh3"]
+        txtSumVec :: W.Vector Text
+        txtSumVec = W.fromList ["sum 1", "sum 2", "sum 3"]
+        ades = CommonADEfuns listenMe actMU drawDivAECntEx cellEvF
+            :: CommonADEfuns t m Text
+        colDfs :: Maybe (HeaderConfV t m)
+        colDfs = Just $ HeaderConfV (def {_thfADEs = ades}) colVec txtVec def
+        sumDfs :: Maybe (FootConfV t m)
+        sumDfs = Just $ FootConfV (def {_tfootADEs = ades}) txtSumVec def
+        capDfs = Just (CaptionConf "A table example" $
+            style ("background-color: black; color: white; " <>
+                   "letter-spacing: 2px; font-weight: bold")
+            def)
+        tableConf = set tableTdFunsV fns $ set tableCaptionV capDfs
+            $ set tableHeaderV colDfs $ set tableFooterV sumDfs def
+    eH2N $ text "exampleV6"
+    ePN $ text $ "Colgroup usage " <>
+        "and straigthforward decorations. Yet another way to listen events. "
+    res :: TableState t <- mkTableV tableConf elemMat
+    showRes res
+
+--------------------------------------------------------------------------------
+
+exampleV7 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV7 = do
+    let fs = CommonADEfuns
+            listenMe  -- each cell listens only events happening on it
+            actSwitchMU -- we want state switching cells
+            drawDivContentEx -- we draw only the content into the div's
+            cellEvF
+        fns = def & set tdfADEs fs & set tdfTdAttr myTdAttrF
+            :: TdFuns t m (Char,Char)
+        elemMat :: W.Vector (W.Vector (Char,Char))
+        elemMat = mkChrMat 3 3
+        tableConf = set tableTdFunsV fns def
+    eH2N $ text "exampleV7"
+    ePN $ text "State switching (click on different cells)."
+    res :: TableState t <- mkTableV tableConf elemMat
+    showRes res
+      where
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+              (ast & set activeStateActiveGl (style "border: 3px solid purple" def)
+              & set activeStateNotActiveGl (style "border: 3px solid purple" def))
 
 
 --------------------------------------------------------------------------------
 
--- i elems on a row, j rows.
-mkVSMat :: forall r c. (KnownNat r, KnownNat c)
-        => V.Vector r (V.Vector c (Int,Int))
-mkVSMat = V.generate mkA4r
+
+-- Switch the whole area of cells bounded by _dUpLDownR (upper left and
+-- lower right corner or the mouse pressing).
+exampleV8 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV8 = do
+    let fs = CommonADEfuns
+            listenMe
+            actAreaMDUsel
+            drawDivActElemEx -- we draw only the "cell meta info" into the div's
+            cellEvF
+        fns = def & set tdfADEs fs & set tdfTdAttr myTdAttrF :: TdFuns t m (Int,Int)
+        tableConf = set tableTdFunsV fns def
+    eH2N $ text "exampleV8"
+    ePN $ text "State selection on a user selected area (single area)."
+    res :: TableState t <- mkTableV tableConf $ mkMat 4 4
+    showRes res
+      where
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+              (ast & set activeStateActiveGl (style "border: 3px solid cyan" def)
+              & set activeStateNotActiveGl (style "border: 3px solid cyan" def))
+
+--------------------------------------------------------------------------------
+
+-- Switch the whole area of cells bounded by _dUpLDownR (upper left and
+-- lower right corner or the mouse pressing).
+exampleV9 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV9 = do
+    let fs = CommonADEfuns
+            listenMe  -- each cell listens only events happening on it
+            actSwitchMDUsel
+            drawDivActElemEx
+            cellEvF
+        fns = def { _tdfADEs = fs } & set tdfTdAttr myTdAttrF
+            :: TdFuns t m (Int,Int)
+        tableConf = set tableTdFunsV fns def
+    eH2N $ text "exampleV9"
+    ePN $ text "State swithing on a user selected area (multiple, overlapping)"
+    res :: TableState t <- mkTableV tableConf $ mkMat 4 4
+    showRes res
+      where
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+              (ast & set activeStateActiveGl (style "border: 3px solid cyan" def)
+              & set activeStateNotActiveGl (style "border: 3px solid cyan" def))
+
+--------------------------------------------------------------------------------
+
+-- This example corresponds to the examplesPrim3 (almost).
+exampleV10 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                          , TriggerEvent t m, MonadJSM m, MonadFix m
+                          , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                          ) => m ()
+exampleV10 = do
+    let fs = CommonADEfuns
+            listenMe  -- each cell listens only events happening on it
+            actMU     -- and just mouse up -events
+            drawDivActElemEx   -- how to draw/make each cell
+            cellEvF   -- how to construct the events cell is tracking/using
+        fns = TdFuns fs (exTdElm vlen) myTdAttrF (const def) def
+        -- (constDyn []) (constDyn [])
+        elemr1, elemr0 :: W.Vector (Int,Int)
+        elemr0 = W.fromList [(0,0), (0,1), (0,2), (0,3), (0,4)]
+        elemr1 = W.fromList [(1,0), (1,1), (1,2), (1,3), (1,4)]
+        elemMat :: W.Vector (W.Vector (Int,Int))
+        elemMat = W.fromList [elemr0, elemr1]
+        vlen = W.length elemr0
+        -- tableConf = TableConf fns Nothing Nothing Nothing def tableEventsEnLe
+        tableConf = def & set tableTdFunsV fns
+                        & set tableTableAttrV (style "border: 3px solid purple" def)
+    eH2N $ text "exampleV10"
+    ePN $ text $ "Click and enter events, custom elements inside td. "
+        <> "Rightmost cell is listening the cells on the left but doesn't deliver "
+        <> "events. This example corresponds to the examplesPrim3"
+    res :: TableState t <- mkTableV tableConf elemMat
+    showRes res
+      where
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+              (ast & set activeStateActiveGl (style "border: 3px solid purple" def)
+              & set activeStateNotActiveGl (style "border: 3px solid purple" def))
+        -- See tdComb for the signature. This has one extra param to give
+        -- the length of a vector.
+        exTdElm :: (Reflex t, MonadHold t m, TriggerEvent t m
+                   , PostBuild t m, DomBuilder t m,  MonadJSM m
+                   , DomBuilderSpace m ~ GhcjsDomSpace)
+          => Int -> TdFuns t m a
+          -> Dynamic t (Maybe [ActiveState t])
+          -> ActiveState t -> a -> Event t (TableEvent t)
+          -> TableState t -> m (TableEvent t)
+        exTdElm vl tdFuns ae me ipair eTB tblSt = do
+            let aeMe = view activeStateElem me
+                ActERC (x,y) = aeMe
+            if y < (vl-1)
+               then tdComb tdFuns ae me ipair eTB tblSt
+               else do
+                   -- here we make an extra td that listens to the others
+                   let aercs = ActERC <$> [(x,0), (x,1), (x,2), (x,3)]
+                       tdades = _tdfADEs tdFuns
+                       tdF = set (tdfADEs . actListen)
+                                 (listenListNotMe aercs) tdFuns
+                   tdCombLstner tdF ae me ipair eTB tblSt
+
+--------------------------------------------------------------------------------
+
+exampleV11 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                          , TriggerEvent t m, MonadJSM m, MonadFix m
+                          , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                          ) => m ()
+exampleV11 = do
+    let cols = 4 :: Int
+        rows = 4 :: Int
+        hns = set (thfADEs . actListen) (listenMyCol rows)
+            $ set (thfADEs . drawEl) drawDivAECntEx def
+        ades = CommonADEfuns (listenMyCol rows) actMU drawDivAECntEx cellEvF
+        foots = def {_tfootADEs = ades}
+        fs = CommonADEfuns
+            listenHeadFootMe -- each cell listens head, foot, and itself
+            actMU            -- and change states on mouse up -events
+            drawDivActElemEx -- how to draw/make each cell
+            cellEvF          -- how to construct the events cell is tracking/using
+        fns = def { _tdfADEs = fs } :: TdFuns t m (Int,Int)
+        elemMat :: W.Vector (W.Vector (Int,Int))
+        elemMat = mkMat cols rows
+        colVec :: W.Vector (Dynamic t ECol)
+        colVec = W.fromList $
+            (\i -> constDyn $ if even i
+                   then style "background-color: lightgrey" def
+                   else style "background-color: darkgrey" def
+            ) <$> [1..cols]
+        txtVec :: W.Vector Text
+        txtVec = W.fromList $ (\i -> "Col H " <> (T.pack . show ) i) <$> [1..cols]
+        colDfs :: Maybe (HeaderConfV t m)
+        colDfs = Just $ HeaderConfV hns colVec txtVec def
+        txtSumVec :: W.Vector Text
+        txtSumVec = W.fromList $ (\i -> "Sum " <> (T.pack . show ) i) <$> [1..cols]
+        sumDfs :: Maybe (FootConfV t m)
+        sumDfs = Just $ FootConfV foots txtSumVec def
+        -- tableConf = TableConf fns Nothing colDfs sumDfs def tableEventsEnLe
+        tableConf = set tableTdFunsV fns $ set tableHeaderV colDfs
+            $ set tableFooterV sumDfs def
+    eH2N $ text "exampleV11"
+    ePN $ text "Header events, clicking on header or footer select a column. "
+    res :: TableState t <- mkTableV tableConf elemMat
+    showRes res
+
+--------------------------------------------------------------------------------
+
+exampleV12 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV12 = do
+    let cols = 3 :: Int
+        rows = 4 :: Int
+        rNum = Just 1 :: Maybe Int
+    -- If a row is initialized (say, to active), and if that is used just as
+    -- a initial condition, then we have to maintain the state and give the
+    -- updated row num back.
+    -- To be able to tell the activated row from outside, is clearly needed.
+    -- Is there need for a single initial action? That way, could build this
+    -- example without rec-loop.
+    rec
+        let
+            -- dAstInit = constDyn $ Just
+            --             [ def & set activeStateElem (ActErow 0)
+            dAstInit = (\mi -> Just
+                        [ def & set activeStateElem
+                            (case mi of
+                                Just i  -> ActErow i
+                                Nothing -> ActEnone)
+                          & set activeStateActive (constDyn True)
+                          -- & set activeStateActivable (constDyn False)
+                          -- & set activeStateActiveGl
+                          --     (style "background-color:grey" def)
+                          -- & set activeStateNotActiveGl
+                          --     (style "background-color: lightgrey" def)
+                        -- , def
+                        --   & set activeStateActiveGl
+                        --       (style "background-color:grey" def)
+                        --   & set activeStateNotActiveGl
+                        --       (style "background-color: lightgrey" def)
+                        ]) <$> dRow
+            tConf = def & set cellListenerBodyV (listenMyRow cols)
+                & set cellDrawBodyV drawDivContentS
+                -- & set cellDrawBodyV drawDivAECntEx
+                & set tableActivityConfV dAstInit
+                & set tableTableAttrV (style "border-collapse: collapse" def)
+                & set (tableTdFunsV . tdfTrAttr) trAttrfun
+                -- TODO TODO remove trAttrFun
+                -- Use *either* the following or the one above at dAstInit.
+                -- & set (tableTdFunsV . tdfTdAttr)
+                --     (\ast -> defTdAttrF (ast
+                --         & set activeStateActiveGl
+                --             (style "background-color:grey" def)
+                --         & set activeStateNotActiveGl
+                --             (style "background-color: lightgrey" def)
+                --                        )
+                --     )
+        -- set activeStateNotActiveGl (style "border: 3px solid purple" def))
+        eH2N $ text "exampleV12"
+        ePN $ text $ "Coloring the whole row based on clicks with other "
+            <> "decorations. "
+            <> "This is otherwise the same as example 3, but initializes a row. "
+        res :: TableState t <- mkTableV tConf $ mkMat cols rows
+        let dUpAst = view tsDynURelease res
+            dAE = _activeStateElem <$> dUpAst
+            dRow2 = rowNum <$> dAE
+            eRow = updated dRow2
+        dRow <- holdDyn rNum eRow
+    showRes res
+      -- where
+        -- astNotActivable = def
+        --     & set activeStateElem (ActErow 0)
+        --     & set activeStateActivable (constDyn False)
+        -- The following colors the clicked row always, independent of
+        -- its state.
+        -- trAttrfun :: Dynamic t (ActiveState t) → ActElem → Dynamic t ETr
+        -- trAttrfun dAst ae =
+        --     let dAE = _activeStateElem <$> dAst
+        --      in mkETr <$> dAE <*> pure ae
+        -- mkETr :: ActElem -> ActElem -> ETr
+        -- mkETr ae1 ae2 = if sameRowAE ae1 ae2
+        --                    then style "background-color: grey" def
+        --                    else style "background-color: lightgrey" def
+
+
+--------------------------------------------------------------------------------
+
+
+exampleV13 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV13 = do
+    let cols = 3 :: Int
+        rows = 5 :: Int
+    let
+        dAstInit = constDyn $ Just
+                    [ def
+                        & set activeStateActiveGl
+                            (style "background-color:grey" def)
+                        & set activeStateNotActiveGl
+                            (style "background-color: lightgrey" def)
+                    ]
+        tConf = def & set cellListenerBodyV (listenMyRow cols)
+            & set cellDrawBodyV drawDivContentS
+            -- & set cellDrawBodyV drawDivAECntEx
+            & set cellActivityBodyV actSwitchMU
+            & set tableActivityConfV dAstInit
+            & set tableTableAttrV (style "border-collapse: collapse" def)
+            & set (tableTdFunsV . tdfTrAttr) trAttrfun
+    eH2N $ text "exampleV13"
+    ePN $ text "Row selection with switching states."
+    res :: TableState t <- mkTableV tConf $ mkMat cols rows
+    -- let dUpAst = view tsDynURelease res
+    --     dAE = _activeStateElem <$> dUpAst
+    --     dRow2 = rowNum <$> dAE
+    --     eRow = updated dRow2
+    -- dRow <- holdDyn rNum eRow
+    showRes res
+
+
+trAttrfun :: forall t. Reflex t
+          => Dynamic t (ActiveState t) → ActElem → Dynamic t ETr
+    -- First param is the last row where an event occurred (with state info)
+    -- and the second parameter tells, which row we are making (drawing,
+    -- building).
+trAttrfun dAst _ae = mkETr <$> join (_activeStateActive <$> dAst)
   where
-    mkA4r ∷ KnownNat c => Int → V.Vector c (Int,Int)
-    mkA4r i = V.generate (\j -> (i,j))
-
----- mkChrMat :: Int -> Int -> W.Vector (W.Vector (Char,Char))
----- mkChrMat i j =
-----     W.imap (\i' ev -> W.imap (\j' _
-----     -> (chrs W.! i', chrs W.! j') ) ev) $ mkMat i j
-----   where
-----     chrs = W.fromList $ ['a'..'z'] ++ ['A'..'Z']
-
----- mkVSVec :: KnownNat n => Sing n -> V.Vector n Text
----- mkVSVec s = V.generate (\i -> "Hmm " <> (T.pack . show) i)
-
-exampleVS1 :: forall t m. (MonadWidget t m) => m ()
-exampleVS1 = do
-   let colsS1 = toSing 4
-       rowsS1 = toSing 8
-   case (colsS1,rowsS1) of
-       (SomeSing colS, SomeSing rowS) ->
-           withKnownNat colS $
-               withKnownNat rowS (exampleVS1_ rowS colS)
-
-exampleVS1_ :: forall colS rowS t m. (KnownNat colS, KnownNat rowS
-                                     , MonadWidget t m)
-            => Sing rowS -> Sing colS -> m ()
-exampleVS1_ rowS colS = do
-   let
-       rws = fromIntegral (fromSing rowS)
-       -- hns = set (thfADEs . actSt) (listenMyCol rws) defaultThFuns
-       hnsades = _thfADEs defaultThFuns
-       hns = defaultThFuns {_thfADEs = hnsades {_actSt = listenMyCol rws}}
-       fs = CommonADEfuns
-           listenHeadMe  -- each cell listens head and itself
-           actMU     -- and change states on mouse up -events
-           drawDivActElemEx -- how to draw/make each cell
-           cellEvF
-       fns = defaultTdFuns { _tdfADEs = fs }
-       -- actelems :: V.Vector 4 (V.Vector 4 (Int,Int))
-       actelems :: (KnownNat colS, KnownNat rowS)
-                => V.Vector rowS (V.Vector colS (Int,Int))
-       actelems = mkVSMat
-       colVec :: KnownNat colS => V.Vector colS (Dynamic t ECol)
-       colVec = V.generate
-           (\i -> constDyn $ if even i
-                  then style "background-color: yellow" def
-                  else style "background-color: green" def)
-                  -- then style "background-color: lightgrey" def
-                  -- else style "background-color: darkgrey" def)
-       txtVec :: KnownNat colS => V.Vector colS Text
-       txtVec = V.generate (\i -> "Col H " <> (T.pack . show ) i)
-       colDfs :: KnownNat colS => ColHeaderVS colS t
-       colDfs = ColHeaderVS colVec txtVec def
-   eH2N $ text "exampleVS1"
-   ePN $ text "Header events, vector-sized inputs "
-   -- res :: TableState t <- mkTableVS fns Nothing actelems
-   -- If using above, hns should not be defined.
-   res :: TableState t
-       <- mkTableVS fns Nothing (Just (hns,colDfs)) Nothing actelems
-   -- res :: TableState t
-   --     <- mkTableVS_ rowS colS fns (Just (hns,colDfs)) actelems
-   showRes res
+    mkETr :: Bool -> ETr
+    mkETr b =
+        if b
+           then style "background-color: grey" def
+           else style "background-color: lightgrey" def
 
 --------------------------------------------------------------------------------
 
-exampleVS2 :: forall t m. (MonadWidget t m) => m ()
-exampleVS2 = do
-   let colsS1 = toSing 4
-       rowsS1 = toSing 6
-   case (colsS1,rowsS1) of
-       (SomeSing colS, SomeSing rowS) ->
-           withKnownNat colS $
-               withKnownNat rowS (exampleVS2_ rowS colS)
 
-exampleVS2_ :: forall colS rowS t m. (KnownNat colS, KnownNat rowS
-                                     , MonadWidget t m)
-            => Sing rowS -> Sing colS -> m ()
-exampleVS2_ rowS colS = do
-   eH2N $ text "exampleVS2"
-   ePN $ text "Header and footer events, vector-sized inputs, use of class-attrs."
-   res <- mkTableVS fns capDfs (Just (hns,colDfs)) fPair actelms
-   showRes res
-     where
-       rws = fromIntegral (fromSing rowS)
-       -- hns = set thfThAttr (const $ constDyn
-       --         $ style "width: 80px" def) $
-       --     set (thfADEs . drawEl) (drawDivContent2 id)  $
-       --     set (thfADEs . actSt) (listenMyCol rws) defaultThFuns
-       hnsades = _thfADEs defaultThFuns
-       hns = defaultThFuns
-           { _thfThAttr = const $ constDyn $ style "width: 80px" def
-           , _thfADEs = hnsades
-               { _drawEl = drawDivContent2 id
-               , _actSt = listenMyCol rws
-               }
-           }
-       fs = CommonADEfuns listenHeadFootMe actMU -- select a single cell
-       -- fs = CommonADEfuns (listenMyCol rws) actMU -- select the whole row
-           (drawDivContent2 (T.pack . show) ) cellEvF
-       fns = defaultTdFuns {_tdfADEs = fs }
-       -- fns = set tdfADEs fs defaultTdFuns
-       actelms :: (KnownNat colS, KnownNat rowS)
-                => V.Vector rowS (V.Vector colS (Int,Int))
-       actelms = mkVSMat
-       colVec :: KnownNat colS => V.Vector colS (Dynamic t ECol)
-       colVec = V.generate
-           (\i -> constDyn $ if even i
-                  then style "background-color: lightgrey" def
-                  else style "background-color: darkgrey" def)
-       txtVc :: KnownNat colS => V.Vector colS Text
-       txtVc = V.generate (\i -> "Col H " <> (T.pack . show ) i)
-       colDfs :: KnownNat colS => ColHeaderVS colS t
-       colDfs = ColHeaderVS colVec txtVc def
-       capDfs = Just (CaptionDef "Table example with class-attrs" $
-           style ("background-color: black; color: white; " <>
-                  "font-weight: bold") def)
-       sumVec :: KnownNat colS => V.Vector colS Text
-       sumVec = V.generate (\i -> "Sum C" <> (T.pack . show ) i)
-       sumDfs :: FootDefsVS colS t
-       sumDfs = FootDefsVS sumVec def
-       -- dff = defaultTfootFuns & set (tfootADEs . drawEl) (drawDivContent2 id)
-       --         & set (tfootADEs . actSt) (listenMyCol rws)
-       dfftfoo = _tfootADEs defaultTfootFuns
-       dff = defaultTfootFuns
-               & \d -> d { _tfootADEs = dfftfoo {_drawEl = drawDivContent2 id}}
-               & \g -> g {_tfootADEs = dfftfoo {_actSt = listenMyCol rws}}
-       fPair = Just (dff, sumDfs)
+exampleV14 :: forall t m. (Reflex t, DomBuilder t m, PostBuild t m
+                         , TriggerEvent t m, MonadJSM m, MonadFix m
+                         , MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace
+                         ) => m ()
+exampleV14 = do
+    let cols = 10 :: Int
+        rows = 3 :: Int
+        cNum = Just 3 :: Maybe Int
+    rec
+        let
+            dAstInit = (\mi -> Just
+                        [ def & set activeStateElem
+                            (case mi of
+                                Just i  -> ActEcols i
+                                Nothing -> ActEnone)
+                          & set activeStateActive (constDyn True)
+                        ]) <$> dCol
+            tConf = def & set cellListenerBodyV (listenMyCol rows)
+                & set cellDrawBodyV drawDivContentS
+                -- & set cellDrawBodyV drawDivAECntEx
+                & set tableActivityConfV dAstInit
+                -- & set tableTableAttrV (style "border-collapse: collapse" def)
+                & set (tableTdFunsV . tdfTdAttr) myTdAttrF
+        eH2N $ text "exampleV14"
+        ePN $ text "Coloring the whole column based with initial selected column. "
+        res :: TableState t <- mkTableV tConf $ mkMat cols rows
+        let dUpAst = view tsDynURelease res
+            eCol = updated $ (colNum . _activeStateElem ) <$> dUpAst
+        dCol <- holdDyn cNum eCol
+    showRes res
+      where
+        myTdAttrF :: ActiveState t -> Dynamic t ETd
+        myTdAttrF ast = defTdAttrF
+                  ( ast & set activeStateActiveGl (style "color: red" def)
+                  & set activeStateNotActiveGl (style "color: blue" def))
+
+
 
 --------------------------------------------------------------------------------
 
 examplePrim1 :: forall t m. (MonadWidget t m) => m ()
 examplePrim1 = do
-    -- let actstate txt = def & set activeStateMe txt
-  let actstate txt = def & \d -> d {_activeStateMe = txt}
+  let actstate ae = def & set activeStateElem ae
   let tblR = def :: TableState t
+      ae = constDyn def
+      tdntdf eTB x = eTdN $ tdFun actMD ae (def {_activeStateElem = x}) eTB tblR
   eH2N $ text "examplePrim1"
   ePN $ text "Building table with html-elems and using helpers to handle events."
   eDivN $ do
@@ -588,21 +758,21 @@ examplePrim1 = do
       (htTb,eTB) <- eTbodyN' $ do
         let dDU = _tsDynUpLDownR tblR
         et1 <- eTrN $ do
-          ed1 <- eTdN $ tdFun actMD (ActERC (0,0)) eTB tblR
-          ed2 <- eTdN $ tdFun actMD (ActERC (0,1)) eTB tblR
-          ed3 <- eTdN $ tdFun actMD (ActERC (0,2)) eTB tblR
+          ed1 <- tdntdf eTB $ ActERC (0,0)
+          ed2 <- tdntdf eTB $ ActERC (0,1)
+          ed3 <- tdntdf eTB $ ActERC (0,2)
           -- pure $ tblEvFiring $ W.fromList [ed1,ed2,ed3]
           pure $ tblEvFiring [ed1,ed2,ed3]
         et2 <- eTrN $ do
-          ed1 <- eTdN $ tdFun actMD (ActERC (1,0)) eTB tblR
-          ed2 <- eTdN $ tdFun actMD (ActERC (1,1)) eTB tblR
-          ed3 <- eTdN $ tdFun actMD (ActERC (1,2)) eTB tblR
+          ed1 <- tdntdf eTB $ ActERC (1,0)
+          ed2 <- tdntdf eTB $ ActERC (1,1)
+          ed3 <- tdntdf eTB $ ActERC (1,2)
           -- pure $ tblEvFiring $ W.fromList [ed1,ed2,ed3]
           pure $ tblEvFiring [ed1,ed2,ed3]
         et3 <- eTrN $ do
-          ed1 <- eTdN $ tdFun actMD (ActERC (2,0)) eTB tblR
-          ed2 <- eTdN $ tdFun actMD (ActERC (2,1)) eTB tblR
-          ed3 <- eTdN $ tdFun actMD (ActERC (2,2)) eTB tblR
+          ed1 <- tdntdf eTB $ ActERC (2,0)
+          ed2 <- tdntdf eTB $ ActERC (2,1)
+          ed3 <- tdntdf eTB $ ActERC (2,2)
           -- pure $ tblEvFiring $ W.fromList [ed1,ed2,ed3]
           pure $ tblEvFiring [ed1,ed2,ed3]
         pure $ leftmost [et1,et2,et3]
@@ -615,9 +785,9 @@ examplePrim1 = do
 
 evAGS :: forall t m. MonadWidget t m
       => Event t ActElem -> ActiveState t -> m (ActiveState t)
--- evAGS = actUniq
--- evAGS = actSwitch
-evAGS = actGroups
+-- evAGS = actUniqPrim
+-- evAGS = actSwitchPrim
+evAGS = actGroupsPrim
 
 tdElm2 ::
        forall t m. MonadWidget t m
@@ -626,8 +796,8 @@ tdElm2 ::
     -> ActElem
     -> m (Event t ActElem)
 tdElm2 fEvAGS eAe me = do
-    --  let actstate txt = def & set activeStateMe txt
-    let actstate txt = def & \d -> d {_activeStateMe = txt}
+    --  let actstate txt = def & set activeStateElem txt
+    let actstate txt = def & \d -> d {_activeStateElem = txt}
     let ag = ActiveGroup $ Set.singleton me
         -- ac = actstate me & set activeStateListen (constDyn ag)
         ac = actstate me & \d -> d { _activeStateListen = constDyn ag }
@@ -644,8 +814,8 @@ tdElm2 fEvAGS eAe me = do
 -- table body area.
 examplePrim2 :: forall t m. (MonadWidget t m) => m ()
 examplePrim2 = do
-    -- let actstate txt = def & set activeStateMe txt
-    let actstate txt = def & \d -> d {_activeStateMe = txt}
+    -- let actstate txt = def & set activeStateElem txt
+    let actstate txt = def & \d -> d {_activeStateElem = txt}
     eH2N $ text "examplePrim2"
     ePN $ text $
         "Building table with html-elems and using helpers to handle " <>
@@ -702,11 +872,15 @@ examplePrim2 = do
 -- table body area.
 examplePrim3 :: forall t m. (MonadWidget t m) => m ()
 examplePrim3 = do
-    -- let actstate txt = def & set activeStateMe txt
-    let actstate txt = def & \d -> d {_activeStateMe = txt}
+    -- let actstate txt = def & set activeStateElem txt
+    let actstate txt = def & \d -> d {_activeStateElem = txt}
     let tblR = def :: TableState t
-        r1 = ActERC <$> [(0, 0), (0, 1), (0, 2)] -- row 1
-        r2 = ActERC <$> [(1, 0), (1, 1), (1, 2)] -- row 2
+        r1 = (\e -> set activeStateElem e def) <$>
+            (ActERC <$> [(0, 0), (0, 1), (0, 2)]) -- row 1
+        r2 = (\e -> set activeStateElem e def) <$>
+            (ActERC <$> [(1, 0), (1, 1), (1, 2)]) -- row 2
+        r1' = ActERC <$> [(0, 0), (0, 1), (0, 2)] -- row 1
+        r2' = ActERC <$> [(1, 0), (1, 1), (1, 2)] -- row 2
         -- tdFs = TdFuns listenMe actMU drawDivActElemEx cellEv tdComb
         --         (const def) (const def) def def
         fs = CommonADEfuns
@@ -714,8 +888,9 @@ examplePrim3 = do
             actMU     -- and change states on mouse up -events
             drawDivActElemEx -- how to draw/make each cell
             cellEvF    -- how to construct the events cell is tracking/using
-        tdFs = defaultTdFuns { _tdfADEs = fs }
+        tdFs = def { _tdfADEs = fs } :: TdFuns t m ()
         i = (Prelude.!!)
+        ae = constDyn def
     eH2N $ text "examplePrim3"
     ePN $ text $
         "Building table with html-elems and using helpers to handle " <>
@@ -723,34 +898,37 @@ examplePrim3 = do
         "that collects the functions and attribute declarations used with the " <>
         "table This also adds the fourth cell to listen the first three ones. "
     eDivN $ do
-        eRes <- eTableD (_tdfTableAttr tdFs) $ mdo
+        eRes <- eTableN $ mdo
             (htTb, eB) <- eTbodyD' (_tdfTbodyAttr tdFs) $ do
                 let dDU = _tsDynUpLDownR tblR
-                et1 <- eTrD (_tdfTrAttr tdFs $ ActErow 0) $ do
+                -- et1 <- eTrD (_tdfTrAttr tdFs $ ActErow 0) $ do
+                et1 <- eTrN $ do
                     ed1 <- eTdD (_tdfTdAttr tdFs $ r1 `i` 0) $
-                        tdComb tdFs (r1 `i` 0) () eB tblR
+                        tdComb tdFs ae (r1 `i` 0) () eB tblR
                     ed2 <- eTdD (_tdfTdAttr tdFs $ r1 `i` 1) $
-                        tdComb tdFs (r1 `i` 1) () eB tblR
+                        tdComb tdFs ae (r1 `i` 1) () eB tblR
                     ed3 <- eTdD (_tdfTdAttr tdFs $ r1 `i` 2) $
-                        tdComb tdFs (r1 `i` 2) () eB tblR
+                        tdComb tdFs ae (r1 `i` 2) () eB tblR
                     eTdN $ do
-                        let me = ActERC (0, 3)
-                            ac = listenListNotMe r1 me
-                        actS <- (_actFu . _tdfADEs) tdFs eB tblR ac
-                        (_drawEl . _tdfADEs) tdFs me () actS
+                        -- let me = ActERC (0, 3)
+                        let me = def & set activeStateElem (ActERC (0, 3))
+                            ac = listenListNotMe r1' me
+                        actS <- (_actFu . _tdfADEs) tdFs ae eB tblR ac
+                        (_drawEl . _tdfADEs) tdFs () actS
                     pure $ tblEvFiring [ed1, ed2, ed3]
-                et2 <- eTrD (_tdfTrAttr tdFs $ ActErow 1) $ do
+                -- et2 <- eTrD (_tdfTrAttr tdFs $ ActErow 1) $ do
+                et2 <- eTrN $ do
                     ed1 <- eTdD (_tdfTdAttr tdFs $ r2 `i` 0) $
-                        tdComb tdFs (r2 `i` 0) () eB tblR
+                        tdComb tdFs ae (r2 `i` 0) () eB tblR
                     ed2 <- eTdD (_tdfTdAttr tdFs $ r2 `i` 1) $
-                        tdComb tdFs (r2 `i` 1) () eB tblR
+                        tdComb tdFs ae (r2 `i` 1) () eB tblR
                     ed3 <- eTdD (_tdfTdAttr tdFs $ r2 `i` 2) $
-                        tdComb tdFs (r2 `i` 2) () eB tblR
+                        tdComb tdFs ae (r2 `i` 2) () eB tblR
                     eTdN $ do
-                        let me = ActERC (1, 3)
-                            ac = listenListNotMe r2 me
-                        actS <- (_actFu . _tdfADEs) tdFs eB tblR ac
-                        (_drawEl . _tdfADEs) tdFs me () actS
+                        let me = def & set activeStateElem (ActERC (1, 3))
+                            ac = listenListNotMe r2' me
+                        actS <- (_actFu . _tdfADEs) tdFs ae eB tblR ac
+                        (_drawEl . _tdfADEs) tdFs () actS
                     pure $ tblEvFiring [ed1, ed2, ed3]
                 pure $ leftmost [et1, et2]
             tblR <- updateTableState def eB
@@ -758,104 +936,4 @@ examplePrim3 = do
         showRes eRes
 
 --------------------------------------------------------------------------------
-
-
-genFR :: (KnownNat n, KnownNat m) => Finite m -> Finite n -> Text
-genFR r c = f r <> ":" <> f c
-  where
-    f = T.pack . show . (+1) . getFinite
-
-genVec :: (KnownNat n, KnownNat m) => Finite m -> V.Vector n Text
-genVec m = V.generate_ (genFR m)
-
-type MyCell t = TdConfHo t Text
-type MyRow t = TRowConfHo t 5 Text Text
-type MyFoot t = TFConfHo t 5 Text Text
-type MyBody t = TBConfHo t 10 5 Text Text Text
-
-type MyTable t = TTConfHo t 10 5 Text Text Text Text Text Text
-
-
-genCell :: (KnownNat n, KnownNat m, Reflex t)
-        => Finite m -> Finite n -> MyCell t
-genCell r c = TdConfHo (genFR r c) ac def
-  where
-    -- ag = ActiveGroup $ fromInteger (getFinite c)
-    -- ag = ActiveGroup $ Set.singleton $ T.pack $ show (getFinite c)
-    ag = ActiveGroup $ Set.singleton $ ActErow $ fromInteger (getFinite c)
-    ac = def { _activeStateListen = constDyn ag}
-
-genRow :: forall t m. (KnownNat m, Reflex t)
-       -- => Finite m -> Finite n -> MyRow t
-       => Finite m -> MyRow t
-genRow r = mkTrConf ("myRow " <> rt) ag def vec
-  where
-    rt = T.pack $ show $ getFinite r
-    vec = V.generate_ (genCell r)
-    -- ag = ActiveGroup $ Set.singleton $ T.pack $ show (getFinite r)
-    ag = ActiveGroup $ Set.singleton $ ActEcolh $ fromInteger (getFinite r)
-    --  ac = ActiveConf never never (constDyn True) (constDyn ag)
-
-genFCell :: Reflex t => Int -> MyCell t
-genFCell c = TdConfHo (T.pack $ show c) ac def
-  where
-    -- ag = ActiveGroup $ Set.singleton $ T.pack $ show c
-    ag = ActiveGroup $ Set.singleton $ ActEcolh c
-    ac = def { _activeStateListen = constDyn ag}
-
-genFoot :: forall t. (Reflex t)
-        => MyFoot t
-genFoot = mkTfootConf "my foot" (ActiveGroup $ Set.singleton ActEnone) def vec
-  where
-    vec = V.generate genFCell
-
-
-genBody' :: (KnownNat m, Reflex t) => V.Vector m (MyRow t)
-genBody' = V.generate_ genRow
-
-genBody :: forall t. (Reflex t) => MyBody t
-genBody = mkTBodyConf "myTable" def genBody'
--- genBody = mkTBodyConf "myTable" def (V.generate_ genRow :: V.Vector m (MyRow t))
-
-
-cs = finites :: [Finite 5]
-rs = finites :: [Finite 10]
-m9 = V.generate_ genRow :: Reflex (SpiderTimeline Global)
-                        => V.Vector 10 (MyRow (SpiderTimeline Global))
-
-
-exampleVSHo1 :: forall t m. (MonadWidget t m) => m ()
-exampleVSHo1 = do
-    eH2N $ text "Tables with similar columns using vector-sized"
-    ePN $ text $ "Note that this interface is still heavily in WIP-state. "
-        <> "This example is also in WIP-state. "
-    eBN $ text "Use mkTableVS instead."
-    eDivN $ do
-        -- let c = 10 :: Int
-        --     r = 20 :: Int
-        let c = 9 :: Finite 10
-            r = 19 :: Finite 20
-            -- cols = [1..c]
-            -- rows = [1..r]
-            cols = finites :: [Finite 5]
-            rows = finites :: [Finite 10]
-            colNames = fmap (T.pack . show . getFinite) cols
-            rowNames = fmap (T.pack . show . getFinite) rows
-            txt = genFR (head rows) (head cols)
-            v1 = V.generate_ (genFR (head rows)) :: V.Vector 5 Text
-            m1 = V.generate_ genVec :: V.Vector 10 (V.Vector 5 Text)
-            m2 = V.generate_ genRow :: V.Vector 10 (MyRow t)
-            capDef = Just $ CaptionConf "tCaption" def
-            footDef = genFoot :: MyFoot t
-            bodyConf = genBody :: MyBody t
-            tblConf =
-                mkTableConf ("tTag" :: Text) capDef (Just footDef) bodyConf def
-        -- ePN $ do
-        --   text "txt is "
-        --   text txt
-        ePN $ text "table is "
-        tElms <- mkTableElem tblConf
-        ePN $ text "Is table ok?"
-
-
 

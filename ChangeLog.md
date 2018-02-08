@@ -1,5 +1,17 @@
 # Revision history for reflex-dom-htmlea
 
+## 0.1.1.5 -- 2018-02-08
+
+* Function mkRow as a parameter to the mkTableV (inside tableConf).
+* Some function renamings.
+* Row attribute setting (tr-elements).
+* A function listenRow.
+* Examples on row selection (that is, using listenRow).
+* An example on column selection.
+* Documentation updates in many places.
+* Move vector-sized related things to a separate package.
+
+
 ## 0.1.1.4 -- 2018-01-26
 
 * Changed the cabal-file position of the lib.

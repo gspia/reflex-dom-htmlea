@@ -2,25 +2,21 @@
 
 {-|
 Module      : Reflex.Dom.HTML5.Component
-Description : Helper functions.
-Copyright   : (c) gspia 2017
+Description : Components providing pre-defined functionality.
+Copyright   : (c) gspia 2017 -
 License     : BSD
 Maintainer  : gspia
 
 = Components
 
-HTML5 elements with some helper functions.
+A set of components with some helper functions to easy up the writing
+of user interfaces.
 
 -}
 
-module Reflex.Dom.HTML5.Component (
-  module X
-  ) where
+module Reflex.Dom.HTML5.Component
+    ( module Reflex.Dom.HTML5.Component.Table
+    ) where
 
-import Reflex.Dom.HTML5.Component.Table.Common as X
-import Reflex.Dom.HTML5.Component.Table.TdComb as X
-import Reflex.Dom.HTML5.Component.Table.ThComb as X
-import Reflex.Dom.HTML5.Component.TableV       as X
-import Reflex.Dom.HTML5.Component.TableVS      as X
-import Reflex.Dom.HTML5.Component.Table.TableVSHo as X
+import Reflex.Dom.HTML5.Component.Table
 

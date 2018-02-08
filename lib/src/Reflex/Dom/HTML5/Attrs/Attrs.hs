@@ -41,30 +41,35 @@ or
 
 The following attributes have different parameter types depending on
 the element, in which it is used.
-* Value
-* Type
-* Min
-* Max
+
+    * Value
+    * Type
+    * Min
+    * Max
+
 
 Type-attribute has been splitted to
-* ButtonType constants (btSubmit, btReset, btButton, btMenu)
-* InputType constants (itButton, itCheckbox, itColor, etc.)
-* MediaType (textHtml, mimeTypeTxt)
-* MenuItemType constant (mitCommand)
-* MenuItem constant (mtContext)
-* OlType constants (olDec, olLowLat, olUpLat, olLowRoman, olUpRoman)
-* ScriptType constants and STother (stJs, stModule, stOther)
+
+    * ButtonType constants (btSubmit, btReset, btButton, btMenu)
+    * InputType constants (itButton, itCheckbox, itColor, etc.)
+    * MediaType (textHtml, mimeTypeTxt)
+    * MenuItemType constant (mitCommand)
+    * MenuItem constant (mtContext)
+    * OlType constants (olDec, olLowLat, olUpLat, olLowRoman, olUpRoman)
+    * ScriptType constants and STother (stJs, stModule, stOther)
 
 Value-attribute has been splitted to
-* DataValue, takes Text (dataValue)
-* ValueText, takes Text (valueText)
-* ValueName, takes Double (valueName)
-* ValueNumber, takes Double (valueNumber)
-* ValueOlLi, takes Int (valueOlLi)
+
+    * DataValue, takes Text (dataValue)
+    * ValueText, takes Text (valueText)
+    * ValueName, takes Double (valueName)
+    * ValueNumber, takes Double (valueNumber)
+    * ValueOlLi, takes Int (valueOlLi)
 
 Min-attribute (max-attribute similarly) has been splitted to
-* Min (minI, minD, minDT, minT)
-* MinLength (minLength)
+
+    * Min (minI, minD, minDT, minT)
+    * MinLength (minLength)
 
 
 Attributes not supperted in HTML5 are not implemented.
@@ -75,21 +80,22 @@ Attributes not supperted in HTML5 are not implemented.
 
 
 In consideration (for splitting up or for something else todo):
-* for (label and output elements),
-* href (a, area; link; base; current way to use is not good)
-* max (input vs meter and progress, check this)
-* min (same but no progress)
-* name (several elements: may benefit if splitted up somehow, even
-  though all are of type text, check iframe and object elements)
-* target (similarly has same type but quite different elements)
-* title (same here)
+
+    * for (label and output elements),
+    * href (a, area; link; base; current way to use is not good)
+    * max (input vs meter and progress, check this)
+    * min (same but no progress)
+    * name (several elements: may benefit if splitted up somehow, even
+      though all are of type text, check iframe and object elements)
+    * target (similarly has same type but quite different elements)
+    * title (same here)
 
 
 In many cases, we could let the compiler help more than at the current
 state.
 
 E.g, we could have a enums for media types. For list, see:
-[media type list}(https://www.iana.org/assignments/media-types/media-types.xml).
+[media type list}(https://www.iana.org/assignments/media-types/media-types.xml)
 
 There are many TODOs below. See also the todo-list of this package.
 
@@ -117,7 +123,8 @@ import Reflex.Dom.HTML5.Attrs.Common (AttrMap, attrMap, URL(URL))
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- |
+-- | Alternative label to use for the header cell when referencing the cell in
+-- other contexts, used with th elements with tables.
 newtype Abbr = Abbr Text
   deriving (Show, Read, Eq, Ord)
 
@@ -131,6 +138,9 @@ class AttrHasAbbr a where
   attrSetAbbr :: Abbr -> a -> a
 
 -- |
+-- @
+-- abbr txt def
+-- @
 abbr :: AttrHasAbbr a => Text -> a -> a
 abbr i = attrSetAbbr (Abbr i)
 
@@ -185,6 +195,9 @@ class AttrGetAccept a where
   attrGetAccept :: a -> Accept
 
 -- |
+-- @
+-- addAccept AcceptAudio def
+-- @
 addAccept :: (AttrHasAccept a, AttrGetAccept a) => AcceptToken -> a -> a
 addAccept t i = attrSetAccept (Accept $ t:tLst) i
   where
@@ -218,6 +231,9 @@ class AttrHasAcceptCharSet a where
   attrSetAcceptCharSet :: AcceptCharSet -> a -> a
 
 -- |
+-- @
+-- acceptCharSet txt def
+-- @
 acceptCharSet :: AttrHasAcceptCharSet a => Text -> a -> a
 acceptCharSet i = attrSetAcceptCharSet (AcceptCharSet i)
 
@@ -226,7 +242,7 @@ instance (Reflex t, AttrHasAcceptCharSet a) => AttrHasAcceptCharSet (Dynamic t a
 
 ------------------------------------------------------------------------------
 
--- |
+-- |  Send the form-data when a form is submitted to the given URL.
 newtype Action = Action URL
   deriving (Show, Read, Eq, Ord)
 
@@ -247,6 +263,9 @@ class AttrHasAction a where
   attrSetAction :: Action -> a -> a
 
 -- |
+-- @
+-- action url def
+-- @
 action :: AttrHasAction a => URL -> a -> a
 action u = attrSetAction (Action u)
 
@@ -255,7 +274,7 @@ instance (Reflex t, AttrHasAction a) => AttrHasAction (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Allow iframe-elements contents to use requestFullscreen().
 data AllowFullScreen = AllowFullScreen
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -275,7 +294,7 @@ instance Monoid AllowFullScreen where
 class AttrHasAllowFullScreen a where
   attrSetAllowFullScreen :: AllowFullScreen -> a -> a
 
--- |
+-- | This sets the attribute.
 allowFullScreen :: AttrHasAllowFullScreen a => a -> a
 allowFullScreen = attrSetAllowFullScreen AllowFullScreen
 
@@ -335,7 +354,7 @@ instance Monoid Async where
 class AttrHasAsync a where
   attrSetAsync :: Async -> a -> a
 
--- |
+-- | This sets the attribute.
 async :: AttrHasAsync a => a -> a
 async = attrSetAsync Async
 
@@ -344,7 +363,9 @@ instance (Reflex t, AttrHasAsync a) => AttrHasAsync (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Hint for form autofill feature, used with input, select and textarea
+-- elements.
+--
 -- Wish list: implement the autofill tokens.
 -- See: https://w3c.github.io/html/sec-forms.html#element-attrdef-autocompleteelements-autocomplete
 newtype AutoComplete = AutoComplete Text
@@ -375,7 +396,8 @@ instance (Reflex t, AttrHasAutoComplete a) => AttrHasAutoComplete (Dynamic t a) 
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Automatically focus the form control when the page is loaded, used
+-- with button, input, select and textarea elements.
 data AutoFocus = AutoFocus
   deriving (Show, Read, Eq, Ord, Bounded, Enum)
 
@@ -395,7 +417,7 @@ instance Monoid AutoFocus where
 class AttrHasAutoFocus a where
   attrSetAutoFocus :: AutoFocus -> a -> a
 
--- |
+-- | This sets the attribute.
 autoFocus :: AttrHasAutoFocus a => a -> a
 autoFocus = attrSetAutoFocus AutoFocus
 
@@ -404,7 +426,8 @@ instance (Reflex t, AttrHasAutoFocus a) => AttrHasAutoFocus (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Hint that the media resource can be started automatically when the page
+-- is loaded, used with audio and video elements.
 data Autoplay = Autoplay
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -424,7 +447,7 @@ instance Monoid Autoplay where
 class AttrHasAutoplay a where
   attrSetAutoplay :: Autoplay -> a -> a
 
--- |
+-- | This sets the attribute.
 autoplay :: AttrHasAutoplay a => a -> a
 autoplay = attrSetAutoplay Autoplay
 
@@ -456,7 +479,7 @@ instance Monoid ButtonType where
 class AttrHasButtonType a where
   attrSetButtonType :: ButtonType -> a -> a
 
--- |
+-- | These set the corresponding type-attribute.
 btSubmit, btReset, btButton, btMenu :: AttrHasButtonType a => a -> a
 btSubmit = attrSetButtonType BTsubmit
 btReset  = attrSetButtonType BTreset
@@ -500,7 +523,7 @@ instance (Reflex t, AttrHasCharSet a) => AttrHasCharSet (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Whether the command or control is checked, used with input element.
 data Checked = Checked
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -520,6 +543,7 @@ instance Monoid Checked where
 class AttrHasChecked a where
   attrSetChecked :: Checked -> a -> a
 
+-- | This sets the attribute.
 checked :: AttrHasChecked a => a -> a
 checked = attrSetChecked Checked
 
@@ -557,7 +581,7 @@ instance (Reflex t, AttrHasCite a) => AttrHasCite (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Maximum number of characters per line in textarea element.
 -- Non-negative integer greater than zero.
 newtype Cols = Cols Int
   deriving (Show, Read, Eq, Ord)
@@ -586,7 +610,9 @@ instance (Reflex t, AttrHasCols a) => AttrHasCols (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Number of columns that the cell is to span, used with td and th elements
+-- with tables.
+--
 -- Non-negative integer greater than zero.
 newtype ColSpan = ColSpan Int
   deriving (Show, Read, Eq, Ord)
@@ -606,7 +632,7 @@ instance Monoid ColSpan where
 class AttrHasColSpan a where
   attrSetColSpan :: ColSpan -> a -> a
 
--- |
+-- | Set the colspan attribute.
 colSpan :: AttrHasColSpan a => Int -> a -> a
 colSpan i = attrSetColSpan (ColSpan i)
 
@@ -646,7 +672,7 @@ instance (Reflex t, AttrHasContent a) => AttrHasContent (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Show user agent controls, used with audio and video elements.
 data Controls = Controls
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -666,7 +692,7 @@ instance Monoid Controls where
 class AttrHasControls a where
   attrSetControls :: Controls -> a -> a
 
--- |
+-- | This sets the attribute.
 controls :: AttrHasControls a => a -> a
 controls = attrSetControls Controls
 
@@ -726,7 +752,8 @@ instance (Reflex t, AttrHasCoords a) => AttrHasCoords (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | How the element handles crossorigin requests, used with audio, img, link,
+-- script and video elements.
 data CrossOrigin = COanon | COusecredentials | COnocors
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -748,7 +775,7 @@ instance Monoid CrossOrigin where
 class AttrHasCrossOrigin a where
   attrSetCrossOrigin :: CrossOrigin -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 corsAnon, corsCred, noCors :: AttrHasCrossOrigin a => a -> a
 corsAnon = attrSetCrossOrigin COanon
 corsCred = attrSetCrossOrigin COusecredentials
@@ -852,7 +879,9 @@ instance (Reflex t, AttrHasDateTime a) => AttrHasDateTime (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Enable the track if no other text track is more suitable, used with
+-- track element.
+--
 -- Should be not an empty text.
 newtype Default_ = Default_ Text
   deriving (Show, Read, Eq, Ord)
@@ -900,7 +929,7 @@ instance Monoid Defer where
 class AttrHasDefer a where
   attrSetDefer :: Defer -> a -> a
 
--- |
+-- | This sets the attribute.
 defer :: AttrHasDefer a => a -> a
 defer = attrSetDefer Defer
 
@@ -909,7 +938,9 @@ instance (Reflex t, AttrHasDefer a) => AttrHasDefer (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Name of form field to use for sending the element’s directionality in
+-- form submission, and used with input and textarea elements.
+--
 -- Should be not an empty text.
 newtype DirName = DirName Text
   deriving (Show, Read, Eq, Ord)
@@ -936,7 +967,8 @@ instance (Reflex t, AttrHasDirName a) => AttrHasDirName (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Whether the form control is disabled, used with button, fieldset, input,
+-- optgroup, option, select and textarea elements.
 data Disabled = Disabled
   deriving (Show, Read, Eq, Ord, Bounded, Enum)
 
@@ -956,7 +988,7 @@ instance Monoid Disabled where
 class AttrHasDisabled a where
   attrSetDisabled :: Disabled -> a -> a
 
--- |
+-- | This sets the attribute.
 disabled :: AttrHasDisabled a => a -> a
 disabled = attrSetDisabled Disabled
 
@@ -965,7 +997,8 @@ instance (Reflex t, AttrHasDisabled a) => AttrHasDisabled (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Whether to download the resource instead of navigating to it, and its
+-- file name if so. Used with a and area elements.
 -- Text gives a default file name for the downloaded resource.
 newtype Download = Download Text
   deriving (Show, Read, Eq, Ord)
@@ -1017,7 +1050,7 @@ instance Monoid EncType where
 class AttrHasEncType a where
   attrSetEncType :: EncType -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 etUrlEncoded, etData, etPlain :: AttrHasEncType a => a -> a
 etUrlEncoded = attrSetEncType ETapp
 etData       = attrSetEncType ETmulti
@@ -1058,7 +1091,9 @@ instance (Reflex t, AttrHasForId a) => AttrHasForId (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Associates the control with a form element, used with button, fieldset,
+-- input, label, object, output, select and textarea elements.
+--
 -- There are rules how the form-id should be constructed. We wrap this to a
 -- separate type so that it can be more easily replaced later with a proper
 -- construction.
@@ -1086,7 +1121,7 @@ instance Monoid Form where
 class AttrHasForm a where
   attrSetForm :: Form -> a -> a
 
--- |
+-- | Set form id.
 form :: AttrHasForm a => FormId -> a -> a
 form fi = attrSetForm (Form fi)
 
@@ -1095,7 +1130,7 @@ instance (Reflex t, AttrHasForm a) => AttrHasForm (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | URL to use for form submission, used with button and input elements.
 newtype FormAction = FormAction URL
   deriving (Show, Read, Eq, Ord)
 
@@ -1124,7 +1159,8 @@ instance (Reflex t, AttrHasFormAction a) => AttrHasFormAction (Dynamic t a) wher
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Form data set encoding type to use for form submission, used with
+-- button and input elements.
 data FormEncType = FETapp | FETmulti | FETtext
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -1146,7 +1182,7 @@ instance Monoid FormEncType where
 class AttrHasFormEncType a where
   attrSetFormEncType :: FormEncType -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 formUrlEncoded, formData, formPlain :: AttrHasFormEncType a => a -> a
 formUrlEncoded = attrSetFormEncType FETapp
 formData       = attrSetFormEncType FETmulti
@@ -1157,7 +1193,8 @@ instance (Reflex t, AttrHasFormEncType a) => AttrHasFormEncType (Dynamic t a) wh
 
 ------------------------------------------------------------------------------
 
--- |
+-- | HTTP method to use for form submission, used with button and input
+-- elements.
 data FormMethod = FMget | FMpost | FMdialog
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -1179,7 +1216,7 @@ instance Monoid FormMethod where
 class AttrHasFormMethod a where
   attrSetFormMethod :: FormMethod -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 formGet, formPost, formDialog :: AttrHasFormMethod a => a -> a
 formGet    = attrSetFormMethod FMget
 formPost   = attrSetFormMethod FMpost
@@ -1190,7 +1227,8 @@ instance (Reflex t, AttrHasFormMethod a) => AttrHasFormMethod (Dynamic t a) wher
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Bypass form control validation for form submission, used with
+-- button and input elements.
 data FormNoValidate = FormNoValidate
 
 instance Default FormNoValidate where
@@ -1209,7 +1247,7 @@ instance Monoid FormNoValidate where
 class AttrHasFormNoValidate a where
   attrSetFormNoValidate :: FormNoValidate -> a -> a
 
--- |
+-- | This sets the attribute.
 formNoValidate :: AttrHasFormNoValidate a => a -> a
 formNoValidate = attrSetFormNoValidate FormNoValidate
 
@@ -1245,7 +1283,7 @@ instance Monoid FormTarget where
 class AttrHasFormTarget a where
   attrSetFormTarget :: FormTarget -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 formTargetBlank, formTargetSelf, formTargetParent, formTargetTop
   :: AttrHasFormTarget a => a -> a
 formTargetBlank  = attrSetFormTarget FTblank
@@ -1261,7 +1299,7 @@ instance (Reflex t, AttrHasFormTarget a) => AttrHasFormTarget (Dynamic t a) wher
 
 ------------------------------------------------------------------------------
 
--- |
+-- | The header cells for this cell, used with td and th elements with tables.
 -- Text is an id-list.
 -- Wish list: handle id's differently.
 newtype Headers = Headers Text
@@ -1301,7 +1339,8 @@ instance (Reflex t, AttrHasHeaders a) => AttrHasHeaders (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Vertical dimension used with canvas, embed, iframe, img, input, object
+-- and video elements.
 newtype Height = Height Int
   deriving (Show, Read, Eq, Ord)
 
@@ -1321,7 +1360,7 @@ instance Monoid Height where
 class AttrHasHeight a where
   attrSetHeight :: Height -> a -> a
 
--- |
+-- | Set height.
 height :: AttrHasHeight a => Int -> a -> a
 height i = attrSetHeight (Height i)
 
@@ -1358,7 +1397,8 @@ instance (Reflex t, AttrHasHigh a) => AttrHasHigh (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Address. Note that URL is something we define ourselves. This is probaly
+-- going to change. TODO
 newtype Href = Href URL
   deriving (Show, Read, Eq, Ord)
 
@@ -1511,7 +1551,7 @@ instance Monoid InputMode where
 class AttrHasInputMode a where
   attrSetInputMode :: InputMode -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 imVerbatim, imLatin, imLatinName, imLatinProse, imFullWidthLatin, imKana,
   imKanaName, imKatakana, imNumeric, imTel, imEmail, imUrl
     :: AttrHasInputMode a => a -> a
@@ -1580,7 +1620,7 @@ instance Monoid InputType where
 class AttrHasInputType a where
   attrSetInputType :: InputType -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 itButton, itCheckbox, itColor, itDate, itDatetimeLocal, itEmail, itFile,
   itHidden, itImage, itMonth, itNumber, itPassword, itRadio, itRange, itReset,
   itSearch, itSubmit, itTel, itText, itTime, itUrl, itWeek
@@ -1645,7 +1685,7 @@ instance (Reflex t, AttrHasIntegrity a) => AttrHasIntegrity (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Is the image a server-side image map in img element.
 data IsMap = IsMap
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -1665,7 +1705,7 @@ instance Monoid IsMap where
 class AttrHasIsMap a where
   attrSetIsMap :: IsMap -> a -> a
 
--- |
+-- | This sets the attribute.
 isMap :: AttrHasIsMap a => a -> a
 isMap = attrSetIsMap IsMap
 
@@ -1699,7 +1739,7 @@ instance Monoid KeyType where
 class AttrHasKeyType a where
   attrSetKeyType :: KeyType -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 keyTypeRSA, keyTypeDSA, keyTypeEC
   :: AttrHasKeyType a => a -> a
 keyTypeRSA = attrSetKeyType KTrsa
@@ -1711,7 +1751,7 @@ instance (Reflex t, AttrHasKeyType a) => AttrHasKeyType (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | The type of text track used with track element.
 data Kind = KindSubtitles | KindCaptions | KindDescs | KindChapters
           | KindMetadata
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
@@ -1736,7 +1776,7 @@ instance Monoid Kind where
 class AttrHasKind a where
   attrSetKind :: Kind -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 kindSubtitles, kindCaptions, kindDescs, kindChapters, kindMeta
   :: AttrHasKind a => a -> a
 kindSubtitles = attrSetKind KindSubtitles
@@ -1750,7 +1790,7 @@ instance (Reflex t, AttrHasKind a) => AttrHasKind (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | User-visible label, used with optgroup, option and track elements.
 newtype Label = Label Text
   deriving (Show, Read, Eq, Ord)
 
@@ -1779,7 +1819,7 @@ instance (Reflex t, AttrHasLabel a) => AttrHasLabel (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | List of autocomplete options, used with input element.
 -- Wish list: handle id names
 newtype List = List Text
   deriving (Show, Read, Eq, Ord)
@@ -1809,7 +1849,7 @@ instance (Reflex t, AttrHasList a) => AttrHasList (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | A link to a fuller description of the image, used with img element.
 newtype LongDesc = LongDesc URL
   deriving (Show, Read, Eq, Ord)
 
@@ -1838,7 +1878,7 @@ instance (Reflex t, AttrHasLongDesc a) => AttrHasLongDesc (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- |  Whether to loop the media resource, used with video and audio elements.
 data Loop = Loop
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -1858,7 +1898,7 @@ instance Monoid Loop where
 class AttrHasLoop a where
   attrSetLoop :: Loop -> a -> a
 
--- |
+-- | This sets the attribute.
 loop :: AttrHasLoop a => a -> a
 loop = attrSetLoop Loop
 
@@ -1962,7 +2002,7 @@ instance (Reflex t, AttrHasMax a) => AttrHasMax (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Maximum length of value in input and textarea elements.
 newtype MaxLength = MaxLength Int
   deriving (Show, Read, Eq, Ord)
 
@@ -1981,7 +2021,7 @@ instance Monoid MaxLength where
 class AttrHasMaxLength a where
   attrSetMaxLength :: MaxLength -> a -> a
 
--- |
+-- | Set the maximum length of value in input and textarea elements.
 maxLength :: AttrHasMaxLength a => Int -> a -> a
 maxLength i = attrSetMaxLength (MaxLength i)
 
@@ -2001,6 +2041,7 @@ data MQL = MQaural | MQbraille | MQhandheld | MQprint | MQprojection
          | MQscreen | MQtty | MQtv | MQ Text
   deriving (Show, Read, Eq, Ord)
 
+-- | Applicable media used with link and style elements.
 newtype Media = Media MQL
   deriving (Show, Read, Eq, Ord)
 
@@ -2028,7 +2069,7 @@ instance Monoid Media where
 class AttrHasMedia a where
   attrSetMedia :: Media -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 mediaAural, mediaBraille, mediaHandheld, mediaPrint, mediaProjection,
   mediaScreen, mediaTty, mediaTv :: AttrHasMedia a => a -> a
 mediaAural      = attrSetMedia (Media MQaural)
@@ -2073,7 +2114,7 @@ instance Monoid MediaType where
 class AttrHasMediaType a where
   attrSetMediaType :: MediaType -> a -> a
 
--- |
+-- | This sets the attribute.
 textHtml :: AttrHasMediaType a => a -> a
 textHtml = attrSetMediaType (MediaType "text/html")
 
@@ -2139,7 +2180,7 @@ instance Monoid MenuItemType where
 class AttrHasMenuItemType a where
   attrSetMenuItemType :: MenuItemType -> a -> a
 
--- |
+-- | This sets the attribute.
 mitCommand :: AttrHasMenuItemType a => a -> a
 mitCommand = attrSetMenuItemType MITcommand
 
@@ -2168,7 +2209,7 @@ instance Monoid MenuType where
 class AttrHasMenuType a where
   attrSetMenuType :: MenuType -> a -> a
 
--- |
+-- | This sets the attribute.
 mtContext :: AttrHasMenuType a => a -> a
 mtContext = attrSetMenuType MTContext
 
@@ -2177,7 +2218,7 @@ instance (Reflex t, AttrHasMenuType a) => AttrHasMenuType (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | HTTP method to use for form submission (form element).
 data Method = Mget | Mpost | Mdialog
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2199,7 +2240,7 @@ instance Monoid Method where
 class AttrHasMethod a where
   attrSetMethod :: Method -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 mGet, mPost, mDialog :: AttrHasMethod a => a -> a
 mGet    = attrSetMethod Mget
 mPost   = attrSetMethod Mpost
@@ -2250,7 +2291,7 @@ instance (Reflex t, AttrHasMin a) => AttrHasMin (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Minimum length of value in input and textarea elements.
 newtype MinLength = MinLength Int
   deriving (Show, Read, Eq, Ord)
 
@@ -2278,7 +2319,7 @@ instance (Reflex t, AttrHasMinLength a) => AttrHasMinLength (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Allow multiple values in input and select elements.
 data Multiple = Multiple
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2298,7 +2339,7 @@ instance Monoid Multiple where
 class AttrHasMultiple a where
   attrSetMultiple :: Multiple -> a -> a
 
--- |
+-- | This sets the attribute.
 multiple :: AttrHasMultiple a => a -> a
 multiple = attrSetMultiple Multiple
 
@@ -2307,7 +2348,8 @@ instance (Reflex t, AttrHasMultiple a) => AttrHasMultiple (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Whether to mute the media resource by default, used with audio and video
+-- elements.
 data Muted = Muted
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2327,7 +2369,7 @@ instance Monoid Muted where
 class AttrHasMuted a where
   attrSetMuted :: Muted -> a -> a
 
--- |
+-- | This sets the attribute.
 muted :: AttrHasMuted a => a -> a
 muted = attrSetMuted Muted
 
@@ -2336,7 +2378,7 @@ instance (Reflex t, AttrHasMuted a) => AttrHasMuted (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Many elements can use name-attribute.
 -- Name cannot be empty.
 -- Wish list: use types to ensure that name is not empty.
 data Name = Name Text | NameCharset
@@ -2363,7 +2405,7 @@ class AttrHasName a where
 name :: AttrHasName a => Text -> a -> a
 name t = attrSetName (Name t)
 
--- |
+-- | This sets the attribute.
 nameCharSet :: AttrHasName a => a -> a
 nameCharSet = attrSetName NameCharset
 
@@ -2373,7 +2415,7 @@ instance (Reflex t, AttrHasName a) => AttrHasName (Dynamic t a) where
 ------------------------------------------------------------------------------
 
 -- |
--- Cryptographic nonce ("number used once")
+-- Cryptographic nonce ("number used once"). Link, script and style elements.
 newtype Nonce = Nonce Text
 
 instance Default Nonce where
@@ -2401,7 +2443,8 @@ instance (Reflex t, AttrHasNonce a) => AttrHasNonce (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Bypass form control validation for form submission and used with
+-- form element.
 data NoValidate = NoValidate
 
 instance Default NoValidate where
@@ -2420,7 +2463,7 @@ instance Monoid NoValidate where
 class AttrHasNoValidate a where
   attrSetNoValidate :: NoValidate -> a -> a
 
--- |
+-- | This sets the attribute.
 noValidate :: AttrHasNoValidate a => a -> a
 noValidate = attrSetNoValidate NoValidate
 
@@ -2453,7 +2496,7 @@ instance Monoid OlType where
 class AttrHasOlType a where
   attrSetOlType :: OlType -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 olDec, olLowLat, olUpLat, olLowRoman, olUpRoman :: AttrHasOlType a => a -> a
 olDec      = attrSetOlType OlDec
 olLowLat   = attrSetOlType OlLowLat
@@ -2466,7 +2509,8 @@ instance (Reflex t, AttrHasOlType a) => AttrHasOlType (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Can be used with details (details visible) and dialog elements (is dialog
+-- box showing).
 data Open = Open
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2486,7 +2530,7 @@ instance Monoid Open where
 class AttrHasOpen a where
   attrSetOpen :: Open -> a -> a
 
--- |
+-- | This sets the attribute.
 open :: AttrHasOpen a => a -> a
 open = attrSetOpen Open
 
@@ -2495,7 +2539,7 @@ instance (Reflex t, AttrHasOpen a) => AttrHasOpen (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Optimum value used in meter element.
 newtype Optimum = Optimum Double
   deriving (Show, Read, Eq, Ord)
 
@@ -2523,7 +2567,8 @@ instance (Reflex t, AttrHasOptimum a) => AttrHasOptimum (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Pattern to be matched by the form control’s value and used with input
+-- element.
 -- Wish list: replace text with appropriate regular expression type.
 newtype Pattern = Pattern Text
   deriving (Show, Read, Eq, Ord)
@@ -2553,7 +2598,8 @@ instance (Reflex t, AttrHasPattern a) => AttrHasPattern (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | User-visible label to be placed within the form control with input and
+-- textarea elements.
 -- The attribute, if specified, must have a value that contains no U+000A LINE
 -- FEED (LF) or U+000D CARRIAGE RETURN (CR) characters.
 newtype Placeholder = Placeholder Text
@@ -2584,7 +2630,7 @@ instance (Reflex t, AttrHasPlaceholder a) => AttrHasPlaceholder (Dynamic t a) wh
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Poster frame to show prior to video playback with video element.
 newtype Poster = Poster URL
   deriving (Show, Read, Eq, Ord)
 
@@ -2610,7 +2656,8 @@ instance (Reflex t, AttrHasPoster a) => AttrHasPoster (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Hints how much buffering the media resource will likely need with audio
+-- and video elements.
 data Preload = PLnone | PLmetadata | PLauto
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2632,7 +2679,7 @@ instance Monoid Preload where
 class AttrHasPreload a where
   attrSetPreload :: Preload -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 preLoadNone, preLoadMeta, preLoadAuto :: AttrHasPreload a => a -> a
 preLoadNone = attrSetPreload PLnone
 preLoadMeta = attrSetPreload PLmetadata
@@ -2643,7 +2690,8 @@ instance (Reflex t, AttrHasPreload a) => AttrHasPreload (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Whether to allow the value to be edited by the user with input and
+-- textarea elements.
 data ReadOnly = ReadOnly
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2663,7 +2711,7 @@ instance Monoid ReadOnly where
 class AttrHasReadOnly a where
   attrSetReadOnly :: ReadOnly -> a -> a
 
--- |
+-- | This sets the attribute.
 readOnly :: AttrHasReadOnly a => a -> a
 readOnly = attrSetReadOnly ReadOnly
 
@@ -2728,7 +2776,7 @@ instance Monoid Rel where
 class AttrHasRel a where
   attrSetRel :: Rel -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 ltAlternate, ltAuthor, ltBookmark, ltExternal, ltHelp , ltIcon, ltLicense,
   ltNext, ltNofollow, ltNoopener, ltNoreferrer, ltPrefetch, ltPrev, ltSearch,
   ltStylesheet, ltTag :: AttrHasRel a => a -> a
@@ -2786,7 +2834,7 @@ class AttrHasReferrerPolicy a where
   attrSetReferrerPolicy :: ReferrerPolicy -> a -> a
 
 
--- |
+-- | These set the corresponding attribute.
 rpEmpty, rpNoReferrer, rpNoReferrerWhenDowngrade, rpSameOrigin, rpOrigin,
   rpStrictOrigin, rpOriginWhenCrossOrigin, rpStrictOriginWhenCrossOrigin,
   rpUnsafeUrl :: AttrHasReferrerPolicy a => a -> a
@@ -2806,7 +2854,8 @@ instance (Reflex t, AttrHasReferrerPolicy a) => AttrHasReferrerPolicy (Dynamic t
 
 ------------------------------------------------------------------------------
 
--- |
+-- | If the control is required for form submission in input, select or
+-- textarea element.
 data Required = Required
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2826,7 +2875,7 @@ instance Monoid Required where
 class AttrHasRequired a where
   attrSetRequired :: Required -> a -> a
 
--- |
+-- | This sets the attribute.
 required :: AttrHasRequired a => a -> a
 required = attrSetRequired Required
 
@@ -2835,7 +2884,7 @@ instance (Reflex t, AttrHasRequired a) => AttrHasRequired (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Number the ol-element list backwards.
 data Reversed = Reversed
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -2856,7 +2905,7 @@ instance Monoid Reversed where
 class AttrHasReversed a where
   attrSetReversed :: Reversed -> a -> a
 
--- |
+-- | This sets the attribute.
 reversed :: AttrHasReversed a => a -> a
 reversed = attrSetReversed Reversed
 
@@ -2865,7 +2914,7 @@ instance (Reflex t, AttrHasReversed a) => AttrHasReversed (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Number of lines to show in textarea element.
 -- Non-negative integer greater than zero.
 newtype Rows = Rows Int
   deriving (Show, Read, Eq, Ord)
@@ -2885,7 +2934,7 @@ instance Monoid Rows where
 class AttrHasRows a where
   attrSetRows :: Rows -> a -> a
 
--- |
+-- | Set the number of lines to show in textarea element.
 rows :: AttrHasRows a => Int -> a -> a
 rows i = attrSetRows (Rows i)
 
@@ -2894,7 +2943,8 @@ instance (Reflex t, AttrHasRows a) => AttrHasRows (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Number of rows that the cell is to span to be used with th and td
+-- elements.
 -- Non-negative integer.
 newtype RowSpan = RowSpan Int
   deriving (Show, Read, Eq, Ord)
@@ -2923,7 +2973,7 @@ instance (Reflex t, AttrHasRowSpan a) => AttrHasRowSpan (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Security rules for nested content to be used with iframe element.
 -- allow-forms, allow-pointer-lock, allow-popups, allow-presentation,
 -- allow-same-origin, allow-scripts, allow-top-navigation
 data SandboxToken = SBAllowForms | SBAllowPointerLock | SBAllowPopups
@@ -2964,7 +3014,7 @@ class AttrHasSandbox a where
 class AttrGetSandbox a where
   attrGetSandbox :: a -> Sandbox
 
-
+-- | These set the corresponding attribute.
 sbAllowForms, sbAllowPointerLock, sbAllowPopups, sbAllowPresentation,
   sbAllowSameOrigin, sbAllowScripts, sbAllowTopNavigatiion ::
   (AttrHasSandbox a) => a -> a
@@ -2989,7 +3039,8 @@ instance (Reflex t, AttrHasSandbox a) => AttrHasSandbox (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Specifies which cells the header cell applies to, is related to
+-- th-elements and tables.
 data Scope = ScopeRow | ScopeCol | ScopeRowGroup | ScopeColGroup | ScopeAuto
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -3012,7 +3063,7 @@ instance Monoid Scope where
 class AttrHasScope a where
   attrSetScope :: Scope -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 scopeRow, scopeCol, scopeRowGroup, scopeColGroup, scopeAuto
   :: AttrHasScope a => a -> a
 scopeRow = attrSetScope ScopeRow
@@ -3050,7 +3101,7 @@ instance Monoid ScriptType where
 class AttrHasScriptType a where
   attrSetScriptType :: ScriptType -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 stJs, stModule :: AttrHasScriptType a => a -> a
 stJs = attrSetScriptType STjs
 stModule = attrSetScriptType STmodule
@@ -3064,7 +3115,7 @@ instance (Reflex t, AttrHasScriptType a) => AttrHasScriptType (Dynamic t a) wher
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Is option selected by default (option element).
 data Selected = Selected
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -3084,7 +3135,7 @@ instance Monoid Selected where
 class AttrHasSelected a where
   attrSetSelected :: Selected -> a -> a
 
--- |
+-- | This sets the attribute.
 selected :: AttrHasSelected a => a -> a
 selected = attrSetSelected Selected
 
@@ -3093,7 +3144,7 @@ instance (Reflex t, AttrHasSelected a) => AttrHasSelected (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | The kind of shape to be created in an image map (with area element).
 data Shape = ShapeCircle | ShapeDefault | ShapePolygon | ShapeRectangle
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -3116,7 +3167,7 @@ instance Monoid Shape where
 class AttrHasShape a where
   attrSetShape :: Shape -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 shapeCircle, shapeDefault, shapePolygon, shapeRectangle
   :: AttrHasShape a => a -> a
 shapeCircle    = attrSetShape ShapeCircle
@@ -3129,7 +3180,7 @@ instance (Reflex t, AttrHasShape a) => AttrHasShape (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Size of the control (input and select elements).
 newtype Size = Size Int
   deriving (Show, Read, Eq, Ord)
 
@@ -3162,6 +3213,7 @@ instance (Reflex t, AttrHasSize a) => AttrHasSize (Dynamic t a) where
 data SizeToken = SizesAny | SizesI Int Int
   deriving (Show, Read, Eq, Ord)
 
+-- | Sizes of the icons, to be used with link element.
 newtype Sizes = Sizes [SizeToken]
   deriving (Show, Read, Eq, Ord)
 
@@ -3217,7 +3269,7 @@ instance (Reflex t, AttrHasSizes a) => AttrHasSizes (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Number of columns spanned, used with col and colgroup elements.
 -- Non-negative integer greater than zero.
 newtype Span = Span Int
   deriving (Show, Read, Eq, Ord)
@@ -3238,7 +3290,7 @@ instance Monoid Span where
 class AttrHasSpan a where
   attrSetSpan :: Span -> a -> a
 
--- |
+-- | Set the number of columns to be spanned.
 span :: AttrHasSpan a => Int -> a -> a
 span i = attrSetSpan (Span i)
 
@@ -3247,7 +3299,8 @@ instance (Reflex t, AttrHasSpan a) => AttrHasSpan (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Address, used with audio, embed, iframe, img, input, script, source,
+-- track and video elements.
 newtype Src = Src URL
   deriving (Show, Read, Eq, Ord)
 
@@ -3268,7 +3321,7 @@ instance Monoid Src where
 class AttrHasSrc a where
   attrSetSrc :: Src -> a -> a
 
--- |
+-- | Set the address (the src-attribute).
 src :: AttrHasSrc a => URL -> a -> a
 src t = attrSetSrc (Src t)
 
@@ -3277,7 +3330,7 @@ instance (Reflex t, AttrHasSrc a) => AttrHasSrc (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | A document to render in the iframe.
 -- The text should contain valid html.
 newtype SrcDoc = SrcDoc Text
   deriving (Show, Read, Eq, Ord)
@@ -3308,7 +3361,7 @@ instance (Reflex t, AttrHasSrcDoc a) => AttrHasSrcDoc (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Text track language to be used with track element.
 -- Wish list: implement BCP 47.
 newtype SrcLang = SrcLang Text
   deriving (Show, Read, Eq, Ord)
@@ -3427,7 +3480,7 @@ instance (Reflex t, AttrHasSrcSetP a) => AttrHasSrcSetP (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Value of the first item used with ol-element.
 newtype Start = Start Int
   deriving (Show, Read, Eq, Ord)
 
@@ -3455,7 +3508,8 @@ instance (Reflex t, AttrHasStart a) => AttrHasStart (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Input element can be given a granularity to be matched by the form
+-- control’s value.
 data Step = StepAny | StepI Int | StepD Double
   deriving (Show, Read, Eq, Ord)
 
@@ -3489,7 +3543,8 @@ instance (Reflex t, AttrHasStep a) => AttrHasStep (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | A valid browsing context name or keyword used with form, base, a and
+-- area elements.
 -- See FormTarget.
 data Target = Tblank | Tself | Tparent | Ttop | Tname Text
   deriving (Show, Read, Eq, Ord)
@@ -3514,7 +3569,7 @@ instance Monoid Target where
 class AttrHasTarget a where
   attrSetTarget :: Target -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 targetBlank, targetSelf, targetParent, targetTop
   :: AttrHasTarget a => a -> a
 targetBlank  = attrSetTarget Tblank
@@ -3522,6 +3577,7 @@ targetSelf   = attrSetTarget Tself
 targetParent = attrSetTarget Tparent
 targetTop    = attrSetTarget Ttop
 
+-- | Parameter is a (browsing context) name.
 targetName :: AttrHasTarget a => Text -> a -> a
 targetName t = attrSetTarget (Tname t)
 
@@ -3530,7 +3586,8 @@ instance (Reflex t, AttrHasTarget a) => AttrHasTarget (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
+-- | Should the type attribute and the Content-Type value need to match for
+-- the resource to be used. This is used with the object element.
 data TypeMustMatch = TypeMustMatch
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -3550,7 +3607,7 @@ instance Monoid TypeMustMatch where
 class AttrHasTypeMustMatch a where
   attrSetTypeMustMatch :: TypeMustMatch -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 typeMustMatch :: AttrHasTypeMustMatch a => a -> a
 typeMustMatch = attrSetTypeMustMatch TypeMustMatch
 
@@ -3559,7 +3616,8 @@ instance (Reflex t, AttrHasTypeMustMatch a) => AttrHasTypeMustMatch (Dynamic t a
 
 ------------------------------------------------------------------------------
 
--- |
+-- |  Name of image map to use with img element.
+--
 -- Wish list: use types to ensure that this uses the name of a map.
 newtype UseMap = UseMap Text
   deriving (Show, Read, Eq, Ord)
@@ -3702,8 +3760,8 @@ instance (Reflex t, AttrHasValueOlLi a) => AttrHasValueOlLi (Dynamic t a) where
 
 ------------------------------------------------------------------------------
 
--- |
--- Non-negative integer.
+-- | Horizontal dimension (non-negative integer) used with canvas, embed,
+-- iframe, img, input, object and video elements.
 newtype Width = Width Int
   deriving (Show, Read, Eq, Ord)
 
@@ -3733,6 +3791,8 @@ instance (Reflex t, AttrHasWidth a) => AttrHasWidth (Dynamic t a) where
 ------------------------------------------------------------------------------
 
 -- |
+-- How the value of the form control is to be wrapped for form submission
+-- that is used with textarea-element.
 data Wrap = WrapSoft | WrapHard
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
@@ -3752,7 +3812,7 @@ instance Monoid Wrap where
 class AttrHasWrap a where
   attrSetWrap :: Wrap -> a -> a
 
--- |
+-- | These set the corresponding attribute.
 wrapSoft, wrapHard :: AttrHasWrap a => a -> a
 wrapSoft = attrSetWrap WrapSoft
 wrapHard = attrSetWrap WrapHard

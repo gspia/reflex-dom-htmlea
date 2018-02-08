@@ -194,21 +194,27 @@ instance AttrHasReferrerPolicy EArea where attrSetReferrerPolicy p g = g {_eArea
 
 instance AttrHasCustom EArea where attrSetCustom p g       = g { _eAreaCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"area\" ... @
 eArea' :: forall t m a. DomBuilder t m => EArea -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eArea' b  = elAttr' "area" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"area\" ... @
 eArea :: forall t m a. DomBuilder t m => EArea -> m a -> m a
 eArea b children = snd <$> eArea' b children
 
+-- | A short-hand notion for @ el\' \"area\" ... @
 eAreaN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAreaN' = el' "area"
 
+-- | A short-hand notion for @ el \"area\" ... @
 eAreaN :: forall t m a. DomBuilder t m => m a -> m a
 eAreaN children = snd <$> eAreaN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"area\" ... @
 eAreaD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EArea -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAreaD' b = elDynAttr' "area" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"area\" ... @
 eAreaD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EArea -> m a -> m a
 eAreaD b children = snd <$> eAreaD' b children
 
@@ -310,21 +316,27 @@ instance AttrHasControls    EAudio where attrSetControls p g    = g { _eAudioCon
 
 instance AttrHasCustom EAudio where attrSetCustom p g       = g { _eAudioCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"audio\" ... @
 eAudio' :: forall t m a. DomBuilder t m => EAudio -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAudio' b  = elAttr' "audio" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"audio\" ... @
 eAudio :: forall t m a. DomBuilder t m => EAudio -> m a -> m a
 eAudio b children = snd <$> eAudio' b children
 
+-- | A short-hand notion for @ el\' \"audio\" ... @
 eAudioN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAudioN' = el' "audio"
 
+-- | A short-hand notion for @ el \"audio\" ... @
 eAudioN :: forall t m a. DomBuilder t m => m a -> m a
 eAudioN children = snd <$> eAudioN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"audio\" ... @
 eAudioD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAudio -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAudioD' b  = elDynAttr' "audio" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"audio\" ... @
 eAudioD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAudio -> m a -> m a
 eAudioD b children = snd <$> eAudioD' b children
 
@@ -415,21 +427,27 @@ instance AttrHasWidth ECanvas where attrSetWidth p g = g {_eCanvasWidth = Just p
 
 instance AttrHasCustom ECanvas where attrSetCustom p g       = g { _eCanvasCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"canvas\" ... @
 eCanvas' :: forall t m a. DomBuilder t m => ECanvas -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eCanvas' b  = elAttr' "canvas" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"canvas\" ... @
 eCanvas :: forall t m a. DomBuilder t m => ECanvas -> m a -> m a
 eCanvas b children = snd <$> eCanvas' b children
 
+-- | A short-hand notion for @ el\' \"canvas\" ... @
 eCanvasN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eCanvasN' = el' "canvas"
 
+-- | A short-hand notion for @ el \"canvas\" ... @
 eCanvasN :: forall t m a. DomBuilder t m => m a -> m a
 eCanvasN children = snd <$> eCanvasN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"canvas\" ... @
 eCanvasD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ECanvas -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eCanvasD' b = elDynAttr' "canvas" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"canvas\" ... @
 eCanvasD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ECanvas -> m a -> m a
 eCanvasD b children = snd <$> eCanvasD' b children
 
@@ -661,21 +679,27 @@ instance AttrHasWidth          EImg where attrSetWidth p g          = g { _eImgW
 
 instance AttrHasCustom EImg where attrSetCustom p g       = g { _eImgCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"img\" ... @
 eImg' :: forall t m a. DomBuilder t m => EImg -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eImg' b  = elAttr' "img" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"img\" ... @
 eImg :: forall t m a. DomBuilder t m => EImg -> m a -> m a
 eImg b children = snd <$> eImg' b children
 
+-- | A short-hand notion for @ el\' \"img\" ... @
 eImgN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eImgN' = el' "img"
 
+-- | A short-hand notion for @ el \"img\" ... @
 eImgN :: forall t m a. DomBuilder t m => m a -> m a
 eImgN children = snd <$> eImgN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"img\" ... @
 eImgD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EImg -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eImgD' b  = elDynAttr' "img" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"img\" ... @
 eImgD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EImg -> m a -> m a
 eImgD b children = snd <$> eImgD' b children
 
@@ -762,21 +786,27 @@ instance AttrHasName EMap where attrSetName p g = g {_eMapName = Just p }
 
 instance AttrHasCustom EMap where attrSetCustom p g       = g { _eMapCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"map\" ... @
 eMap' :: forall t m a. DomBuilder t m => EMap -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eMap' b  = elAttr' "map" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"map\" ... @
 eMap :: forall t m a. DomBuilder t m => EMap -> m a -> m a
 eMap b children = snd <$> eMap' b children
 
+-- | A short-hand notion for @ el\' \"map\" ... @
 eMapN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eMapN' = el' "map"
 
+-- | A short-hand notion for @ el \"map\" ... @
 eMapN :: forall t m a. DomBuilder t m => m a -> m a
 eMapN children = snd <$> eMapN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"map\" ... @
 eMapD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMap -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eMapD' b = elDynAttr' "map" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"map\" ... @
 eMapD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMap -> m a -> m a
 eMapD b children = snd <$> eMapD' b children
 
@@ -875,21 +905,27 @@ instance AttrHasWidth EObject where attrSetWidth p g = g {_eObjectWidth = Just p
 instance AttrHasCustom EObject where attrSetCustom p g       = g { _eObjectCustom = Just p }
 
 
+-- | A short-hand notion for @ elAttr\' \"object\" ... @
 eObject' :: forall t m a. DomBuilder t m => EObject -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eObject' b  = elAttr' "object" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"object\" ... @
 eObject :: forall t m a. DomBuilder t m => EObject -> m a -> m a
 eObject b children = snd <$> eObject' b children
 
+-- | A short-hand notion for @ el\' \"object\" ... @
 eObjectN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eObjectN' = el' "object"
 
+-- | A short-hand notion for @ el \"object\" ... @
 eObjectN :: forall t m a. DomBuilder t m => m a -> m a
 eObjectN children = snd <$> eObjectN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"object\" ... @
 eObjectD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EObject -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eObjectD' b  = elDynAttr' "object" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"object\" ... @
 eObjectD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EObject -> m a -> m a
 eObjectD b children = snd <$> eObjectD' b children
 
@@ -969,21 +1005,27 @@ instance AttrHasValueName    EParam where attrSetValueName p g  = g { _eParamVal
 
 instance AttrHasCustom EParam where attrSetCustom p g       = g { _eParamCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"param\" ... @
 eParam' :: forall t m a. DomBuilder t m => EParam -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eParam' b  = elAttr' "param" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"param\" ... @
 eParam :: forall t m a. DomBuilder t m => EParam -> m a -> m a
 eParam b children = snd <$> eParam' b children
 
+-- | A short-hand notion for @ el\' \"param\" ... @
 eParamN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eParamN' = el' "param"
 
+-- | A short-hand notion for @ el \"param\" ... @
 eParamN :: forall t m a. DomBuilder t m => m a -> m a
 eParamN children = snd <$> eParamN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"param\" ... @
 eParamD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EParam -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eParamD' b  = elDynAttr' "param" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"param\" ... @
 eParamD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EParam -> m a -> m a
 eParamD b children = snd <$> eParamD' b children
 
@@ -1055,21 +1097,27 @@ instance AttrGetClassName EPicture where attrGetClassName g = maybe (ClassName T
 
 instance AttrHasCustom EPicture where attrSetCustom p g       = g { _ePictureCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"picture\" ... @
 ePicture' :: forall t m a. DomBuilder t m => EPicture -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 ePicture' b  = elAttr' "picture" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"picture\" ... @
 ePicture :: forall t m a. DomBuilder t m => EPicture -> m a -> m a
 ePicture b children = snd <$> ePicture' b children
 
+-- | A short-hand notion for @ el\' \"picture\" ... @
 ePictureN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 ePictureN' = el' "picture"
 
+-- | A short-hand notion for @ el \"picture\" ... @
 ePictureN :: forall t m a. DomBuilder t m => m a -> m a
 ePictureN children = snd <$> ePictureN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"picture\" ... @
 ePictureD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EPicture -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 ePictureD' b  = elDynAttr' "picture" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"picture\" ... @
 ePictureD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EPicture -> m a -> m a
 ePictureD b children = snd <$> ePictureD' b children
 
@@ -1160,21 +1208,27 @@ instance AttrHasMediaType ESource where attrSetMediaType p g = g {_eSourceMediaT
 
 instance AttrHasCustom ESource where attrSetCustom p g       = g { _eSourceCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"source\" ... @
 eSource' :: forall t m a. DomBuilder t m => ESource -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSource' b  = elAttr' "source" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"source\" ... @
 eSource :: forall t m a. DomBuilder t m => ESource -> m a -> m a
 eSource b children = snd <$> eSource' b children
 
+-- | A short-hand notion for @ el\' \"source\" ... @
 eSourceN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSourceN' = el' "source"
 
+-- | A short-hand notion for @ el \"source\" ... @
 eSourceN :: forall t m a. DomBuilder t m => m a -> m a
 eSourceN children = snd <$> eSourceN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"source\" ... @
 eSourceD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESource -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSourceD' b  = elDynAttr' "source" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"source\" ... @
 eSourceD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESource -> m a -> m a
 eSourceD b children = snd <$> eSourceD' b children
 
@@ -1264,21 +1318,27 @@ instance AttrHasSrcLang ETrack where attrSetSrcLang p g = g {_eTrackSrcLang = Ju
 
 instance AttrHasCustom ETrack where attrSetCustom p g       = g { _eTrackCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"track\" ... @
 eTrack' :: forall t m a. DomBuilder t m => ETrack -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eTrack' b  = elAttr' "track" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"track\" ... @
 eTrack :: forall t m a. DomBuilder t m => ETrack -> m a -> m a
 eTrack b children = snd <$> eTrack' b children
 
+-- | A short-hand notion for @ el\' \"track\" ... @
 eTrackN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eTrackN' = el' "track"
 
+-- | A short-hand notion for @ el \"track\" ... @
 eTrackN :: forall t m a. DomBuilder t m => m a -> m a
 eTrackN children = snd <$> eTrackN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"track\" ... @
 eTrackD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ETrack -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eTrackD' b  = elDynAttr' "track" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"track\" ... @
 eTrackD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ETrack -> m a -> m a
 eTrackD b children = snd <$> eTrackD' b children
 
@@ -1389,21 +1449,27 @@ instance AttrHasWidth       EVideo where attrSetWidth p g       = g { _eVideoWid
 
 instance AttrHasCustom EVideo where attrSetCustom p g       = g { _eVideoCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"video\" ... @
 eVideo' :: forall t m a. DomBuilder t m => EVideo -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eVideo' b  = elAttr' "video" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"video\" ... @
 eVideo :: forall t m a. DomBuilder t m => EVideo -> m a -> m a
 eVideo b children = snd <$> eVideo' b children
 
+-- | A short-hand notion for @ el\' \"video\" ... @
 eVideoN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eVideoN' = el' "video"
 
+-- | A short-hand notion for @ el \"video\" ... @
 eVideoN :: forall t m a. DomBuilder t m => m a -> m a
 eVideoN children = snd <$> eVideoN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"video\" ... @
 eVideoD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EVideo -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eVideoD' b  = elDynAttr' "video" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"video\" ... @
 eVideoD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EVideo -> m a -> m a
 eVideoD b children = snd <$> eVideoD' b children
 

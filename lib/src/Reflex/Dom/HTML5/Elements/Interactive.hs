@@ -24,14 +24,16 @@ choice is arbitrary.
 The naming convention sligthly differs from that of others by
 adding 2 other functions for each element.
 
-* eAC - takes attributes and 'm ()', give 'm (Event t ())'
-* eACD - takes dynamic attributes and 'm ()', give 'm (Event t ())'
+    * eAC - takes attributes and 'm ()', give 'm (Event t ())'
+    * eACD - takes dynamic attributes and 'm ()', give 'm (Event t ())'
+
 
 TBD: are the inputs and outputs ok and should something similar
 be provided for all elements as the tabindex-attribute can make any
 element interactive. (hmm)
 
 'ELabel' has 'eLabelCForId' convenience function.
+
 
 == Note
 
@@ -217,21 +219,27 @@ instance AttrHasCustom EA where attrSetCustom p g       = g { _eACustom = Just p
 -- instance (Reflex t, AttrHasAnmval a) => AttrHasAnmval (Dynamic t a) where
 --   attrSetAnmval c = fmap (attrSetAnmval c)
 
+-- | A short-hand notion for @ elAttr\' \"a\" ... @
 eA' :: forall t m a. DomBuilder t m => EA -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eA' b  = elAttr' "a" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"a\" ... @
 eA :: forall t m a. DomBuilder t m => EA -> m a -> m a
 eA b children = snd <$> eA' b children
 
+-- | A short-hand notion for @ el\' \"a\" ... @
 eAN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAN' = el' "a"
 
+-- | A short-hand notion for @ el \"a\" ... @
 eAN :: forall t m a. DomBuilder t m => m a -> m a
 eAN children = snd <$> eAN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"a\" ... @
 eAD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EA -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAD' b  = elDynAttr' "a" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"a\" ... @
 eAD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EA -> m a -> m a
 eAD b children = snd <$> eAD' b children
 
@@ -360,21 +368,27 @@ instance AttrHasCustom EButton where attrSetCustom p g       = g { _eButtonCusto
 -- instance (Reflex t, AttrHasAnmval a) => AttrHasAnmval (Dynamic t a) where
 --   attrSetAnmval c = fmap (attrSetAnmval c)
 
+-- | A short-hand notion for @ elAttr\' \"button\" ... @
 eButton' :: forall t m a. DomBuilder t m => EButton -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eButton' b  = elAttr' "button" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"button\" ... @
 eButton :: forall t m a. DomBuilder t m => EButton -> m a -> m a
 eButton b children = snd <$> eButton' b children
 
+-- | A short-hand notion for @ el\' \"button\" ... @
 eButtonN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eButtonN' = el' "button"
 
+-- | A short-hand notion for @ el \"button\" ... @
 eButtonN :: forall t m a. DomBuilder t m => m a -> m a
 eButtonN children = snd <$> eButtonN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"button\" ... @
 eButtonD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EButton -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eButtonD' b  = elDynAttr' "button" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"button\" ... @
 eButtonD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EButton -> m a -> m a
 eButtonD b children = snd <$> eButtonD' b children
 
@@ -462,21 +476,27 @@ instance AttrHasOpen EDetails where attrSetOpen p g = g {_eDetailsOpen = Just p 
 
 instance AttrHasCustom EDetails where attrSetCustom p g       = g { _eDetailsCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"details\" ... @
 eDetails' :: forall t m a. DomBuilder t m => EDetails -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eDetails' b  = elAttr' "details" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"details\" ... @
 eDetails :: forall t m a. DomBuilder t m => EDetails -> m a -> m a
 eDetails b children = snd <$> eDetails' b children
 
+-- | A short-hand notion for @ el\' \"details\" ... @
 eDetailsN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eDetailsN' = el' "details"
 
+-- | A short-hand notion for @ el \"details\" ... @
 eDetailsN :: forall t m a. DomBuilder t m => m a -> m a
 eDetailsN children = snd <$> eDetailsN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"details\" ... @
 eDetailsD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDetails -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eDetailsD' b  = elDynAttr' "details" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"details\" ... @
 eDetailsD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDetails -> m a -> m a
 eDetailsD b children = snd <$> eDetailsD' b children
 
@@ -577,21 +597,27 @@ instance AttrHasCustom EEmbed where attrSetCustom p g       = g { _eEmbedCustom 
 -- instance (Reflex t, AttrHasAnmval a) => AttrHasAnmval (Dynamic t a) where
 --   attrSetAnmval c = fmap (attrSetAnmval c)
 
+-- | A short-hand notion for @ elAttr\' \"embed\" ... @
 eEmbed' :: forall t m a. DomBuilder t m => EEmbed -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eEmbed' b  = elAttr' "embed" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"embed\" ... @
 eEmbed :: forall t m a. DomBuilder t m => EEmbed -> m a -> m a
 eEmbed b children = snd <$> eEmbed' b children
 
+-- | A short-hand notion for @ el\' \"embed\" ... @
 eEmbedN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eEmbedN' = el' "embed"
 
+-- | A short-hand notion for @ el \"embed\" ... @
 eEmbedN :: forall t m a. DomBuilder t m => m a -> m a
 eEmbedN children = snd <$> eEmbedN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"embed\" ... @
 eEmbedD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EEmbed -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eEmbedD' b  = elDynAttr' "embed" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"embed\" ... @
 eEmbedD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EEmbed -> m a -> m a
 eEmbedD b children = snd <$> eEmbedD' b children
 
@@ -802,21 +828,27 @@ instance AttrHasWidth          EInput where attrSetWidth p g          = g { _eIn
 
 instance AttrHasCustom EInput where attrSetCustom p g       = g { _eInputCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"input\" ... @
 eInput' :: forall t m a. DomBuilder t m => EInput -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eInput' b  = elAttr' "input" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"input\" ... @
 eInput :: forall t m a. DomBuilder t m => EInput -> m a -> m a
 eInput b children = snd <$> eInput' b children
 
+-- | A short-hand notion for @ el\' \"input\" ... @
 eInputN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eInputN' = el' "input"
 
+-- | A short-hand notion for @ el \"input\" ... @
 eInputN :: forall t m a. DomBuilder t m => m a -> m a
 eInputN children = snd <$> eInputN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"input\" ... @
 eInputD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EInput -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eInputD' b  = elDynAttr' "input" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"input\" ... @
 eInputD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EInput -> m a -> m a
 eInputD b children = snd <$> eInputD' b children
 
@@ -934,11 +966,13 @@ instance AttrHasName      EKeygen where attrSetName p g      = g { _eKeygenName 
 -- instance (Reflex t, AttrHasAnmval a) => AttrHasAnmval (Dynamic t a) where
 --   attrSetAnmval c = fmap (attrSetAnmval c)
 
+-- | A short-hand notion for @ elAttr \"keygen\" ... @
 eKeygen :: (DomBuilder t m, PostBuild t m) => EKeygen -> m () -> m (Event t ())
 eKeygen b children = do
   (e,_) <- elAttr' "keygen" (attrMap b) children
   return $ domEvent Click e
 
+-- | A short-hand notion for @ elDynAttr \"keygen\" ... @
 eKeygenD :: (DomBuilder t m, PostBuild t m) => Dynamic t EKeygen -> m () -> m (Event t ())
 eKeygenD bDyn children = do
   (e,_) <- elDynAttr' "keygen" (attrMap <$> bDyn) children
@@ -1025,21 +1059,27 @@ instance AttrHasForId     ELabel where attrSetForId p g      = g { _eLabelForId 
 instance AttrHasCustom ELabel where attrSetCustom p g       = g { _eLabelCustom = Just p }
 
 
+-- | A short-hand notion for @ elAttr\' \"label\" ... @
 eLabel' :: forall t m a. DomBuilder t m => ELabel -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eLabel' b  = elAttr' "label" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"label\" ... @
 eLabel :: forall t m a. DomBuilder t m => ELabel -> m a -> m a
 eLabel b children = snd <$> eLabel' b children
 
+-- | A short-hand notion for @ el\' \"label\" ... @
 eLabelN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eLabelN' = el' "label"
 
+-- | A short-hand notion for @ el \"label\" ... @
 eLabelN :: forall t m a. DomBuilder t m => m a -> m a
 eLabelN children = snd <$> eLabelN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"label\" ... @
 eLabelD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ELabel -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eLabelD' b  = elDynAttr' "label" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"label\" ... @
 eLabelD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ELabel -> m a -> m a
 eLabelD b children = snd <$> eLabelD' b children
 
@@ -1155,21 +1195,27 @@ instance AttrHasSize      ESelect where attrSetSize p g      = g { _eSelectSize 
 instance AttrHasCustom ESelect where attrSetCustom p g       = g { _eSelectCustom = Just p }
 
 
+-- | A short-hand notion for @ elAttr\' \"select\" ... @
 eSelect' :: forall t m a. DomBuilder t m => ESelect -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSelect' b  = elAttr' "select" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"select\" ... @
 eSelect :: forall t m a. DomBuilder t m => ESelect -> m a -> m a
 eSelect b children = snd <$> eSelect' b children
 
+-- | A short-hand notion for @ el\' \"select\" ... @
 eSelectN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSelectN' = el' "select"
 
+-- | A short-hand notion for @ el \"select\" ... @
 eSelectN :: forall t m a. DomBuilder t m => m a -> m a
 eSelectN children = snd <$> eSelectN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"select\" ... @
 eSelectD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESelect -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSelectD' b  = elDynAttr' "select" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"select\" ... @
 eSelectD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESelect -> m a -> m a
 eSelectD b children = snd <$> eSelectD' b children
 

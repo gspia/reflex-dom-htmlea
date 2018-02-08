@@ -5,9 +5,9 @@ module MainW where
 
 import Reflex.Dom      (text, display, count, elAttr, (=:), (&),
                        MonadWidget, foldDyn, Dynamic)
--- import Reflex.Dom.Core (mainWidget)
-import Data.Default (def)
-import Data.Monoid ((<>))
+import Reflex.Dom.Core (mainWidget)
+import Data.Default    (def)
+import Data.Monoid     ((<>))
 import Language.Javascript.JSaddle (JSM)
 
 import Reflex.Dom.HTML5.Attrs as A (Globals, AnyAttr, id_, URL(URL), className,
@@ -18,10 +18,10 @@ import Reflex.Dom.HTML5.Elements as E (eInput, eEmbedC, eIFrameC, eBN, eA,
                                       eP, eAC, ePN, eH1N, eDivN, eUlN, eLiN,
                                       eLi, eOlN, eOl, eBr_, eH2N)
 
-------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
-mainW :: MonadWidget t m => m ()
-mainW = do
+mainW :: JSM ()
+mainW = mainWidget $ do
   eH1N $ text "Welcome to reflex-dom-htmlea"
   intro
   caveats

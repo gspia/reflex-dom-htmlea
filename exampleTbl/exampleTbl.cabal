@@ -1,5 +1,5 @@
 name:                exampleTbl
-version:             0.1.1.1
+version:             0.1.1.2
 synopsis:            Examples (table components)
 description:         Examples: for ghcid dev-work, for nix-build and
                      for building a webkit2gtk app.
@@ -11,6 +11,7 @@ category:            Web
 build-type:          Simple
 cabal-version:       >=1.24
 
+
 library
   exposed-modules:     MainW2
   hs-source-dirs:      libTbl
@@ -18,16 +19,14 @@ library
   build-depends:        base
                       , containers
                       , data-default
+                      , lens
+                      , text
+                      , vector
                       , ghcjs-dom
                       , reflex
                       , reflex-dom
-                      , text
                       , jsaddle
                       , reflex-dom-htmlea
-                      , vector
-                      , vector-sized
-                      , finite-typelits
-                      , singletons
 
 executable exampleTbl
   main-is:           Main.hs
@@ -37,9 +36,30 @@ executable exampleTbl
                      , exampleTbl
                      , reflex-dom
                      , reflex-dom-core
-  ghc-options: -Wall -Wincomplete-uni-patterns 
+  ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates 
                -O2 -threaded -rtsopts -with-rtsopts=-N
-               -Wincomplete-record-updates 
-               -Wmissing-import-lists 
-               -Wno-redundant-constraints
+               -Wmissing-import-lists -Wno-redundant-constraints
+
+-- To use ghcid and dev-server.sh, uncomment the following before 
+-- entering into the nix-shell.
+-- executable exampleTbl-wai
+--   if impl(ghcjs)
+--     buildable:       False
+--   main-is:           Main.hs
+--   hs-source-dirs:    app-wai
+--   default-language:  Haskell2010
+--   build-depends:       base
+--                      , exampleTbl
+--                      , reflex-dom
+--                      , reflex-dom-core
+--                      , jsaddle
+--                      , jsaddle-warp
+--                      -- following are for ghcid autoloading 
+--                      , wai
+--                      , warp
+--                      , websockets
+--                      , wai-app-static
+--   ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates 
+--                -O2 -threaded -rtsopts -with-rtsopts=-N
+--                -Wmissing-import-lists -Wno-redundant-constraints
 

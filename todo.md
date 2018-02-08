@@ -12,8 +12,10 @@
 - [ ] Table: collapsing columns and rows (with sumfun hooks??)
 - [ ] Table: reordering columns and rows (just the view)
 - [ ] Table: module interface cleaning?
-- [ ] Table: move vector-sized to another package as it needs singletons
+- [x] Table: move vector-sized to another package as it needs singletons
       and it doesn't compile to android, yet 
+- [ ] Table: a selection method like actMU but such that when the select
+      item is clicked, it get's deselected.
 
 - [ ] Tree-widget the with user suppliable methods for tree-level based 
       behavior (and look and feel). 

@@ -125,21 +125,27 @@ instance AttrGetClassName EArticle where attrGetClassName g = maybe (ClassName T
 
 instance AttrHasCustom EArticle where attrSetCustom p g       = g { _eArticleCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"article\" ... @
 eArticle' :: forall t m a. DomBuilder t m => EArticle -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eArticle' b = elAttr' "article" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"article\" ... @
 eArticle :: forall t m a. DomBuilder t m => EArticle -> m a -> m a
 eArticle b children = snd <$> eArticle' b children
 
+-- | A short-hand notion for @ el\' \"article\" ... @
 eArticleN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eArticleN' = el' "article"
 
+-- | A short-hand notion for @ el \"article\" ... @
 eArticleN :: forall t m a. DomBuilder t m => m a -> m a
 eArticleN children = snd <$> eArticleN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"article\" ... @
 eArticleD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EArticle -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eArticleD' b = elDynAttr' "article" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"article\" ... @
 eArticleD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EArticle -> m a -> m a
 eArticleD b children = snd <$> eArticleD' b children
 
@@ -211,21 +217,27 @@ instance AttrGetClassName EAside where attrGetClassName g = maybe (ClassName T.e
 
 instance AttrHasCustom EAside where attrSetCustom p g       = g { _eAsideCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"aside\" ... @
 eAside' :: forall t m a. DomBuilder t m => EAside -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAside' b = elAttr' "aside" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"aside\" ... @
 eAside :: forall t m a. DomBuilder t m => EAside -> m a -> m a
 eAside b children = snd <$> eAside' b children
 
+-- | A short-hand notion for @ el\' \"aside\" ... @
 eAsideN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAsideN' = el' "aside"
 
+-- | A short-hand notion for @ el \"aside\" ... @
 eAsideN :: forall t m a. DomBuilder t m => m a -> m a
 eAsideN children = snd <$> eAsideN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"aside\" ... @
 eAsideD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAside -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eAsideD' b = elDynAttr' "aside" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"aside\" ... @
 eAsideD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAside -> m a -> m a
 eAsideD b children = snd <$> eAsideD' b children
 
@@ -297,21 +309,27 @@ instance AttrGetClassName ENav where attrGetClassName g = maybe (ClassName T.emp
 
 instance AttrHasCustom ENav where attrSetCustom p g       = g { _eNavCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"nav\" ... @
 eNav' :: forall t m a. DomBuilder t m => ENav -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eNav' b  = elAttr' "nav" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"nav\" ... @
 eNav :: forall t m a. DomBuilder t m => ENav -> m a -> m a
 eNav b children = snd <$> eNav' b children
 
+-- | A short-hand notion for @ el\' \"nav\" ... @
 eNavN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eNavN' = el' "nav"
 
+-- | A short-hand notion for @ el \"nav\" ... @
 eNavN :: forall t m a. DomBuilder t m => m a -> m a
 eNavN children = snd <$> eNavN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"nav\" ... @
 eNavD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ENav -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eNavD' b  = elDynAttr' "nav" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"nav\" ... @
 eNavD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ENav -> m a -> m a
 eNavD b children = snd <$> eNavD' b children
 
@@ -383,21 +401,27 @@ instance AttrGetClassName ESection where attrGetClassName g = maybe (ClassName T
 
 instance AttrHasCustom ESection where attrSetCustom p g       = g { _eSectionCustom = Just p }
 
+-- | A short-hand notion for @ elAttr\' \"section\" ... @
 eSection' :: forall t m a. DomBuilder t m => ESection -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSection' b  = elAttr' "section" (attrMap b)
 
+-- | A short-hand notion for @ elAttr \"section\" ... @
 eSection :: forall t m a. DomBuilder t m => ESection -> m a -> m a
 eSection b children = snd <$> eSection' b children
 
+-- | A short-hand notion for @ el\' \"section\" ... @
 eSectionN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSectionN' = el' "section"
 
+-- | A short-hand notion for @ el \"section\" ... @
 eSectionN :: forall t m a. DomBuilder t m => m a -> m a
 eSectionN children = snd <$> eSectionN' children
 
+-- | A short-hand notion for @ elDynAttr\' \"section\" ... @
 eSectionD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESection -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 eSectionD' b  = elDynAttr' "section" (attrMap <$> b)
 
+-- | A short-hand notion for @ elDynAttr \"section\" ... @
 eSectionD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESection -> m a -> m a
 eSectionD b children = snd <$> eSectionD' b children
 

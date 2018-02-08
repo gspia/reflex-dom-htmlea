@@ -14,7 +14,9 @@ in place of
 and prevents writing e.g. `eP ( href (URL "..") $ def) $ do ..`
 as p-tag doesn't have href-attribute.
 
-Another aim is to have components with pre-defined functionality.
+Another aim is to have components with pre-defined functionality. The components
+try to be self-contained so that there would be no or low need to maintain 
+(dynamic) states outside the components.
 
 The lib uses [Reflex.Dom](https://github.com/reflex-frp/reflex-dom) and
 similar design choices apply when using it. 
@@ -95,6 +97,13 @@ git submodule foreach "(git checkout develop; git pull --recurse-submodules)&"
 ```
 
 (Note that the above command gets the develop-branch of the platform.)
+
+
+See also the [.ghci](./.ghci). The warp-compilation can be used with ghci. 
+Also, the [dev-server.sh](./dev-server.sh) can be used if first uncommenting
+the corresponding target from 
+[exampleTbl.cabal](./exampleTbl/exampleTbl.cabal)-file and then entering
+the nix-shell with ghc-tools (not ghcjs).
 
 
 

@@ -35,6 +35,29 @@ executable example1
                      , reflex-dom-core
   ghc-options: -Wall -Wincomplete-uni-patterns 
                -O2 -threaded -rtsopts -with-rtsopts=-N
-               -Wincomplete-record-updates 
-               -Wmissing-import-lists 
+               -Wincomplete-record-updates -Wmissing-import-lists 
+
+
+-- To use ghcid and dev-server.sh, uncomment the following before
+-- entering into the nix-shell.
+-- executable example1-wai
+--   if impl(ghcjs)
+--     buildable:       False
+--   main-is:           Main.hs
+--   hs-source-dirs:    app-wai
+--   default-language:  Haskell2010
+--   build-depends:       base
+--                      , example1
+--                      , reflex-dom
+--                      , reflex-dom-core
+--                      , jsaddle
+--                      , jsaddle-warp
+--                      -- following are for ghcid autoloading 
+--                      , wai
+--                      , warp
+--                      , websockets
+--                      , wai-app-static
+--   ghc-options: -Wall -Wincomplete-uni-patterns -Wmissing-import-lists 
+--                -O2 -threaded -rtsopts -with-rtsopts=-N
+--                -Wincomplete-record-updates -Wno-redundant-constraints
 
