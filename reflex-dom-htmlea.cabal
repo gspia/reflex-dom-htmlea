@@ -1,5 +1,5 @@
 name:                reflex-dom-htmlea
-version:             0.1.1.5
+version:             0.1.1.6
 synopsis:            A reflex-dom API for HTML elements and attributes.
 description:         This package introduces sets of functions for writing
                      html elements and attributes. This way the compiler
@@ -35,21 +35,34 @@ library
                        , Reflex.Dom.HTML5.Elements.SectionHead
                        , Reflex.Dom.HTML5.Elements.Tabular
                        , Reflex.Dom.HTML5.Component
+                       , Reflex.Dom.HTML5.Component.Common.CompEvent
+                       , Reflex.Dom.HTML5.Component.Common.DrawFuns
+                       , Reflex.Dom.HTML5.Component.Common.StateInfo
+                       , Reflex.Dom.HTML5.Component.Common.RfpUtils
                        , Reflex.Dom.HTML5.Component.Table
                        , Reflex.Dom.HTML5.Component.Table.Common
-                       , Reflex.Dom.HTML5.Component.Table.StateInfo
-                       , Reflex.Dom.HTML5.Component.Table.TableV
+                       , Reflex.Dom.HTML5.Component.Table.ActElem
+                       , Reflex.Dom.HTML5.Component.Table.Table
                        , Reflex.Dom.HTML5.Component.Table.TdComb
                        , Reflex.Dom.HTML5.Component.Table.TfootComb
                        , Reflex.Dom.HTML5.Component.Table.ThComb
+                       , Reflex.Dom.HTML5.Component.Tree
+                       , Reflex.Dom.HTML5.Component.Tree.Common
+                       , Reflex.Dom.HTML5.Component.Tree.ActNode
+                       , Reflex.Dom.HTML5.Component.Tree.RootCombNS
+                       , Reflex.Dom.HTML5.Component.Tree.LevelNCombNS
+                       , Reflex.Dom.HTML5.Component.Tree.Tree
+                       -- , Reflex.Dom.HTML5.Component.Tree.RootComb
+                       -- , Reflex.Dom.HTML5.Component.Tree.LiComb
 
   hs-source-dirs:      lib/src
   default-language:    Haskell2010
   build-depends:       base
                        , containers
-                       , data-default
+                       -- , data-default
                        , ghcjs-dom
                        , lens
+                       , mtl
                        , reflex
                        , reflex-dom
                        , reflex-dom-core
@@ -59,4 +72,4 @@ library
                        , jsaddle-warp
   ghc-options: -Wall -O2 -Wincomplete-uni-patterns 
                -Wincomplete-record-updates 
-               -Wmissing-import-lists 
+               -Wmissing-import-lists

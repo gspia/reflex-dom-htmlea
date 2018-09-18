@@ -2,6 +2,8 @@
 # TODO-list
 
 
+- [ ] Table: start using reflex collection utilities.
+- [ ] Tree: start using reflex collection utilities.
 - [ ] Table: row-header usage with example.
 - [ ] Table: col- and rowspans on vector-sized with example.
 - [ ] Table: multi-cell selects have some extra updates (events) that 
@@ -14,12 +16,19 @@
 - [ ] Table: module interface cleaning?
 - [x] Table: move vector-sized to another package as it needs singletons
       and it doesn't compile to android, yet 
-- [ ] Table: a selection method like actMU but such that when the select
-      item is clicked, it get's deselected.
+- [x] Table: a selection method like actMU but such that when the select
+      item is clicked, it get's deselected. (Almost done.)
 
-- [ ] Tree-widget the with user suppliable methods for tree-level based 
+- [x] Tree-widget the with user suppliable methods for tree-level based 
       behavior (and look and feel). 
+- [ ] Other methods to build trees (that is, not just ul-li -consturcts).
 
+- [ ] A selection method like actMU but such that when the select
+      item is clicked, it get's deselected. And such that when one item
+      or group is selected, we can select a new one with one click that
+      at them same time deselects the old one. (Now requires two clicks.)
+
+- [ ] New component: a flow-component.
 
 
 ## Would be nice to have / general

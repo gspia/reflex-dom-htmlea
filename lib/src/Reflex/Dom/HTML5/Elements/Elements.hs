@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -12,31 +12,55 @@ Maintainer  : gspia
 = Elements
 
 This module defines majority of the elements. For each element,
-there is a data-structure that contains the attributes the
+there is a data-structure that contains the A.attributes the
 element can have, and some functions to produce the element.
 
-An example is easiest way to show how to use:
+An example is easiest way to show how to use. Take a look of the other
+examples as well as there are many of those.
 @
-eDiv (setClasses [c1,c2,c3] $ id_ "myId" $ def) $ do
-  eCiteN $ do
-    ...
-  eDialogD dAttrs $ do ...
-  where
-    dAttrs = title "My Title" $ setClasses [cd1, cd2,...] def
+dialogEx ∷ forall t m. MonadWidget t m ⇒ m ()
+dialogEx = do
+    E.h2N $ text "Dialog example"
+    E.div (A.setClasses [A.ClassName "hmm"] $ A.id_ "myId" $ E.defDiv) $ do
+        -- Note: Interactive elements have functions that end with C and
+        -- CD, those return Click-events.
+        evBtn ← E.buttonC E.defButton $ text "Open/Close dialog"
+        -- We could use other events and the associated information as well:
+        -- (evResBtn,_) ← E.button' E.defButton $ text "Open/Close dialog"
+        -- let evBtn = domEvent Mouseup evResBtn
+        rec
+            dOpen ← foldDyn ($) False
+                $ mergeWith (.) [ (\b → not b) <$ evBtn
+                                , (\_ → False) <$ evCls
+                                ]
+            let dAttrs ∷ Dynamic t E.Dialog
+                  = (\b →
+                    if b
+                       then E.defDialog
+                        & A.title "Open title" & A.setClasses [A.ClassName "hmm"]
+                        & A.open
+                       else E.defDialog
+                        & A.title "My closed title"
+                    ) <$> dOpen
+            evCls ← E.dialogD dAttrs $ do
+                E.h2N $ text "Dialog-box"
+                text "A user defined dialog (take a look of the attributes)"
+                E.buttonC E.defButton $ text "Close dialog"
+        pure ()
 @
 
 Naming convention:
 
-    * eAbbr'  - takes attributes and returns 'm (El, a)'
-    * eAbbr   - takes attributes and returns 'm a'
-    * eAbbrN' - no attributes and returns 'm (El, a)'
-    * eAbbrN  - no attributes and returns 'm a'
-    * eAbbrD' - dynamic attributes and returns 'm (El, a)'
-    * eAbbrD  - dynamic attributes and returns 'm a'
+    * abbr'  - takes A.attributes and returns 'm (El, a)'
+    * abbr   - takes A.attributes and returns 'm a'
+    * abbrN' - no A.attributes and returns 'm (El, a)'
+    * abbrN  - no A.attributes and returns 'm a'
+    * abbrD' - dynamic A.attributes and returns 'm (El, a)'
+    * abbrD  - dynamic A.attributes and returns 'm a'
 
 
-Element br has 'eBr_' function that uses default attributes
-(that is, no attributes) and blank widget (that is, no children
+Element br has 'br_' function that uses default A.attributes
+(that is, no A.attributes) and blank widget (that is, no children
 elements). Other elements don't have '_'-ending functions.
 Is there need for those?
 
@@ -50,609 +74,573 @@ For a list of elements, see
 
 module Reflex.Dom.HTML5.Elements.Elements where
 
-import Data.Default (Default, def)
 import Data.Foldable (fold)
 import Data.Maybe (catMaybes, fromMaybe, maybeToList)
--- import Data.Monoid ((<>))
 import Data.Semigroup (Semigroup, (<>))
 import qualified Data.Text as T
 import Reflex.Dom.Core (DomBuilder, Element, EventResult, Dynamic,
                        PostBuild, DomBuilderSpace, elAttr',
                        elDynAttr', blank, el')
-import Reflex.Dom.HTML5.Attrs (AttrMap, attrMap,
-  attrSetGlobals, attrSetAccessKey, attrSetContentEditable,
-  attrSetContextMenu, attrSetClassName, attrSetDir, attrSetDraggable,
-  attrSetHidden, attrSetId, attrSetLang, attrSetSpellCheck,
-  attrSetStyle, attrSetTabIndex, attrSetTitle, attrSetTranslate,
-  attrSetValueOlLi, attrSetMenuType, attrSetLabel, attrSetReversed,
-  attrSetStart, attrSetOlType, attrSetForm, attrSetDateTime,
-  attrSetCite, attrSetValueText, attrSetMax, attrSetName, attrSetForId,
-  attrSetSelected, attrSetDisabled, attrSetOptimum, attrSetLow,
-  attrSetMin, attrSetHigh, attrSetDefault, attrSetIcon, attrSetMenuItemType,
-  attrSetTarget, attrSetMethod, attrSetNoValidate,
-  attrSetEncType, attrSetAutoComplete, attrSetAction, attrSetOpen,
-  attrSetAcceptCharSet, attrSetValueNumber,
-  attrSetAnmval, attrSetDnmval, attrSetRole, attrSetSlot,
-  AttrHasGlobals, AttrHasAccessKey, AttrHasContentEditable,
-  AttrHasContextMenu, AttrHasClass, AttrHasDir, AttrHasDraggable,
-  AttrHasGlobals, AttrHasAnmval, AttrHasContentEditable,
-  AttrHasHidden, AttrHasId, AttrHasLang, AttrHasSpellCheck,
-  AttrHasStyle, AttrHasTabIndex, AttrHasTitle, AttrHasTranslate,
-  AttrHasHidden, AttrHasId, AttrHasRole, AttrHasSpellCheck,
-  AttrHasStyle, AttrHasTabIndex, AttrHasTitle, AttrHasTranslate,
-  AttrHasHidden, AttrHasId, AttrHasSlot, AttrHasSpellCheck,
-  AttrHasStyle, AttrHasTabIndex, AttrHasTitle, AttrHasTranslate,
-  AttrHasValueOlLi, AttrHasMenuType, AttrHasLabel, AttrHasReversed,
-  AttrHasStart, AttrHasOlType, AttrHasForm, AttrHasDateTime,
-  AttrHasCite, AttrHasValueText, AttrHasMax, AttrHasName, AttrHasForId,
-  AttrHasSelected, AttrHasDisabled, AttrHasOptimum, AttrHasLow,
-  AttrHasMin, AttrHasHigh, AttrHasDefault, AttrHasIcon, AttrHasMenuItemType,
-  AttrHasTarget, AttrHasMethod, AttrHasNoValidate,
-  AttrHasEncType, AttrHasAcceptCharSet, AttrHasValueNumber, ValueText,
-  AttrHasAutoComplete, AttrHasAction, AttrHasOpen,
-  AttrHasAnmval, AttrHasDnmval, AttrHasRole, AttrHasSlot,
-  ValueOlLi, MenuType, Reversed, Start, OlType, Label, ValueNumber,
-  DateTime, Cite, Max, Name, Form, ForId, Selected, Disabled,
-  Optimum, High, Low, Min, MenuItemType, Icon, Target, NoValidate,
-  Method, EncType, AutoComplete, Action, AcceptCharSet, Open, Default_,
-  Globals, AttrGetClassName, attrGetClassName, gDef, ClassName (ClassName),
-  AttrHasCustom (attrSetCustom), Attr
-  )
+import qualified Reflex.Dom.HTML5.Attrs as A
+
 
 ------------------------------------------------------------------------------
 
--- | Abbr-element has only the global attributes.
-data EAbbr = EAbbr
-  { _eAbbrGlobals :: Maybe Globals
-  , _eAbbrCustom  :: Maybe Attr
+-- | Abbr-element has only the global A.attributes.
+data Abbr = Abbr
+  { _abbrGlobals ∷ Maybe A.Globals
+  , _abbrCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EAbbr where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eAbbrGlobals b
-    ] <> maybeToList (_eAbbrCustom b)
-
-instance Default EAbbr where
-  def = EAbbr def def
-
-instance Monoid EAbbr where
-  mempty = def
-  mappend (EAbbr a1 a2) (EAbbr b1 b2) = EAbbr (a1 <> b1) (a2 <> b2)
-
-instance AttrHasGlobals EAbbr where
-   attrSetGlobals p b = b { _eAbbrGlobals = Just p }
-
--- Global attributes require the following instances.
-instance AttrHasAccessKey EAbbr
-  where attrSetAccessKey p g = g { _eAbbrGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasAnmval EAbbr
-  where attrSetAnmval p g = g { _eAbbrGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasContentEditable EAbbr
-  where attrSetContentEditable p g = g  { _eAbbrGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasContextMenu EAbbr
-  where attrSetContextMenu p g     = g { _eAbbrGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasClass EAbbr
-  where attrSetClassName p g           = g { _eAbbrGlobals = Just (attrSetClassName p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasDnmval EAbbr
-  where attrSetDnmval p g           = g { _eAbbrGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasDir EAbbr
-  where attrSetDir p g             = g { _eAbbrGlobals = Just (attrSetDir p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasDraggable EAbbr
-  where attrSetDraggable p g       = g { _eAbbrGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasHidden EAbbr
-  where attrSetHidden p g          = g { _eAbbrGlobals = Just (attrSetHidden p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasId EAbbr
-  where attrSetId p g              = g { _eAbbrGlobals = Just (attrSetId p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasLang EAbbr
-  where attrSetLang p g            = g { _eAbbrGlobals = Just (attrSetLang p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasRole EAbbr
-  where attrSetRole p g            = g { _eAbbrGlobals = Just (attrSetRole p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasSlot EAbbr
-  where attrSetSlot p g            = g { _eAbbrGlobals = Just (attrSetSlot p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasSpellCheck EAbbr
-  where attrSetSpellCheck p g      = g { _eAbbrGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasStyle EAbbr
-  where attrSetStyle p g           = g { _eAbbrGlobals = Just (attrSetStyle p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasTabIndex EAbbr
-  where attrSetTabIndex p g        = g { _eAbbrGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasTitle EAbbr
-  where attrSetTitle p g           = g { _eAbbrGlobals = Just (attrSetTitle p (fromMaybe gDef (_eAbbrGlobals g))) }
-instance AttrHasTranslate EAbbr
-  where attrSetTranslate p g       = g { _eAbbrGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eAbbrGlobals g))) }
-
-instance AttrGetClassName EAbbr where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eAbbrGlobals g)
+instance A.AttrMap Abbr where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _abbrGlobals bm
+    ] <> maybeToList (_abbrCustom bm)
 
 
-instance AttrHasCustom EAbbr where attrSetCustom p g       = g { _eAbbrCustom = Just p }
+-- | Default value for 'Abbr'.
+defAbbr ∷ Abbr
+defAbbr = Abbr Nothing Nothing
+
+
+instance Monoid Abbr where
+  mempty = defAbbr
+  mappend (Abbr a1 a2) (Abbr b1 b2) = Abbr (a1 <> b1) (a2 <> b2)
+
+instance A.AttrHasGlobals Abbr where
+   attrSetGlobals pp bm = bm { _abbrGlobals = Just pp }
+
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Abbr
+  where attrSetAccessKey pp g = g { _abbrGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasAnmval Abbr
+  where attrSetAnmval pp g = g { _abbrGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasContentEditable Abbr
+  where attrSetContentEditable pp g = g  { _abbrGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasContextMenu Abbr
+  where attrSetContextMenu pp g     = g { _abbrGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasClass Abbr
+  where attrSetClassName pp g           = g { _abbrGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasDnmval Abbr
+  where attrSetDnmval pp g           = g { _abbrGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasDir Abbr
+  where attrSetDir pp g             = g { _abbrGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasDraggable Abbr
+  where attrSetDraggable pp g       = g { _abbrGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasHidden Abbr
+  where attrSetHidden pp g          = g { _abbrGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasId Abbr
+  where attrSetId pp g              = g { _abbrGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasLang Abbr
+  where attrSetLang pp g            = g { _abbrGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasRole Abbr
+  where attrSetRole pp g            = g { _abbrGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasSlot Abbr
+  where attrSetSlot pp g            = g { _abbrGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasSpellCheck Abbr
+  where attrSetSpellCheck pp g      = g { _abbrGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasStyle Abbr
+  where attrSetStyle pp g           = g { _abbrGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasTabIndex Abbr
+  where attrSetTabIndex pp g        = g { _abbrGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasTitle Abbr
+  where attrSetTitle pp g           = g { _abbrGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+instance A.AttrHasTranslate Abbr
+  where attrSetTranslate pp g       = g { _abbrGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_abbrGlobals g))) }
+
+instance A.AttrGetClassName Abbr where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_abbrGlobals g)
+
+
+instance A.AttrHasCustom Abbr where attrSetCustom pp g       = g { _abbrCustom = Just pp }
 
 
 -- | A short-hand notion for @ elAttr\' \"abbr\" ... @
-eAbbr' :: forall t m a. DomBuilder t m => EAbbr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eAbbr' b = elAttr' "abbr" (attrMap b)
+abbr' ∷ forall t m a. DomBuilder t m ⇒ Abbr → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+abbr' bm = elAttr' "abbr" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"abbr\" ... @
-eAbbr :: forall t m a. DomBuilder t m => EAbbr -> m a -> m a
-eAbbr b children = snd <$> eAbbr' b children
+abbr ∷ forall t m a. DomBuilder t m ⇒ Abbr → m a → m a
+abbr bm children = snd <$> abbr' bm children
 
 -- | A short-hand notion for @ el\' \"abbr\" ... @
-eAbbrN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eAbbrN' = el' "abbr"
+abbrN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+abbrN' = el' "abbr"
 
 -- | A short-hand notion for @ el \"abbr\" ... @
-eAbbrN :: forall t m a. DomBuilder t m => m a -> m a
-eAbbrN children = snd <$> eAbbrN' children
+abbrN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+abbrN children = snd <$> abbrN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"abbr\" ... @
-eAbbrD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAbbr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eAbbrD' b = elDynAttr' "abbr" (attrMap <$> b)
+abbrD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Abbr → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+abbrD' bm = elDynAttr' "abbr" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"abbr\" ... @
-eAbbrD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAbbr -> m a -> m a
-eAbbrD b children = snd <$> eAbbrD' b children
+abbrD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Abbr → m a → m a
+abbrD bm children = snd <$> abbrD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 
--- | Address-element has only the global attributes.
-data EAddress = EAddress
-  { _eAddressGlobals :: Maybe Globals
-  , _eAddressCustom  :: Maybe Attr
+-- | Address-element has only the global A.attributes.
+data Address = Address
+  { _addressGlobals ∷ Maybe A.Globals
+  , _addressCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EAddress where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eAddressGlobals b
-    ] <> maybeToList (_eAddressCustom b)
+instance A.AttrMap Address where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _addressGlobals bm
+    ] <> maybeToList (_addressCustom bm)
 
 
-instance Default EAddress where
-  def = EAddress def def
+defAddress ∷ Address
+defAddress = Address Nothing Nothing
 
-instance Monoid EAddress where
-  mempty = def
-  mappend (EAddress a1 a2) (EAddress b1 b2) = EAddress (a1 <> b1) (a2 <> b2)
+instance Monoid Address where
+  mempty = defAddress
+  mappend (Address a1 a2) (Address b1 b2) = Address (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EAddress where
-   attrSetGlobals p b = b { _eAddressGlobals = Just p }
+instance A.AttrHasGlobals Address where
+   attrSetGlobals pp bm = bm { _addressGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EAddress
-  where attrSetAccessKey p g = g { _eAddressGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasAnmval EAddress
-  where attrSetAnmval p g = g { _eAddressGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasContentEditable EAddress
-  where attrSetContentEditable p g = g  { _eAddressGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasContextMenu EAddress
-  where attrSetContextMenu p g     = g { _eAddressGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasClass EAddress
-  where attrSetClassName p g           = g { _eAddressGlobals = Just (attrSetClassName p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasDnmval EAddress
-  where attrSetDnmval p g           = g { _eAddressGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasDir EAddress
-  where attrSetDir p g             = g { _eAddressGlobals = Just (attrSetDir p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasDraggable EAddress
-  where attrSetDraggable p g       = g { _eAddressGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasHidden EAddress
-  where attrSetHidden p g          = g { _eAddressGlobals = Just (attrSetHidden p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasId EAddress
-  where attrSetId p g              = g { _eAddressGlobals = Just (attrSetId p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasLang EAddress
-  where attrSetLang p g            = g { _eAddressGlobals = Just (attrSetLang p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasRole EAddress
-  where attrSetRole p g            = g { _eAddressGlobals = Just (attrSetRole p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasSlot EAddress
-  where attrSetSlot p g            = g { _eAddressGlobals = Just (attrSetSlot p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasSpellCheck EAddress
-  where attrSetSpellCheck p g      = g { _eAddressGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasStyle EAddress
-  where attrSetStyle p g           = g { _eAddressGlobals = Just (attrSetStyle p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasTabIndex EAddress
-  where attrSetTabIndex p g        = g { _eAddressGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasTitle EAddress
-  where attrSetTitle p g           = g { _eAddressGlobals = Just (attrSetTitle p (fromMaybe gDef (_eAddressGlobals g))) }
-instance AttrHasTranslate EAddress
-  where attrSetTranslate p g       = g { _eAddressGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eAddressGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Address
+  where attrSetAccessKey pp g = g { _addressGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasAnmval Address
+  where attrSetAnmval pp g = g { _addressGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasContentEditable Address
+  where attrSetContentEditable pp g = g  { _addressGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasContextMenu Address
+  where attrSetContextMenu pp g     = g { _addressGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasClass Address
+  where attrSetClassName pp g           = g { _addressGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasDnmval Address
+  where attrSetDnmval pp g           = g { _addressGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasDir Address
+  where attrSetDir pp g             = g { _addressGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasDraggable Address
+  where attrSetDraggable pp g       = g { _addressGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasHidden Address
+  where attrSetHidden pp g          = g { _addressGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasId Address
+  where attrSetId pp g              = g { _addressGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasLang Address
+  where attrSetLang pp g            = g { _addressGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasRole Address
+  where attrSetRole pp g            = g { _addressGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasSlot Address
+  where attrSetSlot pp g            = g { _addressGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasSpellCheck Address
+  where attrSetSpellCheck pp g      = g { _addressGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasStyle Address
+  where attrSetStyle pp g           = g { _addressGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasTabIndex Address
+  where attrSetTabIndex pp g        = g { _addressGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasTitle Address
+  where attrSetTitle pp g           = g { _addressGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_addressGlobals g))) }
+instance A.AttrHasTranslate Address
+  where attrSetTranslate pp g       = g { _addressGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_addressGlobals g))) }
 
-instance AttrGetClassName EAddress where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eAddressGlobals g)
+instance A.AttrGetClassName Address where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_addressGlobals g)
 
-instance AttrHasCustom EAddress where attrSetCustom p g       = g { _eAddressCustom = Just p }
+instance A.AttrHasCustom Address where attrSetCustom pp g       = g { _addressCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"address\" ... @
-eAddress' :: forall t m a. DomBuilder t m => EAddress -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eAddress' b = elAttr' "address" (attrMap b)
+address' ∷ forall t m a. DomBuilder t m ⇒ Address → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+address' bm = elAttr' "address" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"address\" ... @
-eAddress :: forall t m a. DomBuilder t m => EAddress -> m a -> m a
-eAddress b children = snd <$> eAddress' b children
+address ∷ forall t m a. DomBuilder t m ⇒ Address → m a → m a
+address bm children = snd <$> address' bm children
 
 -- | A short-hand notion for @ el\' \"address\" ... @
-eAddressN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eAddressN' = el' "address"
+addressN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+addressN' = el' "address"
 
 -- | A short-hand notion for @ el \"address\" ... @
-eAddressN :: forall t m a. DomBuilder t m => m a -> m a
-eAddressN children = snd <$> eAddressN' children
+addressN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+addressN children = snd <$> addressN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"address\" ... @
-eAddressD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAddress -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eAddressD' b = elDynAttr' "address" (attrMap <$> b)
+addressD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Address → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+addressD' bm = elDynAttr' "address" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"address\" ... @
-eAddressD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EAddress -> m a -> m a
-eAddressD b children = snd <$> eAddressD' b children
+addressD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Address → m a → m a
+addressD bm children = snd <$> addressD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | B-element has only the global attributes.
-data EB = EB
-  { _eBGlobals :: Maybe Globals
-  , _eBCustom  :: Maybe Attr
+-- | B-element has only the global A.attributes.
+data B = B
+  { _bGlobals ∷ Maybe A.Globals
+  , _bCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EB where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eBGlobals b
-    ] <> maybeToList (_eBCustom b)
+instance A.AttrMap B where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _bGlobals bm
+    ] <> maybeToList (_bCustom bm)
 
 
-instance Default EB where
-  def = EB def def
+defB ∷ B
+defB  = B Nothing Nothing
 
-instance Monoid EB where
-  mempty = def
-  mappend (EB a1 a2) (EB b1 b2) = EB (a1 <> b1) (a2 <> b2)
+instance Monoid B where
+  mempty = defB
+  mappend (B a1 a2) (B b1 b2) = B (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EB where
-   attrSetGlobals p b = b { _eBGlobals = Just p }
+instance A.AttrHasGlobals B where
+   attrSetGlobals pp bm = bm { _bGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EB
-  where attrSetAccessKey p g = g { _eBGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasAnmval EB
-  where attrSetAnmval p g = g { _eBGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasContentEditable EB
-  where attrSetContentEditable p g = g  { _eBGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasContextMenu EB
-  where attrSetContextMenu p g     = g { _eBGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasClass EB
-  where attrSetClassName p g           = g { _eBGlobals = Just (attrSetClassName p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasDnmval EB
-  where attrSetDnmval p g           = g { _eBGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasDir EB
-  where attrSetDir p g             = g { _eBGlobals = Just (attrSetDir p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasDraggable EB
-  where attrSetDraggable p g       = g { _eBGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasHidden EB
-  where attrSetHidden p g          = g { _eBGlobals = Just (attrSetHidden p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasId EB
-  where attrSetId p g              = g { _eBGlobals = Just (attrSetId p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasLang EB
-  where attrSetLang p g            = g { _eBGlobals = Just (attrSetLang p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasRole EB
-  where attrSetRole p g            = g { _eBGlobals = Just (attrSetRole p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasSlot EB
-  where attrSetSlot p g            = g { _eBGlobals = Just (attrSetSlot p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasSpellCheck EB
-  where attrSetSpellCheck p g      = g { _eBGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasStyle EB
-  where attrSetStyle p g           = g { _eBGlobals = Just (attrSetStyle p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasTabIndex EB
-  where attrSetTabIndex p g        = g { _eBGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasTitle EB
-  where attrSetTitle p g           = g { _eBGlobals = Just (attrSetTitle p (fromMaybe gDef (_eBGlobals g))) }
-instance AttrHasTranslate EB
-  where attrSetTranslate p g       = g { _eBGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eBGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey B
+  where attrSetAccessKey pp g = g { _bGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasAnmval B
+  where attrSetAnmval pp g = g { _bGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasContentEditable B
+  where attrSetContentEditable pp g = g  { _bGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasContextMenu B
+  where attrSetContextMenu pp g     = g { _bGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasClass B
+  where attrSetClassName pp g           = g { _bGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasDnmval B
+  where attrSetDnmval pp g           = g { _bGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasDir B
+  where attrSetDir pp g             = g { _bGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasDraggable B
+  where attrSetDraggable pp g       = g { _bGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasHidden B
+  where attrSetHidden pp g          = g { _bGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasId B
+  where attrSetId pp g              = g { _bGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasLang B
+  where attrSetLang pp g            = g { _bGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasRole B
+  where attrSetRole pp g            = g { _bGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasSlot B
+  where attrSetSlot pp g            = g { _bGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasSpellCheck B
+  where attrSetSpellCheck pp g      = g { _bGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasStyle B
+  where attrSetStyle pp g           = g { _bGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasTabIndex B
+  where attrSetTabIndex pp g        = g { _bGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasTitle B
+  where attrSetTitle pp g           = g { _bGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_bGlobals g))) }
+instance A.AttrHasTranslate B
+  where attrSetTranslate pp g       = g { _bGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_bGlobals g))) }
 
-instance AttrGetClassName EB where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eBGlobals g)
+instance A.AttrGetClassName B where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_bGlobals g)
 
-instance AttrHasCustom EB where attrSetCustom p g       = g { _eBCustom = Just p }
+instance A.AttrHasCustom B where attrSetCustom pp g       = g { _bCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"b\" ... @
-eB' :: forall t m a. DomBuilder t m => EB -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eB' b = elAttr' "b" (attrMap b)
+b' ∷ forall t m a. DomBuilder t m ⇒ B → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+b' bm = elAttr' "b" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"b\" ... @
-eB :: forall t m a. DomBuilder t m => EB -> m a -> m a
-eB b children = snd <$> eB' b children
+b ∷ forall t m a. DomBuilder t m ⇒ B → m a → m a
+b bm children = snd <$> b' bm children
 
--- | A short-hand notion for @ el\' \"b\" ... @
-eBN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBN' = el' "b"
+-- | A short-hand notion for @ el\' \"bm\" ... @
+bN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bN' = el' "bm"
 
--- | A short-hand notion for @ el \"b\" ... @
-eBN :: forall t m a. DomBuilder t m => m a -> m a
-eBN children = snd <$> eBN' children
+-- | A short-hand notion for @ el \"bm\" ... @
+bN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+bN children = snd <$> bN' children
 
--- | A short-hand notion for @ elDynAttr\' \"b\" ... @
-eBD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EB -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBD' b = elDynAttr' "b" (attrMap <$> b)
+-- | A short-hand notion for @ elDynAttr\' \"bm\" ... @
+bD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t B → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bD' bm = elDynAttr' "bm" (A.attrMap <$> bm)
 
--- | A short-hand notion for @ elDynAttr \"b\" ... @
-eBD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EB -> m a -> m a
-eBD b children = snd <$> eBD' b children
+-- | A short-hand notion for @ elDynAttr \"bm\" ... @
+bD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t B → m a → m a
+bD bm children = snd <$> bD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Bdi-element has only the global attributes.
-data EBdi = EBdi
-  { _eBdiGlobals :: Maybe Globals
-  , _eBdiCustom  :: Maybe Attr
+-- | Bdi-element has only the global A.attributes.
+data Bdi = Bdi
+  { _bdiGlobals ∷ Maybe A.Globals
+  , _bdiCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EBdi where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eBdiGlobals b
-    ] <> maybeToList (_eBdiCustom b)
+instance A.AttrMap Bdi where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _bdiGlobals bm
+    ] <> maybeToList (_bdiCustom bm)
 
 
-instance Default EBdi where
-  def = EBdi def def
+defBdi ∷ Bdi
+defBdi = Bdi Nothing Nothing
 
-instance Monoid EBdi where
-  mempty = def
-  mappend (EBdi a1 a2) (EBdi b1 b2) = EBdi (a1 <> b1) (a2 <> b2)
+instance Monoid Bdi where
+  mempty = defBdi
+  mappend (Bdi a1 a2) (Bdi b1 b2) = Bdi (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EBdi where
-   attrSetGlobals p b = b { _eBdiGlobals = Just p }
+instance A.AttrHasGlobals Bdi where
+   attrSetGlobals pp bm = bm { _bdiGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EBdi
-  where attrSetAccessKey p g = g { _eBdiGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasAnmval EBdi
-  where attrSetAnmval p g = g { _eBdiGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasContentEditable EBdi
-  where attrSetContentEditable p g = g  { _eBdiGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasContextMenu EBdi
-  where attrSetContextMenu p g     = g { _eBdiGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasClass EBdi
-  where attrSetClassName p g           = g { _eBdiGlobals = Just (attrSetClassName p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasDnmval EBdi
-  where attrSetDnmval p g           = g { _eBdiGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasDir EBdi
-  where attrSetDir p g             = g { _eBdiGlobals = Just (attrSetDir p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasDraggable EBdi
-  where attrSetDraggable p g       = g { _eBdiGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasHidden EBdi
-  where attrSetHidden p g          = g { _eBdiGlobals = Just (attrSetHidden p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasId EBdi
-  where attrSetId p g              = g { _eBdiGlobals = Just (attrSetId p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasLang EBdi
-  where attrSetLang p g            = g { _eBdiGlobals = Just (attrSetLang p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasRole EBdi
-  where attrSetRole p g            = g { _eBdiGlobals = Just (attrSetRole p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasSlot EBdi
-  where attrSetSlot p g            = g { _eBdiGlobals = Just (attrSetSlot p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasSpellCheck EBdi
-  where attrSetSpellCheck p g      = g { _eBdiGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasStyle EBdi
-  where attrSetStyle p g           = g { _eBdiGlobals = Just (attrSetStyle p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasTabIndex EBdi
-  where attrSetTabIndex p g        = g { _eBdiGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasTitle EBdi
-  where attrSetTitle p g           = g { _eBdiGlobals = Just (attrSetTitle p (fromMaybe gDef (_eBdiGlobals g))) }
-instance AttrHasTranslate EBdi
-  where attrSetTranslate p g       = g { _eBdiGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eBdiGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Bdi
+  where attrSetAccessKey pp g = g { _bdiGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasAnmval Bdi
+  where attrSetAnmval pp g = g { _bdiGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasContentEditable Bdi
+  where attrSetContentEditable pp g = g  { _bdiGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasContextMenu Bdi
+  where attrSetContextMenu pp g     = g { _bdiGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasClass Bdi
+  where attrSetClassName pp g           = g { _bdiGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasDnmval Bdi
+  where attrSetDnmval pp g           = g { _bdiGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasDir Bdi
+  where attrSetDir pp g             = g { _bdiGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasDraggable Bdi
+  where attrSetDraggable pp g       = g { _bdiGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasHidden Bdi
+  where attrSetHidden pp g          = g { _bdiGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasId Bdi
+  where attrSetId pp g              = g { _bdiGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasLang Bdi
+  where attrSetLang pp g            = g { _bdiGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasRole Bdi
+  where attrSetRole pp g            = g { _bdiGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasSlot Bdi
+  where attrSetSlot pp g            = g { _bdiGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasSpellCheck Bdi
+  where attrSetSpellCheck pp g      = g { _bdiGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasStyle Bdi
+  where attrSetStyle pp g           = g { _bdiGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasTabIndex Bdi
+  where attrSetTabIndex pp g        = g { _bdiGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasTitle Bdi
+  where attrSetTitle pp g           = g { _bdiGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
+instance A.AttrHasTranslate Bdi
+  where attrSetTranslate pp g       = g { _bdiGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_bdiGlobals g))) }
 
-instance AttrGetClassName EBdi where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eBdiGlobals g)
+instance A.AttrGetClassName Bdi where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_bdiGlobals g)
 
-instance AttrHasCustom EBdi where attrSetCustom p g       = g { _eBdiCustom = Just p }
+instance A.AttrHasCustom Bdi where attrSetCustom pp g       = g { _bdiCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"bdi\" ... @
-eBdi' :: forall t m a. DomBuilder t m => EBdi -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBdi' b = elAttr' "bdi" (attrMap b)
+bdi' ∷ forall t m a. DomBuilder t m ⇒ Bdi → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bdi' bm = elAttr' "bdi" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"bdi\" ... @
-eBdi :: forall t m a. DomBuilder t m => EBdi -> m a -> m a
-eBdi b children = snd <$> eBdi' b children
+bdi ∷ forall t m a. DomBuilder t m ⇒ Bdi → m a → m a
+bdi bm children = snd <$> bdi' bm children
 
 -- | A short-hand notion for @ el\' \"bdi\" ... @
-eBdiN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBdiN' = el' "bdi"
+bdiN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bdiN' = el' "bdi"
 
 -- | A short-hand notion for @ el \"bdi\" ... @
-eBdiN :: forall t m a. DomBuilder t m => m a -> m a
-eBdiN children = snd <$> eBdiN' children
+bdiN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+bdiN children = snd <$> bdiN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"bdi\" ... @
-eBdiD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBdi -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBdiD' b = elDynAttr' "bdi" (attrMap <$> b)
+bdiD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Bdi → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bdiD' bm = elDynAttr' "bdi" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"bdi\" ... @
-eBdiD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBdi -> m a -> m a
-eBdiD b children = snd <$> eBdiD' b children
+bdiD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Bdi → m a → m a
+bdiD bm children = snd <$> bdiD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Bdo-element has only the global attributes.
-data EBdo = EBdo
-  { _eBdoGlobals :: Maybe Globals
-  , _eBdoCustom  :: Maybe Attr
+-- | Bdo-element has only the global A.attributes.
+data Bdo = Bdo
+  { _bdoGlobals ∷ Maybe A.Globals
+  , _bdoCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EBdo where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eBdoGlobals b
-    ] <> maybeToList (_eBdoCustom b)
+instance A.AttrMap Bdo where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _bdoGlobals bm
+    ] <> maybeToList (_bdoCustom bm)
 
 
-instance Default EBdo where
-  def = EBdo def def
+defBdo ∷ Bdo
+defBdo = Bdo Nothing Nothing
 
-instance Monoid EBdo where
-  mempty = def
-  mappend (EBdo a1 a2) (EBdo b1 b2) = EBdo (a1 <> b1) (a2 <> b2)
+instance Monoid Bdo where
+  mempty = defBdo
+  mappend (Bdo a1 a2) (Bdo b1 b2) = Bdo (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EBdo where
-   attrSetGlobals p b = b { _eBdoGlobals = Just p }
+instance A.AttrHasGlobals Bdo where
+   attrSetGlobals pp bm = bm { _bdoGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EBdo
-  where attrSetAccessKey p g = g { _eBdoGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasAnmval EBdo
-  where attrSetAnmval p g = g { _eBdoGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasContentEditable EBdo
-  where attrSetContentEditable p g = g  { _eBdoGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasContextMenu EBdo
-  where attrSetContextMenu p g     = g { _eBdoGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasClass EBdo
-  where attrSetClassName p g           = g { _eBdoGlobals = Just (attrSetClassName p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasDnmval EBdo
-  where attrSetDnmval p g           = g { _eBdoGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasDir EBdo
-  where attrSetDir p g             = g { _eBdoGlobals = Just (attrSetDir p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasDraggable EBdo
-  where attrSetDraggable p g       = g { _eBdoGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasHidden EBdo
-  where attrSetHidden p g          = g { _eBdoGlobals = Just (attrSetHidden p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasId EBdo
-  where attrSetId p g              = g { _eBdoGlobals = Just (attrSetId p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasLang EBdo
-  where attrSetLang p g            = g { _eBdoGlobals = Just (attrSetLang p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasRole EBdo
-  where attrSetRole p g            = g { _eBdoGlobals = Just (attrSetRole p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasSlot EBdo
-  where attrSetSlot p g            = g { _eBdoGlobals = Just (attrSetSlot p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasSpellCheck EBdo
-  where attrSetSpellCheck p g      = g { _eBdoGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasStyle EBdo
-  where attrSetStyle p g           = g { _eBdoGlobals = Just (attrSetStyle p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasTabIndex EBdo
-  where attrSetTabIndex p g        = g { _eBdoGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasTitle EBdo
-  where attrSetTitle p g           = g { _eBdoGlobals = Just (attrSetTitle p (fromMaybe gDef (_eBdoGlobals g))) }
-instance AttrHasTranslate EBdo
-  where attrSetTranslate p g       = g { _eBdoGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eBdoGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Bdo
+  where attrSetAccessKey pp g = g { _bdoGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasAnmval Bdo
+  where attrSetAnmval pp g = g { _bdoGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasContentEditable Bdo
+  where attrSetContentEditable pp g = g  { _bdoGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasContextMenu Bdo
+  where attrSetContextMenu pp g     = g { _bdoGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasClass Bdo
+  where attrSetClassName pp g           = g { _bdoGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasDnmval Bdo
+  where attrSetDnmval pp g           = g { _bdoGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasDir Bdo
+  where attrSetDir pp g             = g { _bdoGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasDraggable Bdo
+  where attrSetDraggable pp g       = g { _bdoGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasHidden Bdo
+  where attrSetHidden pp g          = g { _bdoGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasId Bdo
+  where attrSetId pp g              = g { _bdoGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasLang Bdo
+  where attrSetLang pp g            = g { _bdoGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasRole Bdo
+  where attrSetRole pp g            = g { _bdoGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasSlot Bdo
+  where attrSetSlot pp g            = g { _bdoGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasSpellCheck Bdo
+  where attrSetSpellCheck pp g      = g { _bdoGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasStyle Bdo
+  where attrSetStyle pp g           = g { _bdoGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasTabIndex Bdo
+  where attrSetTabIndex pp g        = g { _bdoGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasTitle Bdo
+  where attrSetTitle pp g           = g { _bdoGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
+instance A.AttrHasTranslate Bdo
+  where attrSetTranslate pp g       = g { _bdoGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_bdoGlobals g))) }
 
-instance AttrGetClassName EBdo where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eBdoGlobals g)
+instance A.AttrGetClassName Bdo where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_bdoGlobals g)
 
-instance AttrHasCustom EBdo where attrSetCustom p g       = g { _eBdoCustom = Just p }
+instance A.AttrHasCustom Bdo where attrSetCustom pp g       = g { _bdoCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"bdo\" ... @
-eBdo' :: forall t m a. DomBuilder t m => EBdo -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBdo' b = elAttr' "bdo" (attrMap b)
+bdo' ∷ forall t m a. DomBuilder t m ⇒ Bdo → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bdo' bm = elAttr' "bdo" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"bdo\" ... @
-eBdo :: forall t m a. DomBuilder t m => EBdo -> m a -> m a
-eBdo b children = snd <$> eBdo' b children
+bdo ∷ forall t m a. DomBuilder t m ⇒ Bdo → m a → m a
+bdo bm children = snd <$> bdo' bm children
 
 -- | A short-hand notion for @ el\' \"bdo\" ... @
-eBdoN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBdoN' = el' "bdo"
+bdoN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bdoN' = el' "bdo"
 
 -- | A short-hand notion for @ el \"bdo\" ... @
-eBdoN :: forall t m a. DomBuilder t m => m a -> m a
-eBdoN children = snd <$> eBdoN' children
+bdoN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+bdoN children = snd <$> bdoN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"bdo\" ... @
-eBdoD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBdo -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBdoD' b = elDynAttr' "bdo" (attrMap <$> b)
+bdoD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Bdo → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+bdoD' bm = elDynAttr' "bdo" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"bdo\" ... @
-eBdoD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBdo -> m a -> m a
-eBdoD b children = snd <$> eBdoD' b children
+bdoD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Bdo → m a → m a
+bdoD bm children = snd <$> bdoD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | BlockQuote-element
-data EBlockQuote = EBlockQuote
-  { _eBlockQuoteGlobals :: Maybe Globals
-  , _eBlockQuoteCite    :: Maybe Cite
-  , _eBlockQuoteCustom  :: Maybe Attr
+data BlockQuote = BlockQuote
+  { _blockQuoteGlobals ∷ Maybe A.Globals
+  , _blockQuoteCite    ∷ Maybe A.Cite
+  , _blockQuoteCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EBlockQuote where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eBlockQuoteGlobals b
-    , attrMap <$> _eBlockQuoteCite b
-    ] <> maybeToList (_eBlockQuoteCustom b)
+instance A.AttrMap BlockQuote where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _blockQuoteGlobals bm
+    , A.attrMap <$> _blockQuoteCite bm
+    ] <> maybeToList (_blockQuoteCustom bm)
 
 
-instance Default EBlockQuote where
-  def = EBlockQuote def def def
+defBlockQuote ∷ BlockQuote
+defBlockQuote = BlockQuote Nothing Nothing Nothing
 
-instance Semigroup EBlockQuote where
-  (<>) (EBlockQuote a1 a2 a3) (EBlockQuote b1 b2 b3)
-    = EBlockQuote (a1 <> b1) (a2 <> b2) (a3 <> b3)
+instance Semigroup BlockQuote where
+  (<>) (BlockQuote a1 a2 a3) (BlockQuote b1 b2 b3)
+    = BlockQuote (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
-instance Monoid EBlockQuote where
-  mempty = def
+instance Monoid BlockQuote where
+  mempty = defBlockQuote
   mappend = (<>)
 
-instance AttrHasGlobals EBlockQuote where
-   attrSetGlobals p b = b { _eBlockQuoteGlobals = Just p }
+instance A.AttrHasGlobals BlockQuote where
+   attrSetGlobals pp bm = bm { _blockQuoteGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EBlockQuote
-  where attrSetAccessKey p g = g { _eBlockQuoteGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasAnmval EBlockQuote
-  where attrSetAnmval p g = g { _eBlockQuoteGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasContentEditable EBlockQuote
-  where attrSetContentEditable p g = g  { _eBlockQuoteGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasContextMenu EBlockQuote
-  where attrSetContextMenu p g     = g { _eBlockQuoteGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasClass EBlockQuote
-  where attrSetClassName p g           = g { _eBlockQuoteGlobals = Just (attrSetClassName p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasDnmval EBlockQuote
-  where attrSetDnmval p g           = g { _eBlockQuoteGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasDir EBlockQuote
-  where attrSetDir p g             = g { _eBlockQuoteGlobals = Just (attrSetDir p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasDraggable EBlockQuote
-  where attrSetDraggable p g       = g { _eBlockQuoteGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasHidden EBlockQuote
-  where attrSetHidden p g          = g { _eBlockQuoteGlobals = Just (attrSetHidden p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasId EBlockQuote
-  where attrSetId p g              = g { _eBlockQuoteGlobals = Just (attrSetId p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasLang EBlockQuote
-  where attrSetLang p g            = g { _eBlockQuoteGlobals = Just (attrSetLang p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasRole EBlockQuote
-  where attrSetRole p g            = g { _eBlockQuoteGlobals = Just (attrSetRole p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasSlot EBlockQuote
-  where attrSetSlot p g            = g { _eBlockQuoteGlobals = Just (attrSetSlot p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasSpellCheck EBlockQuote
-  where attrSetSpellCheck p g      = g { _eBlockQuoteGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasStyle EBlockQuote
-  where attrSetStyle p g           = g { _eBlockQuoteGlobals = Just (attrSetStyle p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasTabIndex EBlockQuote
-  where attrSetTabIndex p g        = g { _eBlockQuoteGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasTitle EBlockQuote
-  where attrSetTitle p g           = g { _eBlockQuoteGlobals = Just (attrSetTitle p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
-instance AttrHasTranslate EBlockQuote
-  where attrSetTranslate p g       = g { _eBlockQuoteGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eBlockQuoteGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey BlockQuote
+  where attrSetAccessKey pp g = g { _blockQuoteGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasAnmval BlockQuote
+  where attrSetAnmval pp g = g { _blockQuoteGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasContentEditable BlockQuote
+  where attrSetContentEditable pp g = g  { _blockQuoteGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasContextMenu BlockQuote
+  where attrSetContextMenu pp g     = g { _blockQuoteGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasClass BlockQuote
+  where attrSetClassName pp g           = g { _blockQuoteGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasDnmval BlockQuote
+  where attrSetDnmval pp g           = g { _blockQuoteGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasDir BlockQuote
+  where attrSetDir pp g             = g { _blockQuoteGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasDraggable BlockQuote
+  where attrSetDraggable pp g       = g { _blockQuoteGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasHidden BlockQuote
+  where attrSetHidden pp g          = g { _blockQuoteGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasId BlockQuote
+  where attrSetId pp g              = g { _blockQuoteGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasLang BlockQuote
+  where attrSetLang pp g            = g { _blockQuoteGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasRole BlockQuote
+  where attrSetRole pp g            = g { _blockQuoteGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasSlot BlockQuote
+  where attrSetSlot pp g            = g { _blockQuoteGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasSpellCheck BlockQuote
+  where attrSetSpellCheck pp g      = g { _blockQuoteGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasStyle BlockQuote
+  where attrSetStyle pp g           = g { _blockQuoteGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasTabIndex BlockQuote
+  where attrSetTabIndex pp g        = g { _blockQuoteGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasTitle BlockQuote
+  where attrSetTitle pp g           = g { _blockQuoteGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
+instance A.AttrHasTranslate BlockQuote
+  where attrSetTranslate pp g       = g { _blockQuoteGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_blockQuoteGlobals g))) }
 
-instance AttrGetClassName EBlockQuote where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eBlockQuoteGlobals g)
+instance A.AttrGetClassName BlockQuote where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_blockQuoteGlobals g)
 
-instance AttrHasCite EBlockQuote where attrSetCite p g = g {_eBlockQuoteCite = Just p }
+instance A.AttrHasCite BlockQuote where attrSetCite pp g = g {_blockQuoteCite = Just pp }
 
-instance AttrHasCustom EBlockQuote where attrSetCustom p g       = g { _eBlockQuoteCustom = Just p }
+instance A.AttrHasCustom BlockQuote where attrSetCustom pp g       = g { _blockQuoteCustom = Just pp }
 
-eBlockQuote' :: forall t m a. DomBuilder t m => EBlockQuote -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBlockQuote' b  = elAttr' "blockquote" (attrMap b)
+blockQuote' ∷ forall t m a. DomBuilder t m ⇒ BlockQuote → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+blockQuote' bm  = elAttr' "blockquote" (A.attrMap bm)
 
-eBlockQuote :: forall t m a. DomBuilder t m => EBlockQuote -> m a -> m a
-eBlockQuote b children = snd <$> eBlockQuote' b children
+blockQuote ∷ forall t m a. DomBuilder t m ⇒ BlockQuote → m a → m a
+blockQuote bm children = snd <$> blockQuote' bm children
 
-eBlockQuoteN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBlockQuoteN' = el' "blockquote"
+blockQuoteN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+blockQuoteN' = el' "blockquote"
 
-eBlockQuoteN :: forall t m a. DomBuilder t m => m a -> m a
-eBlockQuoteN children = snd <$> eBlockQuoteN' children
+blockQuoteN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+blockQuoteN children = snd <$> blockQuoteN' children
 
-eBlockQuoteD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBlockQuote -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBlockQuoteD' b = elDynAttr' "blockquote" (attrMap <$> b)
+blockQuoteD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t BlockQuote → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+blockQuoteD' bm = elDynAttr' "blockquote" (A.attrMap <$> bm)
 
-eBlockQuoteD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBlockQuote -> m a -> m a
-eBlockQuoteD b children = snd <$> eBlockQuoteD' b children
+blockQuoteD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t BlockQuote → m a → m a
+blockQuoteD bm children = snd <$> blockQuoteD' bm children
 
 
 ------------------------------------------------------------------------------
@@ -661,97 +649,97 @@ eBlockQuoteD b children = snd <$> eBlockQuoteD' b children
 -- Br is non-conforming element in HTML 5.2 and according to it, should be not
 -- used (use css instead). See obsolete features -section at W3.
 
--- | Br-element has only the global attributes.
-data EBr = EBr
-  { _eBrGlobals :: Maybe Globals
-  , _eBrCustom  :: Maybe Attr
+-- | Br-element has only the global A.attributes.
+data Br = Br
+  { _brGlobals ∷ Maybe A.Globals
+  , _brCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EBr where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eBrGlobals b
-    ] <> maybeToList (_eBrCustom b)
+instance A.AttrMap Br where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _brGlobals bm
+    ] <> maybeToList (_brCustom bm)
 
 
-instance Default EBr where
-  def = EBr def def
+defBr ∷ Br
+defBr = Br Nothing Nothing
 
-instance Monoid EBr where
-  mempty = def
-  mappend (EBr a1 a2) (EBr b1 b2) = EBr (a1 <> b1) (a2 <> b2)
+instance Monoid Br where
+  mempty = defBr
+  mappend (Br a1 a2) (Br b1 b2) = Br (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EBr where
-   attrSetGlobals p b = b { _eBrGlobals = Just p }
+instance A.AttrHasGlobals Br where
+   attrSetGlobals pp bm = bm { _brGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EBr
-  where attrSetAccessKey p g = g { _eBrGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasAnmval EBr
-  where attrSetAnmval p g = g { _eBrGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasContentEditable EBr
-  where attrSetContentEditable p g = g  { _eBrGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasContextMenu EBr
-  where attrSetContextMenu p g     = g { _eBrGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasClass EBr
-  where attrSetClassName p g           = g { _eBrGlobals = Just (attrSetClassName p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasDnmval EBr
-  where attrSetDnmval p g           = g { _eBrGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasDir EBr
-  where attrSetDir p g             = g { _eBrGlobals = Just (attrSetDir p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasDraggable EBr
-  where attrSetDraggable p g       = g { _eBrGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasHidden EBr
-  where attrSetHidden p g          = g { _eBrGlobals = Just (attrSetHidden p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasId EBr
-  where attrSetId p g              = g { _eBrGlobals = Just (attrSetId p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasLang EBr
-  where attrSetLang p g            = g { _eBrGlobals = Just (attrSetLang p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasRole EBr
-  where attrSetRole p g            = g { _eBrGlobals = Just (attrSetRole p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasSlot EBr
-  where attrSetSlot p g            = g { _eBrGlobals = Just (attrSetSlot p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasSpellCheck EBr
-  where attrSetSpellCheck p g      = g { _eBrGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasStyle EBr
-  where attrSetStyle p g           = g { _eBrGlobals = Just (attrSetStyle p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasTabIndex EBr
-  where attrSetTabIndex p g        = g { _eBrGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasTitle EBr
-  where attrSetTitle p g           = g { _eBrGlobals = Just (attrSetTitle p (fromMaybe gDef (_eBrGlobals g))) }
-instance AttrHasTranslate EBr
-  where attrSetTranslate p g       = g { _eBrGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eBrGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Br
+  where attrSetAccessKey pp g = g { _brGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasAnmval Br
+  where attrSetAnmval pp g = g { _brGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasContentEditable Br
+  where attrSetContentEditable pp g = g  { _brGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasContextMenu Br
+  where attrSetContextMenu pp g     = g { _brGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasClass Br
+  where attrSetClassName pp g           = g { _brGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasDnmval Br
+  where attrSetDnmval pp g           = g { _brGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasDir Br
+  where attrSetDir pp g             = g { _brGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasDraggable Br
+  where attrSetDraggable pp g       = g { _brGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasHidden Br
+  where attrSetHidden pp g          = g { _brGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasId Br
+  where attrSetId pp g              = g { _brGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasLang Br
+  where attrSetLang pp g            = g { _brGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasRole Br
+  where attrSetRole pp g            = g { _brGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasSlot Br
+  where attrSetSlot pp g            = g { _brGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasSpellCheck Br
+  where attrSetSpellCheck pp g      = g { _brGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasStyle Br
+  where attrSetStyle pp g           = g { _brGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasTabIndex Br
+  where attrSetTabIndex pp g        = g { _brGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasTitle Br
+  where attrSetTitle pp g           = g { _brGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_brGlobals g))) }
+instance A.AttrHasTranslate Br
+  where attrSetTranslate pp g       = g { _brGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_brGlobals g))) }
 
-instance AttrGetClassName EBr where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eBrGlobals g)
+instance A.AttrGetClassName Br where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_brGlobals g)
 
-instance AttrHasCustom EBr where attrSetCustom p g       = g { _eBrCustom = Just p }
+instance A.AttrHasCustom Br where attrSetCustom pp g       = g { _brCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"br\" ... @
-eBr' :: forall t m a. DomBuilder t m => EBr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBr' b = elAttr' "br" (attrMap b)
+br' ∷ forall t m a. DomBuilder t m ⇒ Br → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+br' bm = elAttr' "br" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"br\" ... @
-eBr :: forall t m a. DomBuilder t m => EBr -> m a -> m a
-eBr b children = snd <$> eBr' b children
+br ∷ forall t m a. DomBuilder t m ⇒ Br → m a → m a
+br bm children = snd <$> br' bm children
 
 -- | A short-hand notion for @ el\' \"br\" ... @
-eBrN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBrN' = el' "br"
+brN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+brN' = el' "br"
 
 -- | A short-hand notion for @ el \"br\" ... @
-eBrN :: forall t m a. DomBuilder t m => m a -> m a
-eBrN children = snd <$> eBrN' children
+brN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+brN children = snd <$> brN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"br\" ... @
-eBrD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eBrD' b = elDynAttr' "br" (attrMap <$> b)
+brD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Br → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+brD' bm = elDynAttr' "br" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"br\" ... @
-eBrD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EBr -> m a -> m a
-eBrD b children = snd <$> eBrD' b children
+brD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Br → m a → m a
+brD bm children = snd <$> brD' bm children
 
-eBr_ :: forall t m. DomBuilder t m => m ()
-eBr_ = eBr def blank
+br_ ∷ forall t m. DomBuilder t m ⇒ m ()
+br_ = br defBr blank
 
 
 
@@ -759,1222 +747,1224 @@ eBr_ = eBr def blank
 ------------------------------------------------------------------------------
 
 
--- | Cite-element has only the global attributes.
-data ECite = ECite
-  { _eCiteGlobals :: Maybe Globals
-  , _eCiteCustom  :: Maybe Attr
+-- | Cite-element has only the global A.attributes.
+data Cite = Cite
+  { _citglobals ∷ Maybe A.Globals
+  , _citcustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ECite where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eCiteGlobals b
-    ] <> maybeToList (_eCiteCustom b)
+instance A.AttrMap Cite where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _citglobals bm
+    ] <> maybeToList (_citcustom bm)
 
 
-instance Default ECite where
-  def = ECite def def
+defCite ∷ Cite
+defCite = Cite Nothing Nothing
 
-instance Monoid ECite where
-  mempty = def
-  mappend (ECite a1 a2) (ECite b1 b2) = ECite (a1 <> b1) (a2 <> b2)
+instance Monoid Cite where
+  mempty = defCite
+  mappend (Cite a1 a2) (Cite b1 b2) = Cite (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ECite where
-   attrSetGlobals p b = b { _eCiteGlobals = Just p }
+instance A.AttrHasGlobals Cite where
+   attrSetGlobals pp bm = bm { _citglobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ECite
-  where attrSetAccessKey p g = g { _eCiteGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasAnmval ECite
-  where attrSetAnmval p g = g { _eCiteGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasContentEditable ECite
-  where attrSetContentEditable p g = g  { _eCiteGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasContextMenu ECite
-  where attrSetContextMenu p g     = g { _eCiteGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasClass ECite
-  where attrSetClassName p g           = g { _eCiteGlobals = Just (attrSetClassName p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasDnmval ECite
-  where attrSetDnmval p g           = g { _eCiteGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasDir ECite
-  where attrSetDir p g             = g { _eCiteGlobals = Just (attrSetDir p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasDraggable ECite
-  where attrSetDraggable p g       = g { _eCiteGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasHidden ECite
-  where attrSetHidden p g          = g { _eCiteGlobals = Just (attrSetHidden p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasId ECite
-  where attrSetId p g              = g { _eCiteGlobals = Just (attrSetId p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasLang ECite
-  where attrSetLang p g            = g { _eCiteGlobals = Just (attrSetLang p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasRole ECite
-  where attrSetRole p g            = g { _eCiteGlobals = Just (attrSetRole p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasSlot ECite
-  where attrSetSlot p g            = g { _eCiteGlobals = Just (attrSetSlot p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasSpellCheck ECite
-  where attrSetSpellCheck p g      = g { _eCiteGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasStyle ECite
-  where attrSetStyle p g           = g { _eCiteGlobals = Just (attrSetStyle p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasTabIndex ECite
-  where attrSetTabIndex p g        = g { _eCiteGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasTitle ECite
-  where attrSetTitle p g           = g { _eCiteGlobals = Just (attrSetTitle p (fromMaybe gDef (_eCiteGlobals g))) }
-instance AttrHasTranslate ECite
-  where attrSetTranslate p g       = g { _eCiteGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eCiteGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Cite
+  where attrSetAccessKey pp g = g { _citglobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasAnmval Cite
+  where attrSetAnmval pp g = g { _citglobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasContentEditable Cite
+  where attrSetContentEditable pp g = g  { _citglobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasContextMenu Cite
+  where attrSetContextMenu pp g     = g { _citglobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasClass Cite
+  where attrSetClassName pp g           = g { _citglobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasDnmval Cite
+  where attrSetDnmval pp g           = g { _citglobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasDir Cite
+  where attrSetDir pp g             = g { _citglobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasDraggable Cite
+  where attrSetDraggable pp g       = g { _citglobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasHidden Cite
+  where attrSetHidden pp g          = g { _citglobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasId Cite
+  where attrSetId pp g              = g { _citglobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasLang Cite
+  where attrSetLang pp g            = g { _citglobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasRole Cite
+  where attrSetRole pp g            = g { _citglobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasSlot Cite
+  where attrSetSlot pp g            = g { _citglobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasSpellCheck Cite
+  where attrSetSpellCheck pp g      = g { _citglobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasStyle Cite
+  where attrSetStyle pp g           = g { _citglobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasTabIndex Cite
+  where attrSetTabIndex pp g        = g { _citglobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasTitle Cite
+  where attrSetTitle pp g           = g { _citglobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_citglobals g))) }
+instance A.AttrHasTranslate Cite
+  where attrSetTranslate pp g       = g { _citglobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_citglobals g))) }
 
-instance AttrGetClassName ECite where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eCiteGlobals g)
+instance A.AttrGetClassName Cite where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_citglobals g)
 
-instance AttrHasCustom ECite where attrSetCustom p g       = g { _eCiteCustom = Just p }
+instance A.AttrHasCustom Cite where attrSetCustom pp g       = g { _citcustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"cite\" ... @
-eCite' :: forall t m a. DomBuilder t m => ECite -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eCite' b  = elAttr' "cite" (attrMap b)
+cite' ∷ forall t m a. DomBuilder t m ⇒ Cite → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+cite' bm  = elAttr' "cite" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"cite\" ... @
-eCite :: forall t m a. DomBuilder t m => ECite -> m a -> m a
-eCite b children = snd <$> eCite' b children
+cite ∷ forall t m a. DomBuilder t m ⇒ Cite → m a → m a
+cite bm children = snd <$> cite' bm children
 
 -- | A short-hand notion for @ el\' \"cite\" ... @
-eCiteN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eCiteN' = el' "cite"
+citn' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+citn' = el' "cite"
 
 -- | A short-hand notion for @ el \"cite\" ... @
-eCiteN :: forall t m a. DomBuilder t m => m a -> m a
-eCiteN children = snd <$> eCiteN' children
+citn ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+citn children = snd <$> citn' children
 
 -- | A short-hand notion for @ elDynAttr\' \"cite\" ... @
-eCiteD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ECite -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eCiteD' b  = elDynAttr' "cite" (attrMap <$> b)
+citd' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Cite → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+citd' bm  = elDynAttr' "cite" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"cite\" ... @
-eCiteD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ECite -> m a -> m a
-eCiteD b children = snd <$> eCiteD' b children
+citd ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Cite → m a → m a
+citd bm children = snd <$> citd' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Code-element has only the global attributes.
-data ECode = ECode
-  { _eCodeGlobals :: Maybe Globals
-  , _eCodeCustom  :: Maybe Attr
+-- | Code-element has only the global A.attributes.
+data Code = Code
+  { _codglobals ∷ Maybe A.Globals
+  , _codcustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ECode where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eCodeGlobals b
-    ] <> maybeToList (_eCodeCustom b)
+instance A.AttrMap Code where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _codglobals bm
+    ] <> maybeToList (_codcustom bm)
 
 
-instance Default ECode where
-  def = ECode def def
+defCode ∷ Code
+defCode = Code Nothing Nothing
 
-instance Monoid ECode where
-  mempty = def
-  mappend (ECode a1 a2) (ECode b1 b2) = ECode (a1 <> b1) (a2 <> b2)
+instance Monoid Code where
+  mempty = defCode
+  mappend (Code a1 a2) (Code b1 b2) = Code (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ECode where
-   attrSetGlobals p b = b { _eCodeGlobals = Just p }
+instance A.AttrHasGlobals Code where
+   attrSetGlobals pp bm = bm { _codglobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ECode
-  where attrSetAccessKey p g = g { _eCodeGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasAnmval ECode
-  where attrSetAnmval p g = g { _eCodeGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasContentEditable ECode
-  where attrSetContentEditable p g = g  { _eCodeGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasContextMenu ECode
-  where attrSetContextMenu p g     = g { _eCodeGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasClass ECode
-  where attrSetClassName p g           = g { _eCodeGlobals = Just (attrSetClassName p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasDnmval ECode
-  where attrSetDnmval p g           = g { _eCodeGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasDir ECode
-  where attrSetDir p g             = g { _eCodeGlobals = Just (attrSetDir p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasDraggable ECode
-  where attrSetDraggable p g       = g { _eCodeGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasHidden ECode
-  where attrSetHidden p g          = g { _eCodeGlobals = Just (attrSetHidden p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasId ECode
-  where attrSetId p g              = g { _eCodeGlobals = Just (attrSetId p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasLang ECode
-  where attrSetLang p g            = g { _eCodeGlobals = Just (attrSetLang p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasRole ECode
-  where attrSetRole p g            = g { _eCodeGlobals = Just (attrSetRole p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasSlot ECode
-  where attrSetSlot p g            = g { _eCodeGlobals = Just (attrSetSlot p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasSpellCheck ECode
-  where attrSetSpellCheck p g      = g { _eCodeGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasStyle ECode
-  where attrSetStyle p g           = g { _eCodeGlobals = Just (attrSetStyle p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasTabIndex ECode
-  where attrSetTabIndex p g        = g { _eCodeGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasTitle ECode
-  where attrSetTitle p g           = g { _eCodeGlobals = Just (attrSetTitle p (fromMaybe gDef (_eCodeGlobals g))) }
-instance AttrHasTranslate ECode
-  where attrSetTranslate p g       = g { _eCodeGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eCodeGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Code
+  where attrSetAccessKey pp g = g { _codglobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasAnmval Code
+  where attrSetAnmval pp g = g { _codglobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasContentEditable Code
+  where attrSetContentEditable pp g = g  { _codglobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasContextMenu Code
+  where attrSetContextMenu pp g     = g { _codglobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasClass Code
+  where attrSetClassName pp g           = g { _codglobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasDnmval Code
+  where attrSetDnmval pp g           = g { _codglobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasDir Code
+  where attrSetDir pp g             = g { _codglobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasDraggable Code
+  where attrSetDraggable pp g       = g { _codglobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasHidden Code
+  where attrSetHidden pp g          = g { _codglobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasId Code
+  where attrSetId pp g              = g { _codglobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasLang Code
+  where attrSetLang pp g            = g { _codglobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasRole Code
+  where attrSetRole pp g            = g { _codglobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasSlot Code
+  where attrSetSlot pp g            = g { _codglobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasSpellCheck Code
+  where attrSetSpellCheck pp g      = g { _codglobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasStyle Code
+  where attrSetStyle pp g           = g { _codglobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasTabIndex Code
+  where attrSetTabIndex pp g        = g { _codglobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasTitle Code
+  where attrSetTitle pp g           = g { _codglobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_codglobals g))) }
+instance A.AttrHasTranslate Code
+  where attrSetTranslate pp g       = g { _codglobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_codglobals g))) }
 
-instance AttrGetClassName ECode where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eCodeGlobals g)
+instance A.AttrGetClassName Code where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_codglobals g)
 
-instance AttrHasCustom ECode where attrSetCustom p g       = g { _eCodeCustom = Just p }
+instance A.AttrHasCustom Code where attrSetCustom pp g       = g { _codcustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"code\" ... @
-eCode' :: forall t m a. DomBuilder t m => ECode -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eCode' b  = elAttr' "code" (attrMap b)
+code' ∷ forall t m a. DomBuilder t m ⇒ Code → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+code' bm  = elAttr' "code" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"code\" ... @
-eCode :: forall t m a. DomBuilder t m => ECode -> m a -> m a
-eCode b children = snd <$> eCode' b children
+code ∷ forall t m a. DomBuilder t m ⇒ Code → m a → m a
+code bm children = snd <$> code' bm children
 
 -- | A short-hand notion for @ el\' \"code\" ... @
-eCodeN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eCodeN' = el' "code"
+codn' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+codn' = el' "code"
 
 -- | A short-hand notion for @ el \"code\" ... @
-eCodeN :: forall t m a. DomBuilder t m => m a -> m a
-eCodeN children = snd <$> eCodeN' children
+codn ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+codn children = snd <$> codn' children
 
 -- | A short-hand notion for @ elDynAttr\' \"code\" ... @
-eCodeD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ECode -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eCodeD' b  = elDynAttr' "code" (attrMap <$> b)
+codd' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Code → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+codd' bm  = elDynAttr' "code" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"code\" ... @
-eCodeD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ECode -> m a -> m a
-eCodeD b children = snd <$> eCodeD' b children
+codd ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Code → m a → m a
+codd bm children = snd <$> codd' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Data-element
 -- Is value-attribute ok here?
-data EData = EData
-  { _eDataGlobals   :: Maybe Globals
-  , _eDataValueText :: Maybe ValueText
-  , _eDataCustom    :: Maybe Attr
+data Data = Data
+  { _dataGlobals   ∷ Maybe A.Globals
+  , _dataValueText ∷ Maybe A.ValueText
+  , _dataCustom    ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EData where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDataGlobals b
-    , attrMap <$> _eDataValueText b
-    ] <> maybeToList (_eDataCustom b)
+instance A.AttrMap Data where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _dataGlobals bm
+    , A.attrMap <$> _dataValueText bm
+    ] <> maybeToList (_dataCustom bm)
 
 
-instance Default EData where
-  def = EData def def def
+defData ∷ Data
+defData = Data Nothing Nothing Nothing
 
-instance Monoid EData where
-  mempty = def
-  mappend (EData a1 a2 a3) (EData b1 b2 b3)
-    = EData (a1 <> b1) (a2 <> b2) (a3 <> b3)
+instance Monoid Data where
+  mempty = defData
+  mappend (Data a1 a2 a3) (Data b1 b2 b3)
+    = Data (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
-instance AttrHasGlobals EData where
-   attrSetGlobals p b = b { _eDataGlobals = Just p }
+instance A.AttrHasGlobals Data where
+   attrSetGlobals pp bm = bm { _dataGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EData
-  where attrSetAccessKey p g = g { _eDataGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasAnmval EData
-  where attrSetAnmval p g = g { _eDataGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasContentEditable EData
-  where attrSetContentEditable p g = g  { _eDataGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasContextMenu EData
-  where attrSetContextMenu p g     = g { _eDataGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasClass EData
-  where attrSetClassName p g           = g { _eDataGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasDnmval EData
-  where attrSetDnmval p g           = g { _eDataGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasDir EData
-  where attrSetDir p g             = g { _eDataGlobals = Just (attrSetDir p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasDraggable EData
-  where attrSetDraggable p g       = g { _eDataGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasHidden EData
-  where attrSetHidden p g          = g { _eDataGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasId EData
-  where attrSetId p g              = g { _eDataGlobals = Just (attrSetId p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasLang EData
-  where attrSetLang p g            = g { _eDataGlobals = Just (attrSetLang p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasRole EData
-  where attrSetRole p g            = g { _eDataGlobals = Just (attrSetRole p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasSlot EData
-  where attrSetSlot p g            = g { _eDataGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasSpellCheck EData
-  where attrSetSpellCheck p g      = g { _eDataGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasStyle EData
-  where attrSetStyle p g           = g { _eDataGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasTabIndex EData
-  where attrSetTabIndex p g        = g { _eDataGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasTitle EData
-  where attrSetTitle p g           = g { _eDataGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDataGlobals g))) }
-instance AttrHasTranslate EData
-  where attrSetTranslate p g       = g { _eDataGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDataGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Data
+  where attrSetAccessKey pp g = g { _dataGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasAnmval Data
+  where attrSetAnmval pp g = g { _dataGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasContentEditable Data
+  where attrSetContentEditable pp g = g  { _dataGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasContextMenu Data
+  where attrSetContextMenu pp g     = g { _dataGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasClass Data
+  where attrSetClassName pp g           = g { _dataGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasDnmval Data
+  where attrSetDnmval pp g           = g { _dataGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasDir Data
+  where attrSetDir pp g             = g { _dataGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasDraggable Data
+  where attrSetDraggable pp g       = g { _dataGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasHidden Data
+  where attrSetHidden pp g          = g { _dataGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasId Data
+  where attrSetId pp g              = g { _dataGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasLang Data
+  where attrSetLang pp g            = g { _dataGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasRole Data
+  where attrSetRole pp g            = g { _dataGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasSlot Data
+  where attrSetSlot pp g            = g { _dataGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasSpellCheck Data
+  where attrSetSpellCheck pp g      = g { _dataGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasStyle Data
+  where attrSetStyle pp g           = g { _dataGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasTabIndex Data
+  where attrSetTabIndex pp g        = g { _dataGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasTitle Data
+  where attrSetTitle pp g           = g { _dataGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_dataGlobals g))) }
+instance A.AttrHasTranslate Data
+  where attrSetTranslate pp g       = g { _dataGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_dataGlobals g))) }
 
-instance AttrGetClassName EData where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDataGlobals g)
+instance A.AttrGetClassName Data where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_dataGlobals g)
 
-instance AttrHasValueText EData where attrSetValueText p g = g {_eDataValueText = Just p }
+instance A.AttrHasValueText Data where attrSetValueText pp g = g {_dataValueText = Just pp }
 
-instance AttrHasCustom EData where attrSetCustom p g       = g { _eDataCustom = Just p }
+instance A.AttrHasCustom Data where attrSetCustom pp g       = g { _dataCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"data\" ... @
-eData' :: forall t m a. DomBuilder t m => EData -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eData' b  = elAttr' "data" (attrMap b)
+data' ∷ forall t m a. DomBuilder t m ⇒ Data → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+data' bm  = elAttr' "data" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"data\" ... @
-eData :: forall t m a. DomBuilder t m => EData -> m a -> m a
-eData b children = snd <$> eData' b children
+data_ ∷ forall t m a. DomBuilder t m ⇒ Data → m a → m a
+data_ bm children = snd <$> data' bm children
 
 -- | A short-hand notion for @ el\' \"data\" ... @
-eDataN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDataN' = el' "data"
+dataN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dataN' = el' "data"
 
 -- | A short-hand notion for @ el \"data\" ... @
-eDataN :: forall t m a. DomBuilder t m => m a -> m a
-eDataN children = snd <$> eDataN' children
+dataN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+dataN children = snd <$> dataN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"data\" ... @
-eDataD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EData -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDataD' b = elDynAttr' "data" (attrMap <$> b)
+dataD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Data → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dataD' bm = elDynAttr' "data" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"data\" ... @
-eDataD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EData -> m a -> m a
-eDataD b children = snd <$> eDataD' b children
+dataD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Data → m a → m a
+dataD bm children = snd <$> dataD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | DataList-element has only the global attributes.
-data EDataList = EDataList
-  { _eDataListGlobals :: Maybe Globals
-  , _eDataListCustom  :: Maybe Attr
+-- | DataList-element has only the global A.attributes.
+data DataList = DataList
+  { _dataListGlobals ∷ Maybe A.Globals
+  , _dataListCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDataList where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDataListGlobals b
-    ] <> maybeToList (_eDataListCustom b)
+instance A.AttrMap DataList where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _dataListGlobals bm
+    ] <> maybeToList (_dataListCustom bm)
 
 
-instance Default EDataList where
-  def = EDataList def def
+defDataList ∷ DataList
+defDataList = DataList Nothing Nothing
 
-instance Monoid EDataList where
-  mempty = def
-  mappend (EDataList a1 a2) (EDataList b1 b2) = EDataList (a1 <> b1) (a2 <> b2)
+instance Monoid DataList where
+  mempty = defDataList
+  mappend (DataList a1 a2) (DataList b1 b2) = DataList (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EDataList where
-   attrSetGlobals p b = b { _eDataListGlobals = Just p }
+instance A.AttrHasGlobals DataList where
+   attrSetGlobals pp bm = bm { _dataListGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDataList
-  where attrSetAccessKey p g = g { _eDataListGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasAnmval EDataList
-  where attrSetAnmval p g = g { _eDataListGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasContentEditable EDataList
-  where attrSetContentEditable p g = g  { _eDataListGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasContextMenu EDataList
-  where attrSetContextMenu p g     = g { _eDataListGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasClass EDataList
-  where attrSetClassName p g           = g { _eDataListGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasDnmval EDataList
-  where attrSetDnmval p g           = g { _eDataListGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasDir EDataList
-  where attrSetDir p g             = g { _eDataListGlobals = Just (attrSetDir p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasDraggable EDataList
-  where attrSetDraggable p g       = g { _eDataListGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasHidden EDataList
-  where attrSetHidden p g          = g { _eDataListGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasId EDataList
-  where attrSetId p g              = g { _eDataListGlobals = Just (attrSetId p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasLang EDataList
-  where attrSetLang p g            = g { _eDataListGlobals = Just (attrSetLang p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasRole EDataList
-  where attrSetRole p g            = g { _eDataListGlobals = Just (attrSetRole p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasSlot EDataList
-  where attrSetSlot p g            = g { _eDataListGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasSpellCheck EDataList
-  where attrSetSpellCheck p g      = g { _eDataListGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasStyle EDataList
-  where attrSetStyle p g           = g { _eDataListGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasTabIndex EDataList
-  where attrSetTabIndex p g        = g { _eDataListGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasTitle EDataList
-  where attrSetTitle p g           = g { _eDataListGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDataListGlobals g))) }
-instance AttrHasTranslate EDataList
-  where attrSetTranslate p g       = g { _eDataListGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDataListGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey DataList
+  where attrSetAccessKey pp g = g { _dataListGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasAnmval DataList
+  where attrSetAnmval pp g = g { _dataListGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasContentEditable DataList
+  where attrSetContentEditable pp g = g  { _dataListGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasContextMenu DataList
+  where attrSetContextMenu pp g     = g { _dataListGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasClass DataList
+  where attrSetClassName pp g           = g { _dataListGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasDnmval DataList
+  where attrSetDnmval pp g           = g { _dataListGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasDir DataList
+  where attrSetDir pp g             = g { _dataListGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasDraggable DataList
+  where attrSetDraggable pp g       = g { _dataListGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasHidden DataList
+  where attrSetHidden pp g          = g { _dataListGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasId DataList
+  where attrSetId pp g              = g { _dataListGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasLang DataList
+  where attrSetLang pp g            = g { _dataListGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasRole DataList
+  where attrSetRole pp g            = g { _dataListGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasSlot DataList
+  where attrSetSlot pp g            = g { _dataListGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasSpellCheck DataList
+  where attrSetSpellCheck pp g      = g { _dataListGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasStyle DataList
+  where attrSetStyle pp g           = g { _dataListGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasTabIndex DataList
+  where attrSetTabIndex pp g        = g { _dataListGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasTitle DataList
+  where attrSetTitle pp g           = g { _dataListGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
+instance A.AttrHasTranslate DataList
+  where attrSetTranslate pp g       = g { _dataListGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_dataListGlobals g))) }
 
-instance AttrGetClassName EDataList where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDataListGlobals g)
+instance A.AttrGetClassName DataList where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_dataListGlobals g)
 
-instance AttrHasCustom EDataList where attrSetCustom p g       = g { _eDataListCustom = Just p }
+instance A.AttrHasCustom DataList where attrSetCustom pp g       = g { _dataListCustom = Just pp }
 
-eDataList' :: forall t m a. DomBuilder t m => EDataList -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDataList' b  = elAttr' "datalist" (attrMap b)
+dataList' ∷ forall t m a. DomBuilder t m ⇒ DataList → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dataList' bm  = elAttr' "datalist" (A.attrMap bm)
 
-eDataList :: forall t m a. DomBuilder t m => EDataList -> m a -> m a
-eDataList b children = snd <$> eDataList' b children
+dataList ∷ forall t m a. DomBuilder t m ⇒ DataList → m a → m a
+dataList bm children = snd <$> dataList' bm children
 
-eDataListN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDataListN' = el' "datalist"
+dataListN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dataListN' = el' "datalist"
 
-eDataListN :: forall t m a. DomBuilder t m => m a -> m a
-eDataListN children = snd <$> eDataListN' children
+dataListN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+dataListN children = snd <$> dataListN' children
 
-eDataListD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDataList -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDataListD' b  = elDynAttr' "datalist" (attrMap <$> b)
+dataListD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t DataList → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dataListD' bm  = elDynAttr' "datalist" (A.attrMap <$> bm)
 
-eDataListD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDataList -> m a -> m a
-eDataListD b children = snd <$> eDataListD' b children
+dataListD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t DataList → m a → m a
+dataListD bm children = snd <$> dataListD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Del-element
-data EDel = EDel
-  { _eDelGlobals  :: Maybe Globals
-  , _eDelCite     :: Maybe Cite
-  , _eDelDateTime :: Maybe DateTime
-  , _eDelCustom   :: Maybe Attr
+data Del = Del
+  { _delGlobals  ∷ Maybe A.Globals
+  , _delCite     ∷ Maybe A.Cite
+  , _delDateTime ∷ Maybe A.DateTime
+  , _delCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDel where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDelGlobals b
-    , attrMap <$> _eDelCite b
-    , attrMap <$> _eDelDateTime b
-    ] <> maybeToList (_eDelCustom b)
+instance A.AttrMap Del where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _delGlobals bm
+    , A.attrMap <$> _delCite bm
+    , A.attrMap <$> _delDateTime bm
+    ] <> maybeToList (_delCustom bm)
 
 
-instance Default EDel where
-  def = EDel def def def def
+defDel ∷  Del
+defDel = Del Nothing Nothing Nothing Nothing
 
-instance Monoid EDel where
-  mempty = def
-  mappend (EDel a1 a2 a3 a4) (EDel b1 b2 b3 b4)
-    = EDel (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+instance Monoid Del where
+  mempty = defDel
+  mappend (Del a1 a2 a3 a4) (Del b1 b2 b3 b4)
+    = Del (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
-instance AttrHasGlobals EDel where
-   attrSetGlobals p b = b { _eDelGlobals = Just p }
+instance A.AttrHasGlobals Del where
+   attrSetGlobals pp bm = bm { _delGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDel
-  where attrSetAccessKey p g = g { _eDelGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasAnmval EDel
-  where attrSetAnmval p g = g { _eDelGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasContentEditable EDel
-  where attrSetContentEditable p g = g  { _eDelGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasContextMenu EDel
-  where attrSetContextMenu p g     = g { _eDelGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasClass EDel
-  where attrSetClassName p g           = g { _eDelGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasDnmval EDel
-  where attrSetDnmval p g           = g { _eDelGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasDir EDel
-  where attrSetDir p g             = g { _eDelGlobals = Just (attrSetDir p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasDraggable EDel
-  where attrSetDraggable p g       = g { _eDelGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasHidden EDel
-  where attrSetHidden p g          = g { _eDelGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasId EDel
-  where attrSetId p g              = g { _eDelGlobals = Just (attrSetId p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasLang EDel
-  where attrSetLang p g            = g { _eDelGlobals = Just (attrSetLang p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasRole EDel
-  where attrSetRole p g            = g { _eDelGlobals = Just (attrSetRole p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasSlot EDel
-  where attrSetSlot p g            = g { _eDelGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasSpellCheck EDel
-  where attrSetSpellCheck p g      = g { _eDelGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasStyle EDel
-  where attrSetStyle p g           = g { _eDelGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasTabIndex EDel
-  where attrSetTabIndex p g        = g { _eDelGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasTitle EDel
-  where attrSetTitle p g           = g { _eDelGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDelGlobals g))) }
-instance AttrHasTranslate EDel
-  where attrSetTranslate p g       = g { _eDelGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDelGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Del
+  where attrSetAccessKey pp g = g { _delGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasAnmval Del
+  where attrSetAnmval pp g = g { _delGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasContentEditable Del
+  where attrSetContentEditable pp g = g  { _delGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasContextMenu Del
+  where attrSetContextMenu pp g     = g { _delGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasClass Del
+  where attrSetClassName pp g           = g { _delGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasDnmval Del
+  where attrSetDnmval pp g           = g { _delGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasDir Del
+  where attrSetDir pp g             = g { _delGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasDraggable Del
+  where attrSetDraggable pp g       = g { _delGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasHidden Del
+  where attrSetHidden pp g          = g { _delGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasId Del
+  where attrSetId pp g              = g { _delGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasLang Del
+  where attrSetLang pp g            = g { _delGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasRole Del
+  where attrSetRole pp g            = g { _delGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasSlot Del
+  where attrSetSlot pp g            = g { _delGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasSpellCheck Del
+  where attrSetSpellCheck pp g      = g { _delGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasStyle Del
+  where attrSetStyle pp g           = g { _delGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasTabIndex Del
+  where attrSetTabIndex pp g        = g { _delGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasTitle Del
+  where attrSetTitle pp g           = g { _delGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_delGlobals g))) }
+instance A.AttrHasTranslate Del
+  where attrSetTranslate pp g       = g { _delGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_delGlobals g))) }
 
-instance AttrGetClassName EDel where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDelGlobals g)
+instance A.AttrGetClassName Del where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_delGlobals g)
 
-instance AttrHasCite EDel where attrSetCite p g = g {_eDelCite = Just p }
-instance AttrHasDateTime EDel where attrSetDateTime p g = g {_eDelDateTime = Just p }
+instance A.AttrHasCite Del where attrSetCite pp g = g {_delCite = Just pp }
+instance A.AttrHasDateTime Del where attrSetDateTime pp g = g {_delDateTime = Just pp }
 
-instance AttrHasCustom EDel where attrSetCustom p g       = g { _eDelCustom = Just p }
+instance A.AttrHasCustom Del where attrSetCustom pp g       = g { _delCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"del\" ... @
-eDel' :: forall t m a. DomBuilder t m => EDel -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDel' b  = elAttr' "del" (attrMap b)
+del' ∷ forall t m a. DomBuilder t m ⇒ Del → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+del' bm  = elAttr' "del" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"del\" ... @
-eDel :: forall t m a. DomBuilder t m => EDel -> m a -> m a
-eDel b children = snd <$> eDel' b children
+del ∷ forall t m a. DomBuilder t m ⇒ Del → m a → m a
+del bm children = snd <$> del' bm children
 
 -- | A short-hand notion for @ el\' \"del\" ... @
-eDelN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDelN' = el' "del"
+delN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+delN' = el' "del"
 
 -- | A short-hand notion for @ el \"del\" ... @
-eDelN :: forall t m a. DomBuilder t m => m a -> m a
-eDelN children = snd <$> eDelN' children
+delN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+delN children = snd <$> delN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"del\" ... @
-eDelD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDel -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDelD' b = elDynAttr' "del" (attrMap <$> b)
+delD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Del → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+delD' bm = elDynAttr' "del" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"del\" ... @
-eDelD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDel -> m a -> m a
-eDelD b children = snd <$> eDelD' b children
+delD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Del → m a → m a
+delD bm children = snd <$> delD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | DD-element has only the global attributes.
-data EDd = EDd
-  { _eDdGlobals :: Maybe Globals
-  , _eDdCustom  :: Maybe Attr
+-- | DD-element has only the global A.attributes.
+data Dd = Dd
+  { _ddGlobals ∷ Maybe A.Globals
+  , _ddCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDd where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDdGlobals b
-    ] <> maybeToList (_eDdCustom b)
+instance A.AttrMap Dd where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _ddGlobals bm
+    ] <> maybeToList (_ddCustom bm)
 
-instance Default EDd where
-  def = EDd def def
+defDd ∷ Dd
+defDd = Dd Nothing Nothing
 
-instance Monoid EDd where
-  mempty = def
-  mappend (EDd a1 a2) (EDd b1 b2) = EDd (a1 <> b1) (a2 <> b2)
+instance Monoid Dd where
+  mempty = defDd
+  mappend (Dd a1 a2) (Dd b1 b2) = Dd (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EDd where
-   attrSetGlobals p b = b { _eDdGlobals = Just p }
+instance A.AttrHasGlobals Dd where
+   attrSetGlobals pp bm = bm { _ddGlobals = Just pp }
 
--- Global attributes reqere the following instances.
-instance AttrHasAccessKey EDd
-  where attrSetAccessKey p g = g { _eDdGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasAnmval EDd
-  where attrSetAnmval p g = g { _eDdGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasContentEditable EDd
-  where attrSetContentEditable p g = g  { _eDdGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasContextMenu EDd
-  where attrSetContextMenu p g     = g { _eDdGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasClass EDd
-  where attrSetClassName p g           = g { _eDdGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasDnmval EDd
-  where attrSetDnmval p g           = g { _eDdGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasDir EDd
-  where attrSetDir p g             = g { _eDdGlobals = Just (attrSetDir p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasDraggable EDd
-  where attrSetDraggable p g       = g { _eDdGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasHidden EDd
-  where attrSetHidden p g          = g { _eDdGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasId EDd
-  where attrSetId p g              = g { _eDdGlobals = Just (attrSetId p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasLang EDd
-  where attrSetLang p g            = g { _eDdGlobals = Just (attrSetLang p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasRole EDd
-  where attrSetRole p g            = g { _eDdGlobals = Just (attrSetRole p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasSlot EDd
-  where attrSetSlot p g            = g { _eDdGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasSpellCheck EDd
-  where attrSetSpellCheck p g      = g { _eDdGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasStyle EDd
-  where attrSetStyle p g           = g { _eDdGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasTabIndex EDd
-  where attrSetTabIndex p g        = g { _eDdGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasTitle EDd
-  where attrSetTitle p g           = g { _eDdGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDdGlobals g))) }
-instance AttrHasTranslate EDd
-  where attrSetTranslate p g       = g { _eDdGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDdGlobals g))) }
+-- Global A.attributes reqere the following instances.
+instance A.AttrHasAccessKey Dd
+  where attrSetAccessKey pp g = g { _ddGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasAnmval Dd
+  where attrSetAnmval pp g = g { _ddGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasContentEditable Dd
+  where attrSetContentEditable pp g = g  { _ddGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasContextMenu Dd
+  where attrSetContextMenu pp g     = g { _ddGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasClass Dd
+  where attrSetClassName pp g           = g { _ddGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasDnmval Dd
+  where attrSetDnmval pp g           = g { _ddGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasDir Dd
+  where attrSetDir pp g             = g { _ddGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasDraggable Dd
+  where attrSetDraggable pp g       = g { _ddGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasHidden Dd
+  where attrSetHidden pp g          = g { _ddGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasId Dd
+  where attrSetId pp g              = g { _ddGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasLang Dd
+  where attrSetLang pp g            = g { _ddGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasRole Dd
+  where attrSetRole pp g            = g { _ddGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasSlot Dd
+  where attrSetSlot pp g            = g { _ddGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasSpellCheck Dd
+  where attrSetSpellCheck pp g      = g { _ddGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasStyle Dd
+  where attrSetStyle pp g           = g { _ddGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasTabIndex Dd
+  where attrSetTabIndex pp g        = g { _ddGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasTitle Dd
+  where attrSetTitle pp g           = g { _ddGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_ddGlobals g))) }
+instance A.AttrHasTranslate Dd
+  where attrSetTranslate pp g       = g { _ddGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_ddGlobals g))) }
 
-instance AttrGetClassName EDd where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDdGlobals g)
+instance A.AttrGetClassName Dd where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_ddGlobals g)
 
-instance AttrHasCustom EDd where attrSetCustom p g       = g { _eDdCustom = Just p }
+instance A.AttrHasCustom Dd where attrSetCustom pp g       = g { _ddCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"dd\" ... @
-eDd' :: forall t m a. DomBuilder t m => EDd -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDd' b  = elAttr' "dd" (attrMap b)
+dd' ∷ forall t m a. DomBuilder t m ⇒ Dd → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dd' bm  = elAttr' "dd" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"dd\" ... @
-eDd :: forall t m a. DomBuilder t m => EDd -> m a -> m a
-eDd b children = snd <$> eDd' b children
+dd ∷ forall t m a. DomBuilder t m ⇒ Dd → m a → m a
+dd bm children = snd <$> dd' bm children
 
 -- | A short-hand notion for @ el\' \"dd\" ... @
-eDdN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDdN' = el' "dd"
+ddN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ddN' = el' "dd"
 
 -- | A short-hand notion for @ el \"dd\" ... @
-eDdN :: forall t m a. DomBuilder t m => m a -> m a
-eDdN children = snd <$> eDdN' children
+ddN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+ddN children = snd <$> ddN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"dd\" ... @
-eDdD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDd -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDdD' b  = elDynAttr' "dd" (attrMap <$> b)
+ddD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dd → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ddD' bm  = elDynAttr' "dd" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"dd\" ... @
-eDdD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDd -> m a -> m a
-eDdD b children = snd <$> eDdD' b children
+ddD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dd → m a → m a
+ddD bm children = snd <$> ddD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Dfn-element has only the global attributes.
-data EDfn = EDfn
-  { _eDfnGlobals :: Maybe Globals
-  , _eDfnCustom  :: Maybe Attr
+-- | Dfn-element has only the global A.attributes.
+data Dfn = Dfn
+  { _dfnGlobals ∷ Maybe A.Globals
+  , _dfnCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDfn where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDfnGlobals b
-    ] <> maybeToList (_eDfnCustom b)
+instance A.AttrMap Dfn where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _dfnGlobals bm
+    ] <> maybeToList (_dfnCustom bm)
 
 
-instance Default EDfn where
-  def = EDfn def def
+defDfn ∷ Dfn
+defDfn = Dfn Nothing Nothing
 
-instance Monoid EDfn where
-  mempty = def
-  mappend (EDfn a1 a2) (EDfn b1 b2) = EDfn (a1 <> b1) (a2 <> b2)
+instance Monoid Dfn where
+  mempty = defDfn
+  mappend (Dfn a1 a2) (Dfn b1 b2) = Dfn (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EDfn where
-   attrSetGlobals p b = b { _eDfnGlobals = Just p }
+instance A.AttrHasGlobals Dfn where
+   attrSetGlobals pp bm = bm { _dfnGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDfn
-  where attrSetAccessKey p g = g { _eDfnGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasAnmval EDfn
-  where attrSetAnmval p g = g { _eDfnGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasContentEditable EDfn
-  where attrSetContentEditable p g = g  { _eDfnGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasContextMenu EDfn
-  where attrSetContextMenu p g     = g { _eDfnGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasClass EDfn
-  where attrSetClassName p g           = g { _eDfnGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasDnmval EDfn
-  where attrSetDnmval p g           = g { _eDfnGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasDir EDfn
-  where attrSetDir p g             = g { _eDfnGlobals = Just (attrSetDir p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasDraggable EDfn
-  where attrSetDraggable p g       = g { _eDfnGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasHidden EDfn
-  where attrSetHidden p g          = g { _eDfnGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasId EDfn
-  where attrSetId p g              = g { _eDfnGlobals = Just (attrSetId p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasLang EDfn
-  where attrSetLang p g            = g { _eDfnGlobals = Just (attrSetLang p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasRole EDfn
-  where attrSetRole p g            = g { _eDfnGlobals = Just (attrSetRole p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasSlot EDfn
-  where attrSetSlot p g            = g { _eDfnGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasSpellCheck EDfn
-  where attrSetSpellCheck p g      = g { _eDfnGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasStyle EDfn
-  where attrSetStyle p g           = g { _eDfnGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasTabIndex EDfn
-  where attrSetTabIndex p g        = g { _eDfnGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasTitle EDfn
-  where attrSetTitle p g           = g { _eDfnGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDfnGlobals g))) }
-instance AttrHasTranslate EDfn
-  where attrSetTranslate p g       = g { _eDfnGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDfnGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Dfn
+  where attrSetAccessKey pp g = g { _dfnGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasAnmval Dfn
+  where attrSetAnmval pp g = g { _dfnGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasContentEditable Dfn
+  where attrSetContentEditable pp g = g  { _dfnGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasContextMenu Dfn
+  where attrSetContextMenu pp g     = g { _dfnGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasClass Dfn
+  where attrSetClassName pp g           = g { _dfnGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasDnmval Dfn
+  where attrSetDnmval pp g           = g { _dfnGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasDir Dfn
+  where attrSetDir pp g             = g { _dfnGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasDraggable Dfn
+  where attrSetDraggable pp g       = g { _dfnGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasHidden Dfn
+  where attrSetHidden pp g          = g { _dfnGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasId Dfn
+  where attrSetId pp g              = g { _dfnGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasLang Dfn
+  where attrSetLang pp g            = g { _dfnGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasRole Dfn
+  where attrSetRole pp g            = g { _dfnGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasSlot Dfn
+  where attrSetSlot pp g            = g { _dfnGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasSpellCheck Dfn
+  where attrSetSpellCheck pp g      = g { _dfnGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasStyle Dfn
+  where attrSetStyle pp g           = g { _dfnGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasTabIndex Dfn
+  where attrSetTabIndex pp g        = g { _dfnGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasTitle Dfn
+  where attrSetTitle pp g           = g { _dfnGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
+instance A.AttrHasTranslate Dfn
+  where attrSetTranslate pp g       = g { _dfnGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_dfnGlobals g))) }
 
-instance AttrGetClassName EDfn where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDfnGlobals g)
+instance A.AttrGetClassName Dfn where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_dfnGlobals g)
 
-instance AttrHasCustom EDfn where attrSetCustom p g       = g { _eDfnCustom = Just p }
+instance A.AttrHasCustom Dfn where attrSetCustom pp g       = g { _dfnCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"dfn\" ... @
-eDfn' :: forall t m a. DomBuilder t m => EDfn -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDfn' b  = elAttr' "dfn" (attrMap b)
+dfn' ∷ forall t m a. DomBuilder t m ⇒ Dfn → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dfn' bm  = elAttr' "dfn" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"dfn\" ... @
-eDfn :: forall t m a. DomBuilder t m => EDfn -> m a -> m a
-eDfn b children = snd <$> eDfn' b children
+dfn ∷ forall t m a. DomBuilder t m ⇒ Dfn → m a → m a
+dfn bm children = snd <$> dfn' bm children
 
 -- | A short-hand notion for @ el\' \"dfn\" ... @
-eDfnN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDfnN' = el' "dfn"
+dfnN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dfnN' = el' "dfn"
 
 -- | A short-hand notion for @ el \"dfn\" ... @
-eDfnN :: forall t m a. DomBuilder t m => m a -> m a
-eDfnN children = snd <$> eDfnN' children
+dfnN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+dfnN children = snd <$> dfnN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"dfn\" ... @
-eDfnD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDfn -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDfnD' b  = elDynAttr' "dfn" (attrMap <$> b)
+dfnD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dfn → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dfnD' bm  = elDynAttr' "dfn" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"dfn\" ... @
-eDfnD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDfn -> m a -> m a
-eDfnD b children = snd <$> eDfnD' b children
+dfnD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dfn → m a → m a
+dfnD bm children = snd <$> dfnD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Dialog-element
-data EDialog = EDialog
-  { _eDialogGlobals :: Maybe Globals
-  , _eDialogOpen    :: Maybe Open
-  , _eDialogCustom  :: Maybe Attr
+data Dialog = Dialog
+  { _dialogGlobals ∷ Maybe A.Globals
+  , _dialogOpen    ∷ Maybe A.Open
+  , _dialogCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDialog where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDialogGlobals b
-    , attrMap <$> _eDialogOpen b
-    ] <> maybeToList (_eDialogCustom b)
+instance A.AttrMap Dialog where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _dialogGlobals bm
+    , A.attrMap <$> _dialogOpen bm
+    ] <> maybeToList (_dialogCustom bm)
 
 
-instance Default EDialog where
-  def = EDialog def def def
+defDialog ∷ Dialog
+defDialog = Dialog Nothing Nothing Nothing
 
-instance Monoid EDialog where
-  mempty = def
-  mappend (EDialog a1 a2 a3) (EDialog b1 b2 b3)
-    = EDialog (a1 <> b1) (a2 <> b2) (a3 <> b3)
+instance Monoid Dialog where
+  mempty = defDialog
+  mappend (Dialog a1 a2 a3) (Dialog b1 b2 b3)
+    = Dialog (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
-instance AttrHasGlobals EDialog where
-   attrSetGlobals p b = b { _eDialogGlobals = Just p }
+instance A.AttrHasGlobals Dialog where
+   attrSetGlobals pp bm = bm { _dialogGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDialog
-  where attrSetAccessKey p g = g { _eDialogGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasAnmval EDialog
-  where attrSetAnmval p g = g { _eDialogGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasContentEditable EDialog
-  where attrSetContentEditable p g = g  { _eDialogGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasContextMenu EDialog
-  where attrSetContextMenu p g     = g { _eDialogGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasClass EDialog
-  where attrSetClassName p g           = g { _eDialogGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasDnmval EDialog
-  where attrSetDnmval p g           = g { _eDialogGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasDir EDialog
-  where attrSetDir p g             = g { _eDialogGlobals = Just (attrSetDir p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasDraggable EDialog
-  where attrSetDraggable p g       = g { _eDialogGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasHidden EDialog
-  where attrSetHidden p g          = g { _eDialogGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasId EDialog
-  where attrSetId p g              = g { _eDialogGlobals = Just (attrSetId p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasLang EDialog
-  where attrSetLang p g            = g { _eDialogGlobals = Just (attrSetLang p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasRole EDialog
-  where attrSetRole p g            = g { _eDialogGlobals = Just (attrSetRole p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasSlot EDialog
-  where attrSetSlot p g            = g { _eDialogGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasSpellCheck EDialog
-  where attrSetSpellCheck p g      = g { _eDialogGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasStyle EDialog
-  where attrSetStyle p g           = g { _eDialogGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasTabIndex EDialog
-  where attrSetTabIndex p g        = g { _eDialogGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasTitle EDialog
-  where attrSetTitle p g           = g { _eDialogGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDialogGlobals g))) }
-instance AttrHasTranslate EDialog
-  where attrSetTranslate p g       = g { _eDialogGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDialogGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Dialog
+  where attrSetAccessKey pp g = g { _dialogGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasAnmval Dialog
+  where attrSetAnmval pp g = g { _dialogGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasContentEditable Dialog
+  where attrSetContentEditable pp g = g  { _dialogGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasContextMenu Dialog
+  where attrSetContextMenu pp g     = g { _dialogGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasClass Dialog
+  where attrSetClassName pp g           = g { _dialogGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasDnmval Dialog
+  where attrSetDnmval pp g           = g { _dialogGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasDir Dialog
+  where attrSetDir pp g             = g { _dialogGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasDraggable Dialog
+  where attrSetDraggable pp g       = g { _dialogGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasHidden Dialog
+  where attrSetHidden pp g          = g { _dialogGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasId Dialog
+  where attrSetId pp g              = g { _dialogGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasLang Dialog
+  where attrSetLang pp g            = g { _dialogGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasRole Dialog
+  where attrSetRole pp g            = g { _dialogGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasSlot Dialog
+  where attrSetSlot pp g            = g { _dialogGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasSpellCheck Dialog
+  where attrSetSpellCheck pp g      = g { _dialogGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasStyle Dialog
+  where attrSetStyle pp g           = g { _dialogGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasTabIndex Dialog
+  where attrSetTabIndex pp g        = g { _dialogGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasTitle Dialog
+  where attrSetTitle pp g           = g { _dialogGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
+instance A.AttrHasTranslate Dialog
+  where attrSetTranslate pp g       = g { _dialogGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_dialogGlobals g))) }
 
-instance AttrGetClassName EDialog where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDialogGlobals g)
+instance A.AttrGetClassName Dialog where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_dialogGlobals g)
 
-instance AttrHasOpen EDialog where attrSetOpen p g = g {_eDialogOpen = Just p }
+instance A.AttrHasOpen Dialog where attrSetOpen pp g = g {_dialogOpen = Just pp }
 
-instance AttrHasCustom EDialog where attrSetCustom p g       = g { _eDialogCustom = Just p }
+instance A.AttrHasCustom Dialog where attrSetCustom pp g       = g { _dialogCustom = Just pp }
+
 
 -- | A short-hand notion for @ elAttr\' \"dialog\" ... @
-eDialog' :: forall t m a. DomBuilder t m => EDialog -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDialog' b  = elAttr' "dialog" (attrMap b)
+dialog' ∷ forall t m a. DomBuilder t m ⇒ Dialog → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dialog' bm  = elAttr' "dialog" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"dialog\" ... @
-eDialog :: forall t m a. DomBuilder t m => EDialog -> m a -> m a
-eDialog b children = snd <$> eDialog' b children
+dialog ∷ forall t m a. DomBuilder t m ⇒ Dialog → m a → m a
+dialog bm children = snd <$> dialog' bm children
 
 -- | A short-hand notion for @ el\' \"dialog\" ... @
-eDialogN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDialogN' = el' "dialog"
+dialogN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dialogN' = el' "dialog"
 
 -- | A short-hand notion for @ el \"dialog\" ... @
-eDialogN :: forall t m a. DomBuilder t m => m a -> m a
-eDialogN children = snd <$> eDialogN' children
+dialogN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+dialogN children = snd <$> dialogN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"dialog\" ... @
-eDialogD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDialog -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDialogD' b = elDynAttr' "dialog" (attrMap <$> b)
+dialogD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dialog → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dialogD' bm = elDynAttr' "dialog" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"dialog\" ... @
-eDialogD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDialog -> m a -> m a
-eDialogD b children = snd <$> eDialogD' b children
+dialogD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dialog → m a → m a
+dialogD bm children = snd <$> dialogD' bm children
 
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Div-element has only the global attributes.
-data EDiv = EDiv
-  { _eDivGlobals :: Maybe Globals
-  , _eDivCustom  :: Maybe Attr
+-- | Div-element has only the global A.attributes.
+data Div = Div
+  { _divGlobals ∷ Maybe A.Globals
+  , _divCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDiv where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDivGlobals b
-    ] <> maybeToList (_eDivCustom b)
+instance A.AttrMap Div where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _divGlobals bm
+    ] <> maybeToList (_divCustom bm)
 
-instance Default EDiv where
-  def = EDiv def def
+defDiv ∷ Div
+defDiv = Div Nothing Nothing
 
-instance Semigroup EDiv where
-  (<>) (EDiv a1 a2) (EDiv b1 b2) = EDiv (a1 <> b1) (a2 <> b2)
+instance Semigroup Div where
+  (<>) (Div a1 a2) (Div b1 b2) = Div (a1 <> b1) (a2 <> b2)
 
-instance Monoid EDiv where
-  mempty = def
+instance Monoid Div where
+  mempty = defDiv
   mappend = (<>)
 
-instance AttrHasGlobals EDiv where
-   attrSetGlobals p b = b { _eDivGlobals = Just p }
+instance A.AttrHasGlobals Div where
+   attrSetGlobals pp bm = bm { _divGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDiv
-  where attrSetAccessKey p g = g { _eDivGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasAnmval EDiv
-  where attrSetAnmval p g = g { _eDivGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasContentEditable EDiv
-  where attrSetContentEditable p g = g  { _eDivGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasContextMenu EDiv
-  where attrSetContextMenu p g     = g { _eDivGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasClass EDiv
-  where attrSetClassName p g           = g { _eDivGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasDnmval EDiv
-  where attrSetDnmval p g           = g { _eDivGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasDir EDiv
-  where attrSetDir p g             = g { _eDivGlobals = Just (attrSetDir p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasDraggable EDiv
-  where attrSetDraggable p g       = g { _eDivGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasHidden EDiv
-  where attrSetHidden p g          = g { _eDivGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasId EDiv
-  where attrSetId p g              = g { _eDivGlobals = Just (attrSetId p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasLang EDiv
-  where attrSetLang p g            = g { _eDivGlobals = Just (attrSetLang p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasRole EDiv
-  where attrSetRole p g            = g { _eDivGlobals = Just (attrSetRole p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasSlot EDiv
-  where attrSetSlot p g            = g { _eDivGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasSpellCheck EDiv
-  where attrSetSpellCheck p g      = g { _eDivGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasStyle EDiv
-  where attrSetStyle p g           = g { _eDivGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasTabIndex EDiv
-  where attrSetTabIndex p g        = g { _eDivGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasTitle EDiv
-  where attrSetTitle p g           = g { _eDivGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDivGlobals g))) }
-instance AttrHasTranslate EDiv
-  where attrSetTranslate p g       = g { _eDivGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDivGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Div
+  where attrSetAccessKey pp g = g { _divGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasAnmval Div
+  where attrSetAnmval pp g = g { _divGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasContentEditable Div
+  where attrSetContentEditable pp g = g  { _divGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasContextMenu Div
+  where attrSetContextMenu pp g     = g { _divGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasClass Div
+  where attrSetClassName pp g           = g { _divGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasDnmval Div
+  where attrSetDnmval pp g           = g { _divGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasDir Div
+  where attrSetDir pp g             = g { _divGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasDraggable Div
+  where attrSetDraggable pp g       = g { _divGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasHidden Div
+  where attrSetHidden pp g          = g { _divGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasId Div
+  where attrSetId pp g              = g { _divGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasLang Div
+  where attrSetLang pp g            = g { _divGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasRole Div
+  where attrSetRole pp g            = g { _divGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasSlot Div
+  where attrSetSlot pp g            = g { _divGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasSpellCheck Div
+  where attrSetSpellCheck pp g      = g { _divGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasStyle Div
+  where attrSetStyle pp g           = g { _divGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasTabIndex Div
+  where attrSetTabIndex pp g        = g { _divGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasTitle Div
+  where attrSetTitle pp g           = g { _divGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_divGlobals g))) }
+instance A.AttrHasTranslate Div
+  where attrSetTranslate pp g       = g { _divGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_divGlobals g))) }
 
-instance AttrGetClassName EDiv where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDivGlobals g)
+instance A.AttrGetClassName Div where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_divGlobals g)
 
-instance AttrHasCustom EDiv where attrSetCustom p g       = g { _eDivCustom = Just p }
+instance A.AttrHasCustom Div where attrSetCustom pp g       = g { _divCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"div\" ... @
-eDiv' :: forall t m a. DomBuilder t m => EDiv -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDiv' b  = elAttr' "div" (attrMap b)
+div' ∷ forall t m a. DomBuilder t m ⇒ Div → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+div' bm  = elAttr' "div" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"div\" ... @
-eDiv :: forall t m a. DomBuilder t m => EDiv -> m a -> m a
-eDiv b children = snd <$> eDiv' b children
+div ∷ forall t m a. DomBuilder t m ⇒ Div → m a → m a
+div bm children = snd <$> div' bm children
 
 -- | A short-hand notion for @ el\' \"div\" ... @
-eDivN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDivN' = el' "div"
+divN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+divN' = el' "div"
 
 -- | A short-hand notion for @ el \"div\" ... @
-eDivN :: forall t m a. DomBuilder t m => m a -> m a
-eDivN children = snd <$> eDivN' children
+divN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+divN children = snd <$> divN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"div\" ... @
-eDivD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDiv -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDivD' b  = elDynAttr' "div" (attrMap <$> b)
+divD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Div → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+divD' bm  = elDynAttr' "div" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"div\" ... @
-eDivD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDiv -> m a -> m a
-eDivD b children = snd <$> eDivD' b children
+divD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Div → m a → m a
+divD bm children = snd <$> divD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Dl-element has only the global attributes.
-data EDl = EDl
-  { _eDlGlobals :: Maybe Globals
-  , _eDlCustom  :: Maybe Attr
+-- | Dl-element has only the global A.attributes.
+data Dl = Dl
+  { _dlGlobals ∷ Maybe A.Globals
+  , _dlCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDl where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDlGlobals b
-    ] <> maybeToList (_eDlCustom b)
+instance A.AttrMap Dl where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _dlGlobals bm
+    ] <> maybeToList (_dlCustom bm)
 
 
-instance Default EDl where
-  def = EDl def def
+defDl ∷ Dl
+defDl = Dl Nothing Nothing
 
-instance Monoid EDl where
-  mempty = def
-  mappend (EDl a1 a2) (EDl b1 b2) = EDl (a1 <> b1) (a2 <> b2)
+instance Monoid Dl where
+  mempty = defDl
+  mappend (Dl a1 a2) (Dl b1 b2) = Dl (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EDl where
-   attrSetGlobals p b = b { _eDlGlobals = Just p }
+instance A.AttrHasGlobals Dl where
+   attrSetGlobals pp bm = bm { _dlGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDl
-  where attrSetAccessKey p g = g { _eDlGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasAnmval EDl
-  where attrSetAnmval p g = g { _eDlGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasContentEditable EDl
-  where attrSetContentEditable p g = g  { _eDlGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasContextMenu EDl
-  where attrSetContextMenu p g     = g { _eDlGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasClass EDl
-  where attrSetClassName p g           = g { _eDlGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasDnmval EDl
-  where attrSetDnmval p g           = g { _eDlGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasDir EDl
-  where attrSetDir p g             = g { _eDlGlobals = Just (attrSetDir p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasDraggable EDl
-  where attrSetDraggable p g       = g { _eDlGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasHidden EDl
-  where attrSetHidden p g          = g { _eDlGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasId EDl
-  where attrSetId p g              = g { _eDlGlobals = Just (attrSetId p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasLang EDl
-  where attrSetLang p g            = g { _eDlGlobals = Just (attrSetLang p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasRole EDl
-  where attrSetRole p g            = g { _eDlGlobals = Just (attrSetRole p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasSlot EDl
-  where attrSetSlot p g            = g { _eDlGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasSpellCheck EDl
-  where attrSetSpellCheck p g      = g { _eDlGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasStyle EDl
-  where attrSetStyle p g           = g { _eDlGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasTabIndex EDl
-  where attrSetTabIndex p g        = g { _eDlGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasTitle EDl
-  where attrSetTitle p g           = g { _eDlGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDlGlobals g))) }
-instance AttrHasTranslate EDl
-  where attrSetTranslate p g       = g { _eDlGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDlGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Dl
+  where attrSetAccessKey pp g = g { _dlGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasAnmval Dl
+  where attrSetAnmval pp g = g { _dlGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasContentEditable Dl
+  where attrSetContentEditable pp g = g  { _dlGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasContextMenu Dl
+  where attrSetContextMenu pp g     = g { _dlGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasClass Dl
+  where attrSetClassName pp g           = g { _dlGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasDnmval Dl
+  where attrSetDnmval pp g           = g { _dlGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasDir Dl
+  where attrSetDir pp g             = g { _dlGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasDraggable Dl
+  where attrSetDraggable pp g       = g { _dlGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasHidden Dl
+  where attrSetHidden pp g          = g { _dlGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasId Dl
+  where attrSetId pp g              = g { _dlGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasLang Dl
+  where attrSetLang pp g            = g { _dlGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasRole Dl
+  where attrSetRole pp g            = g { _dlGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasSlot Dl
+  where attrSetSlot pp g            = g { _dlGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasSpellCheck Dl
+  where attrSetSpellCheck pp g      = g { _dlGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasStyle Dl
+  where attrSetStyle pp g           = g { _dlGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasTabIndex Dl
+  where attrSetTabIndex pp g        = g { _dlGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasTitle Dl
+  where attrSetTitle pp g           = g { _dlGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_dlGlobals g))) }
+instance A.AttrHasTranslate Dl
+  where attrSetTranslate pp g       = g { _dlGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_dlGlobals g))) }
 
-instance AttrGetClassName EDl where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDlGlobals g)
+instance A.AttrGetClassName Dl where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_dlGlobals g)
 
-instance AttrHasCustom EDl where attrSetCustom p g       = g { _eDlCustom = Just p }
+instance A.AttrHasCustom Dl where attrSetCustom pp g       = g { _dlCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"dl\" ... @
-eDl' :: forall t m a. DomBuilder t m => EDl -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDl' b  = elAttr' "dl" (attrMap b)
+dl' ∷ forall t m a. DomBuilder t m ⇒ Dl → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dl' bm  = elAttr' "dl" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"dl\" ... @
-eDl :: forall t m a. DomBuilder t m => EDl -> m a -> m a
-eDl b children = snd <$> eDl' b children
+dl ∷ forall t m a. DomBuilder t m ⇒ Dl → m a → m a
+dl bm children = snd <$> dl' bm children
 
 -- | A short-hand notion for @ el\' \"dl\" ... @
-eDlN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDlN' = el' "dl"
+dlN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dlN' = el' "dl"
 
 -- | A short-hand notion for @ el \"dl\" ... @
-eDlN :: forall t m a. DomBuilder t m => m a -> m a
-eDlN children = snd <$> eDlN' children
+dlN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+dlN children = snd <$> dlN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"dl\" ... @
-eDlD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDl -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDlD' b  = elDynAttr' "dl" (attrMap <$> b)
+dlD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dl → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dlD' bm  = elDynAttr' "dl" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"dl\" ... @
-eDlD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDl -> m a -> m a
-eDlD b children = snd <$> eDlD' b children
+dlD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dl → m a → m a
+dlD bm children = snd <$> dlD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Dt-element has only the global attributes.
-data EDt = EDt
-  { _eDtGlobals :: Maybe Globals
-  , _eDtCustom  :: Maybe Attr
+-- | Dt-element has only the global A.attributes.
+data Dt = Dt
+  { _dtGlobals ∷ Maybe A.Globals
+  , _dtCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EDt where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eDtGlobals b
-    ] <> maybeToList (_eDtCustom b)
+instance A.AttrMap Dt where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _dtGlobals bm
+    ] <> maybeToList (_dtCustom bm)
 
 
-instance Default EDt where
-  def = EDt def def
+defDt ∷ Dt
+defDt = Dt Nothing Nothing
 
-instance Monoid EDt where
-  mempty = def
-  mappend (EDt a1 a2) (EDt b1 b2) = EDt (a1 <> b1) (a2 <> b2)
+instance Monoid Dt where
+  mempty = defDt
+  mappend (Dt a1 a2) (Dt b1 b2) = Dt (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EDt where
-   attrSetGlobals p b = b { _eDtGlobals = Just p }
+instance A.AttrHasGlobals Dt where
+   attrSetGlobals pp bm = bm { _dtGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EDt
-  where attrSetAccessKey p g = g { _eDtGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasAnmval EDt
-  where attrSetAnmval p g = g { _eDtGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasContentEditable EDt
-  where attrSetContentEditable p g = g  { _eDtGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasContextMenu EDt
-  where attrSetContextMenu p g     = g { _eDtGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasClass EDt
-  where attrSetClassName p g           = g { _eDtGlobals = Just (attrSetClassName p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasDnmval EDt
-  where attrSetDnmval p g           = g { _eDtGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasDir EDt
-  where attrSetDir p g             = g { _eDtGlobals = Just (attrSetDir p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasDraggable EDt
-  where attrSetDraggable p g       = g { _eDtGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasHidden EDt
-  where attrSetHidden p g          = g { _eDtGlobals = Just (attrSetHidden p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasId EDt
-  where attrSetId p g              = g { _eDtGlobals = Just (attrSetId p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasLang EDt
-  where attrSetLang p g            = g { _eDtGlobals = Just (attrSetLang p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasRole EDt
-  where attrSetRole p g            = g { _eDtGlobals = Just (attrSetRole p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasSlot EDt
-  where attrSetSlot p g            = g { _eDtGlobals = Just (attrSetSlot p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasSpellCheck EDt
-  where attrSetSpellCheck p g      = g { _eDtGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasStyle EDt
-  where attrSetStyle p g           = g { _eDtGlobals = Just (attrSetStyle p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasTabIndex EDt
-  where attrSetTabIndex p g        = g { _eDtGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasTitle EDt
-  where attrSetTitle p g           = g { _eDtGlobals = Just (attrSetTitle p (fromMaybe gDef (_eDtGlobals g))) }
-instance AttrHasTranslate EDt
-  where attrSetTranslate p g       = g { _eDtGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eDtGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Dt
+  where attrSetAccessKey pp g = g { _dtGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasAnmval Dt
+  where attrSetAnmval pp g = g { _dtGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasContentEditable Dt
+  where attrSetContentEditable pp g = g  { _dtGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasContextMenu Dt
+  where attrSetContextMenu pp g     = g { _dtGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasClass Dt
+  where attrSetClassName pp g           = g { _dtGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasDnmval Dt
+  where attrSetDnmval pp g           = g { _dtGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasDir Dt
+  where attrSetDir pp g             = g { _dtGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasDraggable Dt
+  where attrSetDraggable pp g       = g { _dtGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasHidden Dt
+  where attrSetHidden pp g          = g { _dtGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasId Dt
+  where attrSetId pp g              = g { _dtGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasLang Dt
+  where attrSetLang pp g            = g { _dtGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasRole Dt
+  where attrSetRole pp g            = g { _dtGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasSlot Dt
+  where attrSetSlot pp g            = g { _dtGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasSpellCheck Dt
+  where attrSetSpellCheck pp g      = g { _dtGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasStyle Dt
+  where attrSetStyle pp g           = g { _dtGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasTabIndex Dt
+  where attrSetTabIndex pp g        = g { _dtGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasTitle Dt
+  where attrSetTitle pp g           = g { _dtGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_dtGlobals g))) }
+instance A.AttrHasTranslate Dt
+  where attrSetTranslate pp g       = g { _dtGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_dtGlobals g))) }
 
-instance AttrGetClassName EDt where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eDtGlobals g)
+instance A.AttrGetClassName Dt where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_dtGlobals g)
 
-instance AttrHasCustom EDt where attrSetCustom p g       = g { _eDtCustom = Just p }
+instance A.AttrHasCustom Dt where attrSetCustom pp g       = g { _dtCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"dt\" ... @
-eDt' :: forall t m a. DomBuilder t m => EDt -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDt' b  = elAttr' "dt" (attrMap b)
+dt' ∷ forall t m a. DomBuilder t m ⇒ Dt → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dt' bm  = elAttr' "dt" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"dt\" ... @
-eDt :: forall t m a. DomBuilder t m => EDt -> m a -> m a
-eDt b children = snd <$> eDt' b children
+dt ∷ forall t m a. DomBuilder t m ⇒ Dt → m a → m a
+dt bm children = snd <$> dt' bm children
 
 -- | A short-hand notion for @ el\' \"dt\" ... @
-eDtN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDtN' = el' "dt"
+dtN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dtN' = el' "dt"
 
 -- | A short-hand notion for @ el \"dt\" ... @
-eDtN :: forall t m a. DomBuilder t m => m a -> m a
-eDtN children = snd <$> eDtN' children
+dtN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+dtN children = snd <$> dtN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"dt\" ... @
-eDtD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDt -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eDtD' b  = elDynAttr' "dt" (attrMap <$> b)
+dtD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dt → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+dtD' bm  = elDynAttr' "dt" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"dt\" ... @
-eDtD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EDt -> m a -> m a
-eDtD b children = snd <$> eDtD' b children
+dtD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Dt → m a → m a
+dtD bm children = snd <$> dtD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Em-element has only the global attributes.
-data EEm = EEm
-  { _eEmGlobals :: Maybe Globals
-  , _eEmCustom  :: Maybe Attr
+-- | Em-element has only the global A.attributes.
+data Em = Em
+  { _emGlobals ∷ Maybe A.Globals
+  , _emCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EEm where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eEmGlobals b
-    ] <> maybeToList (_eEmCustom b)
+instance A.AttrMap Em where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _emGlobals bm
+    ] <> maybeToList (_emCustom bm)
 
 
-instance Default EEm where
-  def = EEm def def
+defEm ∷ Em
+defEm = Em Nothing Nothing
 
-instance Monoid EEm where
-  mempty = def
-  mappend (EEm a1 a2) (EEm b1 b2) = EEm (a1 <> b1) (a2 <> b2)
+instance Monoid Em where
+  mempty = defEm
+  mappend (Em a1 a2) (Em b1 b2) = Em (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EEm where
-   attrSetGlobals p b = b { _eEmGlobals = Just p }
+instance A.AttrHasGlobals Em where
+   attrSetGlobals pp bm = bm { _emGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EEm
-  where attrSetAccessKey p g = g { _eEmGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasAnmval EEm
-  where attrSetAnmval p g = g { _eEmGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasContentEditable EEm
-  where attrSetContentEditable p g = g  { _eEmGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasContextMenu EEm
-  where attrSetContextMenu p g     = g { _eEmGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasClass EEm
-  where attrSetClassName p g           = g { _eEmGlobals = Just (attrSetClassName p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasDnmval EEm
-  where attrSetDnmval p g           = g { _eEmGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasDir EEm
-  where attrSetDir p g             = g { _eEmGlobals = Just (attrSetDir p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasDraggable EEm
-  where attrSetDraggable p g       = g { _eEmGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasHidden EEm
-  where attrSetHidden p g          = g { _eEmGlobals = Just (attrSetHidden p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasId EEm
-  where attrSetId p g              = g { _eEmGlobals = Just (attrSetId p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasLang EEm
-  where attrSetLang p g            = g { _eEmGlobals = Just (attrSetLang p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasRole EEm
-  where attrSetRole p g            = g { _eEmGlobals = Just (attrSetRole p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasSlot EEm
-  where attrSetSlot p g            = g { _eEmGlobals = Just (attrSetSlot p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasSpellCheck EEm
-  where attrSetSpellCheck p g      = g { _eEmGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasStyle EEm
-  where attrSetStyle p g           = g { _eEmGlobals = Just (attrSetStyle p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasTabIndex EEm
-  where attrSetTabIndex p g        = g { _eEmGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasTitle EEm
-  where attrSetTitle p g           = g { _eEmGlobals = Just (attrSetTitle p (fromMaybe gDef (_eEmGlobals g))) }
-instance AttrHasTranslate EEm
-  where attrSetTranslate p g       = g { _eEmGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eEmGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Em
+  where attrSetAccessKey pp g = g { _emGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasAnmval Em
+  where attrSetAnmval pp g = g { _emGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasContentEditable Em
+  where attrSetContentEditable pp g = g  { _emGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasContextMenu Em
+  where attrSetContextMenu pp g     = g { _emGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasClass Em
+  where attrSetClassName pp g           = g { _emGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasDnmval Em
+  where attrSetDnmval pp g           = g { _emGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasDir Em
+  where attrSetDir pp g             = g { _emGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasDraggable Em
+  where attrSetDraggable pp g       = g { _emGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasHidden Em
+  where attrSetHidden pp g          = g { _emGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasId Em
+  where attrSetId pp g              = g { _emGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasLang Em
+  where attrSetLang pp g            = g { _emGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasRole Em
+  where attrSetRole pp g            = g { _emGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasSlot Em
+  where attrSetSlot pp g            = g { _emGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasSpellCheck Em
+  where attrSetSpellCheck pp g      = g { _emGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasStyle Em
+  where attrSetStyle pp g           = g { _emGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasTabIndex Em
+  where attrSetTabIndex pp g        = g { _emGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasTitle Em
+  where attrSetTitle pp g           = g { _emGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_emGlobals g))) }
+instance A.AttrHasTranslate Em
+  where attrSetTranslate pp g       = g { _emGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_emGlobals g))) }
 
-instance AttrGetClassName EEm where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eEmGlobals g)
+instance A.AttrGetClassName Em where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_emGlobals g)
 
-instance AttrHasCustom EEm where attrSetCustom p g       = g { _eEmCustom = Just p }
+instance A.AttrHasCustom Em where attrSetCustom pp g       = g { _emCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"em\" ... @
-eEm' :: forall t m a. DomBuilder t m => EEm -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eEm' b  = elAttr' "em" (attrMap b)
+em' ∷ forall t m a. DomBuilder t m ⇒ Em → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+em' bm  = elAttr' "em" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"em\" ... @
-eEm :: forall t m a. DomBuilder t m => EEm -> m a -> m a
-eEm b children = snd <$> eEm' b children
+em ∷ forall t m a. DomBuilder t m ⇒ Em → m a → m a
+em bm children = snd <$> em' bm children
 
 -- | A short-hand notion for @ el\' \"em\" ... @
-eEmN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eEmN' = el' "em"
+emN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+emN' = el' "em"
 
 -- | A short-hand notion for @ el \"em\" ... @
-eEmN :: forall t m a. DomBuilder t m => m a -> m a
-eEmN children = snd <$> eEmN' children
+emN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+emN children = snd <$> emN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"em\" ... @
-eEmD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EEm -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eEmD' b  = elDynAttr' "em" (attrMap <$> b)
+emD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Em → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+emD' bm  = elDynAttr' "em" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"em\" ... @
-eEmD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EEm -> m a -> m a
-eEmD b children = snd <$> eEmD' b children
+emD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Em → m a → m a
+emD bm children = snd <$> emD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | FieldSet-element
-data EFieldSet = EFieldSet
-  { _eFieldSetGlobals  :: Maybe Globals
-  , _eFieldSetDisabled :: Maybe Disabled
-  , _eFieldSetForm     :: Maybe Form
-  , _eFieldSetName     :: Maybe Name
-  , _eFieldSetCustom   :: Maybe Attr
+data FieldSet = FieldSet
+  { _fieldSetGlobals  ∷ Maybe A.Globals
+  , _fieldSetDisabled ∷ Maybe A.Disabled
+  , _fieldSetForm     ∷ Maybe A.Form
+  , _fieldSetName     ∷ Maybe A.Name
+  , _fieldSetCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EFieldSet where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eFieldSetGlobals b
-    , attrMap <$> _eFieldSetDisabled b
-    , attrMap <$> _eFieldSetForm b
-    , attrMap <$> _eFieldSetName b
-    ] <> maybeToList (_eFieldSetCustom b)
+instance A.AttrMap FieldSet where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _fieldSetGlobals bm
+    , A.attrMap <$> _fieldSetDisabled bm
+    , A.attrMap <$> _fieldSetForm bm
+    , A.attrMap <$> _fieldSetName bm
+    ] <> maybeToList (_fieldSetCustom bm)
 
 
-instance Default EFieldSet where
-  def = EFieldSet def def def def def
+defFieldSet ∷ FieldSet
+defFieldSet = FieldSet Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EFieldSet where
-  mempty = def
-  mappend (EFieldSet a1 a2 a3 a4 a5) (EFieldSet b1 b2 b3 b4 b5)
-    = EFieldSet (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+instance Monoid FieldSet where
+  mempty = defFieldSet
+  mappend (FieldSet a1 a2 a3 a4 a5) (FieldSet b1 b2 b3 b4 b5)
+    = FieldSet (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
 
-instance AttrHasGlobals EFieldSet where
-   attrSetGlobals p b = b { _eFieldSetGlobals = Just p }
+instance A.AttrHasGlobals FieldSet where
+   attrSetGlobals pp bm = bm { _fieldSetGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EFieldSet
-  where attrSetAccessKey p g = g { _eFieldSetGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasAnmval EFieldSet
-  where attrSetAnmval p g = g { _eFieldSetGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasContentEditable EFieldSet
-  where attrSetContentEditable p g = g  { _eFieldSetGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasContextMenu EFieldSet
-  where attrSetContextMenu p g     = g { _eFieldSetGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasClass EFieldSet
-  where attrSetClassName p g           = g { _eFieldSetGlobals = Just (attrSetClassName p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasDnmval EFieldSet
-  where attrSetDnmval p g           = g { _eFieldSetGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasDir EFieldSet
-  where attrSetDir p g             = g { _eFieldSetGlobals = Just (attrSetDir p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasDraggable EFieldSet
-  where attrSetDraggable p g       = g { _eFieldSetGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasHidden EFieldSet
-  where attrSetHidden p g          = g { _eFieldSetGlobals = Just (attrSetHidden p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasId EFieldSet
-  where attrSetId p g              = g { _eFieldSetGlobals = Just (attrSetId p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasLang EFieldSet
-  where attrSetLang p g            = g { _eFieldSetGlobals = Just (attrSetLang p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasRole EFieldSet
-  where attrSetRole p g            = g { _eFieldSetGlobals = Just (attrSetRole p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasSlot EFieldSet
-  where attrSetSlot p g            = g { _eFieldSetGlobals = Just (attrSetSlot p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasSpellCheck EFieldSet
-  where attrSetSpellCheck p g      = g { _eFieldSetGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasStyle EFieldSet
-  where attrSetStyle p g           = g { _eFieldSetGlobals = Just (attrSetStyle p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasTabIndex EFieldSet
-  where attrSetTabIndex p g        = g { _eFieldSetGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasTitle EFieldSet
-  where attrSetTitle p g           = g { _eFieldSetGlobals = Just (attrSetTitle p (fromMaybe gDef (_eFieldSetGlobals g))) }
-instance AttrHasTranslate EFieldSet
-  where attrSetTranslate p g       = g { _eFieldSetGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eFieldSetGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey FieldSet
+  where attrSetAccessKey pp g = g { _fieldSetGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasAnmval FieldSet
+  where attrSetAnmval pp g = g { _fieldSetGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasContentEditable FieldSet
+  where attrSetContentEditable pp g = g  { _fieldSetGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasContextMenu FieldSet
+  where attrSetContextMenu pp g     = g { _fieldSetGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasClass FieldSet
+  where attrSetClassName pp g           = g { _fieldSetGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasDnmval FieldSet
+  where attrSetDnmval pp g           = g { _fieldSetGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasDir FieldSet
+  where attrSetDir pp g             = g { _fieldSetGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasDraggable FieldSet
+  where attrSetDraggable pp g       = g { _fieldSetGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasHidden FieldSet
+  where attrSetHidden pp g          = g { _fieldSetGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasId FieldSet
+  where attrSetId pp g              = g { _fieldSetGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasLang FieldSet
+  where attrSetLang pp g            = g { _fieldSetGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasRole FieldSet
+  where attrSetRole pp g            = g { _fieldSetGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasSlot FieldSet
+  where attrSetSlot pp g            = g { _fieldSetGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasSpellCheck FieldSet
+  where attrSetSpellCheck pp g      = g { _fieldSetGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasStyle FieldSet
+  where attrSetStyle pp g           = g { _fieldSetGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasTabIndex FieldSet
+  where attrSetTabIndex pp g        = g { _fieldSetGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasTitle FieldSet
+  where attrSetTitle pp g           = g { _fieldSetGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
+instance A.AttrHasTranslate FieldSet
+  where attrSetTranslate pp g       = g { _fieldSetGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_fieldSetGlobals g))) }
 
-instance AttrGetClassName EFieldSet where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eFieldSetGlobals g)
+instance A.AttrGetClassName FieldSet where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_fieldSetGlobals g)
 
-instance AttrHasDisabled EFieldSet where attrSetDisabled p g = g {_eFieldSetDisabled = Just p }
-instance AttrHasForm EFieldSet where attrSetForm p g = g {_eFieldSetForm = Just p }
-instance AttrHasName EFieldSet where attrSetName p g = g {_eFieldSetName = Just p }
+instance A.AttrHasDisabled FieldSet where attrSetDisabled pp g = g {_fieldSetDisabled = Just pp }
+instance A.AttrHasForm FieldSet where attrSetForm pp g = g {_fieldSetForm = Just pp }
+instance A.AttrHasName FieldSet where attrSetName pp g = g {_fieldSetName = Just pp }
 
-instance AttrHasCustom EFieldSet where attrSetCustom p g       = g { _eFieldSetCustom = Just p }
+instance A.AttrHasCustom FieldSet where attrSetCustom pp g       = g { _fieldSetCustom = Just pp }
 
-eFieldSet' :: forall t m a. DomBuilder t m => EFieldSet -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFieldSet' b  = elAttr' "fieldset" (attrMap b)
 
-eFieldSet :: forall t m a. DomBuilder t m => EFieldSet -> m a -> m a
-eFieldSet b children = snd <$> eFieldSet' b children
+fieldSet' ∷ forall t m a. DomBuilder t m ⇒ FieldSet → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+fieldSet' bm  = elAttr' "fieldset" (A.attrMap bm)
 
-eFieldSetN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFieldSetN' = el' "fieldset"
+fieldSet ∷ forall t m a. DomBuilder t m ⇒ FieldSet → m a → m a
+fieldSet bm children = snd <$> fieldSet' bm children
 
-eFieldSetN :: forall t m a. DomBuilder t m => m a -> m a
-eFieldSetN children = snd <$> eFieldSetN' children
+fieldSetN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+fieldSetN' = el' "fieldset"
 
-eFieldSetD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFieldSet -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFieldSetD' b = elDynAttr' "fieldset" (attrMap <$> b)
+fieldSetN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+fieldSetN children = snd <$> fieldSetN' children
 
-eFieldSetD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFieldSet -> m a -> m a
-eFieldSetD b children = snd <$> eFieldSetD' b children
+fieldSetD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t FieldSet → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+fieldSetD' bm = elDynAttr' "fieldset" (A.attrMap <$> bm)
+
+fieldSetD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t FieldSet → m a → m a
+fieldSetD bm children = snd <$> fieldSetD' bm children
 
 
 
@@ -1982,1145 +1972,1147 @@ eFieldSetD b children = snd <$> eFieldSetD' b children
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | FigCaption-element has only the global attributes.
-data EFigCaption = EFigCaption
-  { _eFigCaptionGlobals :: Maybe Globals
-  , _eFigCaptionCustom  :: Maybe Attr
+-- | FigCaption-element has only the global A.attributes.
+data FigCaption = FigCaption
+  { _figCaptionGlobals ∷ Maybe A.Globals
+  , _figCaptionCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EFigCaption where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eFigCaptionGlobals b
-    ] <> maybeToList (_eFigCaptionCustom b)
+instance A.AttrMap FigCaption where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _figCaptionGlobals bm
+    ] <> maybeToList (_figCaptionCustom bm)
 
 
-instance Default EFigCaption where
-  def = EFigCaption def def
+defFigCaption ∷ FigCaption
+defFigCaption = FigCaption Nothing Nothing
 
-instance Monoid EFigCaption where
-  mempty = def
-  mappend (EFigCaption a1 a2) (EFigCaption b1 b2)
-    = EFigCaption (a1 <> b1) (a2 <> b2)
+instance Monoid FigCaption where
+  mempty = defFigCaption
+  mappend (FigCaption a1 a2) (FigCaption b1 b2)
+    = FigCaption (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EFigCaption where
-   attrSetGlobals p b = b { _eFigCaptionGlobals = Just p }
+instance A.AttrHasGlobals FigCaption where
+   attrSetGlobals pp bm = bm { _figCaptionGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EFigCaption
-  where attrSetAccessKey p g = g { _eFigCaptionGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasAnmval EFigCaption
-  where attrSetAnmval p g = g { _eFigCaptionGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasContentEditable EFigCaption
-  where attrSetContentEditable p g = g  { _eFigCaptionGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasContextMenu EFigCaption
-  where attrSetContextMenu p g     = g { _eFigCaptionGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasClass EFigCaption
-  where attrSetClassName p g           = g { _eFigCaptionGlobals = Just (attrSetClassName p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasDnmval EFigCaption
-  where attrSetDnmval p g           = g { _eFigCaptionGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasDir EFigCaption
-  where attrSetDir p g             = g { _eFigCaptionGlobals = Just (attrSetDir p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasDraggable EFigCaption
-  where attrSetDraggable p g       = g { _eFigCaptionGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasHidden EFigCaption
-  where attrSetHidden p g          = g { _eFigCaptionGlobals = Just (attrSetHidden p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasId EFigCaption
-  where attrSetId p g              = g { _eFigCaptionGlobals = Just (attrSetId p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasLang EFigCaption
-  where attrSetLang p g            = g { _eFigCaptionGlobals = Just (attrSetLang p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasRole EFigCaption
-  where attrSetRole p g            = g { _eFigCaptionGlobals = Just (attrSetRole p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasSlot EFigCaption
-  where attrSetSlot p g            = g { _eFigCaptionGlobals = Just (attrSetSlot p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasSpellCheck EFigCaption
-  where attrSetSpellCheck p g      = g { _eFigCaptionGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasStyle EFigCaption
-  where attrSetStyle p g           = g { _eFigCaptionGlobals = Just (attrSetStyle p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasTabIndex EFigCaption
-  where attrSetTabIndex p g        = g { _eFigCaptionGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasTitle EFigCaption
-  where attrSetTitle p g           = g { _eFigCaptionGlobals = Just (attrSetTitle p (fromMaybe gDef (_eFigCaptionGlobals g))) }
-instance AttrHasTranslate EFigCaption
-  where attrSetTranslate p g       = g { _eFigCaptionGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eFigCaptionGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey FigCaption
+  where attrSetAccessKey pp g = g { _figCaptionGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasAnmval FigCaption
+  where attrSetAnmval pp g = g { _figCaptionGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasContentEditable FigCaption
+  where attrSetContentEditable pp g = g  { _figCaptionGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasContextMenu FigCaption
+  where attrSetContextMenu pp g     = g { _figCaptionGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasClass FigCaption
+  where attrSetClassName pp g           = g { _figCaptionGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasDnmval FigCaption
+  where attrSetDnmval pp g           = g { _figCaptionGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasDir FigCaption
+  where attrSetDir pp g             = g { _figCaptionGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasDraggable FigCaption
+  where attrSetDraggable pp g       = g { _figCaptionGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasHidden FigCaption
+  where attrSetHidden pp g          = g { _figCaptionGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasId FigCaption
+  where attrSetId pp g              = g { _figCaptionGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasLang FigCaption
+  where attrSetLang pp g            = g { _figCaptionGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasRole FigCaption
+  where attrSetRole pp g            = g { _figCaptionGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasSlot FigCaption
+  where attrSetSlot pp g            = g { _figCaptionGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasSpellCheck FigCaption
+  where attrSetSpellCheck pp g      = g { _figCaptionGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasStyle FigCaption
+  where attrSetStyle pp g           = g { _figCaptionGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasTabIndex FigCaption
+  where attrSetTabIndex pp g        = g { _figCaptionGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasTitle FigCaption
+  where attrSetTitle pp g           = g { _figCaptionGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
+instance A.AttrHasTranslate FigCaption
+  where attrSetTranslate pp g       = g { _figCaptionGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_figCaptionGlobals g))) }
 
-instance AttrGetClassName EFigCaption where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eFigCaptionGlobals g)
+instance A.AttrGetClassName FigCaption where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_figCaptionGlobals g)
 
-instance AttrHasCustom EFigCaption where attrSetCustom p g       = g { _eFigCaptionCustom = Just p }
+instance A.AttrHasCustom FigCaption where attrSetCustom pp g       = g { _figCaptionCustom = Just pp }
 
-eFigCaption' :: forall t m a. DomBuilder t m => EFigCaption -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFigCaption' b  = elAttr' "figcaption" (attrMap b)
 
-eFigCaption :: forall t m a. DomBuilder t m => EFigCaption -> m a -> m a
-eFigCaption b children = snd <$> eFigCaption' b children
+figCaption' ∷ forall t m a. DomBuilder t m ⇒ FigCaption → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+figCaption' bm  = elAttr' "figcaption" (A.attrMap bm)
 
-eFigCaptionN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFigCaptionN' = el' "figcaption"
+figCaption ∷ forall t m a. DomBuilder t m ⇒ FigCaption → m a → m a
+figCaption bm children = snd <$> figCaption' bm children
 
-eFigCaptionN :: forall t m a. DomBuilder t m => m a -> m a
-eFigCaptionN children = snd <$> eFigCaptionN' children
+figCaptionN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+figCaptionN' = el' "figcaption"
 
-eFigCaptionD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFigCaption -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFigCaptionD' b  = elDynAttr' "figcaption" (attrMap <$> b)
+figCaptionN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+figCaptionN children = snd <$> figCaptionN' children
 
-eFigCaptionD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFigCaption -> m a -> m a
-eFigCaptionD b children = snd <$> eFigCaptionD' b children
+figCaptionD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t FigCaption → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+figCaptionD' bm  = elDynAttr' "figcaption" (A.attrMap <$> bm)
+
+figCaptionD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t FigCaption → m a → m a
+figCaptionD bm children = snd <$> figCaptionD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Figure-element has only the global attributes.
-data EFigure = EFigure
-  { _eFigureGlobals :: Maybe Globals
-  , _eFigureCustom  :: Maybe Attr
+-- | Figure-element has only the global A.attributes.
+data Figure = Figure
+  { _figurglobals ∷ Maybe A.Globals
+  , _figurcustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EFigure where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eFigureGlobals b
-    ] <> maybeToList (_eFigureCustom b)
+instance A.AttrMap Figure where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _figurglobals bm
+    ] <> maybeToList (_figurcustom bm)
 
 
-instance Default EFigure where
-  def = EFigure def def
+defFigure ∷ Figure
+defFigure = Figure Nothing Nothing
 
-instance Monoid EFigure where
-  mempty = def
-  mappend (EFigure a1 a2) (EFigure b1 b2) = EFigure (a1 <> b1) (a2 <> b2)
+instance Monoid Figure where
+  mempty = defFigure
+  mappend (Figure a1 a2) (Figure b1 b2) = Figure (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EFigure where
-   attrSetGlobals p b = b { _eFigureGlobals = Just p }
+instance A.AttrHasGlobals Figure where
+   attrSetGlobals pp bm = bm { _figurglobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EFigure
-  where attrSetAccessKey p g = g { _eFigureGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasAnmval EFigure
-  where attrSetAnmval p g = g { _eFigureGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasContentEditable EFigure
-  where attrSetContentEditable p g = g  { _eFigureGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasContextMenu EFigure
-  where attrSetContextMenu p g     = g { _eFigureGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasClass EFigure
-  where attrSetClassName p g           = g { _eFigureGlobals = Just (attrSetClassName p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasDnmval EFigure
-  where attrSetDnmval p g           = g { _eFigureGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasDir EFigure
-  where attrSetDir p g             = g { _eFigureGlobals = Just (attrSetDir p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasDraggable EFigure
-  where attrSetDraggable p g       = g { _eFigureGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasHidden EFigure
-  where attrSetHidden p g          = g { _eFigureGlobals = Just (attrSetHidden p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasId EFigure
-  where attrSetId p g              = g { _eFigureGlobals = Just (attrSetId p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasLang EFigure
-  where attrSetLang p g            = g { _eFigureGlobals = Just (attrSetLang p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasRole EFigure
-  where attrSetRole p g            = g { _eFigureGlobals = Just (attrSetRole p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasSlot EFigure
-  where attrSetSlot p g            = g { _eFigureGlobals = Just (attrSetSlot p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasSpellCheck EFigure
-  where attrSetSpellCheck p g      = g { _eFigureGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasStyle EFigure
-  where attrSetStyle p g           = g { _eFigureGlobals = Just (attrSetStyle p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasTabIndex EFigure
-  where attrSetTabIndex p g        = g { _eFigureGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasTitle EFigure
-  where attrSetTitle p g           = g { _eFigureGlobals = Just (attrSetTitle p (fromMaybe gDef (_eFigureGlobals g))) }
-instance AttrHasTranslate EFigure
-  where attrSetTranslate p g       = g { _eFigureGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eFigureGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Figure
+  where attrSetAccessKey pp g = g { _figurglobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasAnmval Figure
+  where attrSetAnmval pp g = g { _figurglobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasContentEditable Figure
+  where attrSetContentEditable pp g = g  { _figurglobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasContextMenu Figure
+  where attrSetContextMenu pp g     = g { _figurglobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasClass Figure
+  where attrSetClassName pp g           = g { _figurglobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasDnmval Figure
+  where attrSetDnmval pp g           = g { _figurglobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasDir Figure
+  where attrSetDir pp g             = g { _figurglobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasDraggable Figure
+  where attrSetDraggable pp g       = g { _figurglobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasHidden Figure
+  where attrSetHidden pp g          = g { _figurglobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasId Figure
+  where attrSetId pp g              = g { _figurglobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasLang Figure
+  where attrSetLang pp g            = g { _figurglobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasRole Figure
+  where attrSetRole pp g            = g { _figurglobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasSlot Figure
+  where attrSetSlot pp g            = g { _figurglobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasSpellCheck Figure
+  where attrSetSpellCheck pp g      = g { _figurglobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasStyle Figure
+  where attrSetStyle pp g           = g { _figurglobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasTabIndex Figure
+  where attrSetTabIndex pp g        = g { _figurglobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasTitle Figure
+  where attrSetTitle pp g           = g { _figurglobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_figurglobals g))) }
+instance A.AttrHasTranslate Figure
+  where attrSetTranslate pp g       = g { _figurglobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_figurglobals g))) }
 
-instance AttrGetClassName EFigure where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eFigureGlobals g)
+instance A.AttrGetClassName Figure where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_figurglobals g)
 
-instance AttrHasCustom EFigure where attrSetCustom p g       = g { _eFigureCustom = Just p }
+instance A.AttrHasCustom Figure where attrSetCustom pp g       = g { _figurcustom = Just pp }
+
 
 -- | A short-hand notion for @ elAttr\' \"figure\" ... @
-eFigure' :: forall t m a. DomBuilder t m => EFigure -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFigure' b  = elAttr' "figure" (attrMap b)
+figure' ∷ forall t m a. DomBuilder t m ⇒ Figure → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+figure' bm  = elAttr' "figure" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"figure\" ... @
-eFigure :: forall t m a. DomBuilder t m => EFigure -> m a -> m a
-eFigure b children = snd <$> eFigure' b children
+figure ∷ forall t m a. DomBuilder t m ⇒ Figure → m a → m a
+figure bm children = snd <$> figure' bm children
 
 -- | A short-hand notion for @ el\' \"figure\" ... @
-eFigureN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFigureN' = el' "figure"
+figurn' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+figurn' = el' "figure"
 
 -- | A short-hand notion for @ el \"figure\" ... @
-eFigureN :: forall t m a. DomBuilder t m => m a -> m a
-eFigureN children = snd <$> eFigureN' children
+figurn ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+figurn children = snd <$> figurn' children
 
 -- | A short-hand notion for @ elDynAttr\' \"figure\" ... @
-eFigureD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFigure -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFigureD' b  = elDynAttr' "figure" (attrMap <$> b)
+figurd' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Figure → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+figurd' bm  = elDynAttr' "figure" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"figure\" ... @
-eFigureD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFigure -> m a -> m a
-eFigureD b children = snd <$> eFigureD' b children
+figurd ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Figure → m a → m a
+figurd bm children = snd <$> figurd' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Footer-element has only the global attributes.
-data EFooter = EFooter
-  { _eFooterGlobals :: Maybe Globals
-  , _eFooterCustom  :: Maybe Attr
+-- | Footer-element has only the global A.attributes.
+data Footer = Footer
+  { _footerGlobals ∷ Maybe A.Globals
+  , _footerCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EFooter where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eFooterGlobals b
-    ] <> maybeToList (_eFooterCustom b)
+instance A.AttrMap Footer where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _footerGlobals bm
+    ] <> maybeToList (_footerCustom bm)
 
 
-instance Default EFooter where
-  def = EFooter def def
+defFooter ∷ Footer
+defFooter = Footer Nothing Nothing
 
-instance Monoid EFooter where
-  mempty = def
-  mappend (EFooter a1 a2) (EFooter b1 b2) = EFooter (a1 <> b1) (a2 <> b2)
+instance Monoid Footer where
+  mempty = defFooter
+  mappend (Footer a1 a2) (Footer b1 b2) = Footer (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EFooter where
-   attrSetGlobals p b = b { _eFooterGlobals = Just p }
+instance A.AttrHasGlobals Footer where
+   attrSetGlobals pp bm = bm { _footerGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EFooter
-  where attrSetAccessKey p g = g { _eFooterGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasAnmval EFooter
-  where attrSetAnmval p g = g { _eFooterGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasContentEditable EFooter
-  where attrSetContentEditable p g = g  { _eFooterGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasContextMenu EFooter
-  where attrSetContextMenu p g     = g { _eFooterGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasClass EFooter
-  where attrSetClassName p g           = g { _eFooterGlobals = Just (attrSetClassName p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasDnmval EFooter
-  where attrSetDnmval p g           = g { _eFooterGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasDir EFooter
-  where attrSetDir p g             = g { _eFooterGlobals = Just (attrSetDir p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasDraggable EFooter
-  where attrSetDraggable p g       = g { _eFooterGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasHidden EFooter
-  where attrSetHidden p g          = g { _eFooterGlobals = Just (attrSetHidden p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasId EFooter
-  where attrSetId p g              = g { _eFooterGlobals = Just (attrSetId p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasLang EFooter
-  where attrSetLang p g            = g { _eFooterGlobals = Just (attrSetLang p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasRole EFooter
-  where attrSetRole p g            = g { _eFooterGlobals = Just (attrSetRole p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasSlot EFooter
-  where attrSetSlot p g            = g { _eFooterGlobals = Just (attrSetSlot p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasSpellCheck EFooter
-  where attrSetSpellCheck p g      = g { _eFooterGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasStyle EFooter
-  where attrSetStyle p g           = g { _eFooterGlobals = Just (attrSetStyle p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasTabIndex EFooter
-  where attrSetTabIndex p g        = g { _eFooterGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasTitle EFooter
-  where attrSetTitle p g           = g { _eFooterGlobals = Just (attrSetTitle p (fromMaybe gDef (_eFooterGlobals g))) }
-instance AttrHasTranslate EFooter
-  where attrSetTranslate p g       = g { _eFooterGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eFooterGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Footer
+  where attrSetAccessKey pp g = g { _footerGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasAnmval Footer
+  where attrSetAnmval pp g = g { _footerGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasContentEditable Footer
+  where attrSetContentEditable pp g = g  { _footerGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasContextMenu Footer
+  where attrSetContextMenu pp g     = g { _footerGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasClass Footer
+  where attrSetClassName pp g           = g { _footerGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasDnmval Footer
+  where attrSetDnmval pp g           = g { _footerGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasDir Footer
+  where attrSetDir pp g             = g { _footerGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasDraggable Footer
+  where attrSetDraggable pp g       = g { _footerGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasHidden Footer
+  where attrSetHidden pp g          = g { _footerGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasId Footer
+  where attrSetId pp g              = g { _footerGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasLang Footer
+  where attrSetLang pp g            = g { _footerGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasRole Footer
+  where attrSetRole pp g            = g { _footerGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasSlot Footer
+  where attrSetSlot pp g            = g { _footerGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasSpellCheck Footer
+  where attrSetSpellCheck pp g      = g { _footerGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasStyle Footer
+  where attrSetStyle pp g           = g { _footerGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasTabIndex Footer
+  where attrSetTabIndex pp g        = g { _footerGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasTitle Footer
+  where attrSetTitle pp g           = g { _footerGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_footerGlobals g))) }
+instance A.AttrHasTranslate Footer
+  where attrSetTranslate pp g       = g { _footerGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_footerGlobals g))) }
 
-instance AttrGetClassName EFooter where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eFooterGlobals g)
+instance A.AttrGetClassName Footer where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_footerGlobals g)
 
-instance AttrHasCustom EFooter where attrSetCustom p g       = g { _eFooterCustom = Just p }
+instance A.AttrHasCustom Footer where attrSetCustom pp g       = g { _footerCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"footer\" ... @
-eFooter' :: forall t m a. DomBuilder t m => EFooter -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFooter' b  = elAttr' "footer" (attrMap b)
+footer' ∷ forall t m a. DomBuilder t m ⇒ Footer → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+footer' bm  = elAttr' "footer" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"footer\" ... @
-eFooter :: forall t m a. DomBuilder t m => EFooter -> m a -> m a
-eFooter b children = snd <$> eFooter' b children
+footer ∷ forall t m a. DomBuilder t m ⇒ Footer → m a → m a
+footer bm children = snd <$> footer' bm children
 
 -- | A short-hand notion for @ el\' \"footer\" ... @
-eFooterN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFooterN' = el' "footer"
+footerN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+footerN' = el' "footer"
 
 -- | A short-hand notion for @ el \"footer\" ... @
-eFooterN :: forall t m a. DomBuilder t m => m a -> m a
-eFooterN children = snd <$> eFooterN' children
+footerN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+footerN children = snd <$> footerN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"footer\" ... @
-eFooterD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFooter -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFooterD' b  = elDynAttr' "footer" (attrMap <$> b)
+footerD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Footer → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+footerD' bm  = elDynAttr' "footer" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"footer\" ... @
-eFooterD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EFooter -> m a -> m a
-eFooterD b children = snd <$> eFooterD' b children
+footerD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Footer → m a → m a
+footerD bm children = snd <$> footerD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Form-element
-data EForm = EForm
-  { _eFormGlobals       :: Maybe Globals
-  , _eFormAcceptCharSet :: Maybe AcceptCharSet
-  , _eFormAction        :: Maybe Action
-  , _eFormAutoComplete  :: Maybe AutoComplete
-  , _eFormEncType       :: Maybe EncType
-  , _eFormMethod        :: Maybe Method
-  , _eFormName          :: Maybe Name
-  , _eFormNoValidate    :: Maybe NoValidate
-  , _eFormTarget        :: Maybe Target
-  , _eFormCustom        :: Maybe Attr
+data Form = Form
+  { _formGlobals       ∷ Maybe A.Globals
+  , _formAcceptCharSet ∷ Maybe A.AcceptCharSet
+  , _formAction        ∷ Maybe A.Action
+  , _formAutoComplete  ∷ Maybe A.AutoComplete
+  , _formEncType       ∷ Maybe A.EncType
+  , _formMethod        ∷ Maybe A.Method
+  , _formName          ∷ Maybe A.Name
+  , _formNoValidate    ∷ Maybe A.NoValidate
+  , _formTarget        ∷ Maybe A.Target
+  , _formCustom        ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EForm where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eFormGlobals b
-    , attrMap <$> _eFormAcceptCharSet b
-    , attrMap <$> _eFormAction b
-    , attrMap <$> _eFormAutoComplete b
-    , attrMap <$> _eFormEncType b
-    , attrMap <$> _eFormMethod b
-    , attrMap <$> _eFormName b
-    , attrMap <$> _eFormNoValidate b
-    , attrMap <$> _eFormTarget b
-    ] <> maybeToList (_eFormCustom b)
+instance A.AttrMap Form where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _formGlobals bm
+    , A.attrMap <$> _formAcceptCharSet bm
+    , A.attrMap <$> _formAction bm
+    , A.attrMap <$> _formAutoComplete bm
+    , A.attrMap <$> _formEncType bm
+    , A.attrMap <$> _formMethod bm
+    , A.attrMap <$> _formName bm
+    , A.attrMap <$> _formNoValidate bm
+    , A.attrMap <$> _formTarget bm
+    ] <> maybeToList (_formCustom bm)
 
 
-instance Default EForm where
-  def = EForm def def def def def def def def def def
+defForm ∷ Form
+defForm = Form Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EForm where
-  mempty = def
-  mappend (EForm a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
-    (EForm b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
-      = EForm (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+instance Monoid Form where
+  mempty = defForm
+  mappend (Form a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
+    (Form b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
+      = Form (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
               (a6 <> b6) (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10)
 
-instance AttrHasGlobals EForm where
-   attrSetGlobals p b = b { _eFormGlobals = Just p }
+instance A.AttrHasGlobals Form where
+   attrSetGlobals pp bm = bm { _formGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EForm
-  where attrSetAccessKey p g = g { _eFormGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasAnmval EForm
-  where attrSetAnmval p g = g { _eFormGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasContentEditable EForm
-  where attrSetContentEditable p g = g  { _eFormGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasContextMenu EForm
-  where attrSetContextMenu p g     = g { _eFormGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasClass EForm
-  where attrSetClassName p g           = g { _eFormGlobals = Just (attrSetClassName p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasDnmval EForm
-  where attrSetDnmval p g           = g { _eFormGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasDir EForm
-  where attrSetDir p g             = g { _eFormGlobals = Just (attrSetDir p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasDraggable EForm
-  where attrSetDraggable p g       = g { _eFormGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasHidden EForm
-  where attrSetHidden p g          = g { _eFormGlobals = Just (attrSetHidden p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasId EForm
-  where attrSetId p g              = g { _eFormGlobals = Just (attrSetId p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasLang EForm
-  where attrSetLang p g            = g { _eFormGlobals = Just (attrSetLang p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasRole EForm
-  where attrSetRole p g            = g { _eFormGlobals = Just (attrSetRole p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasSlot EForm
-  where attrSetSlot p g            = g { _eFormGlobals = Just (attrSetSlot p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasSpellCheck EForm
-  where attrSetSpellCheck p g      = g { _eFormGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasStyle EForm
-  where attrSetStyle p g           = g { _eFormGlobals = Just (attrSetStyle p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasTabIndex EForm
-  where attrSetTabIndex p g        = g { _eFormGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasTitle EForm
-  where attrSetTitle p g           = g { _eFormGlobals = Just (attrSetTitle p (fromMaybe gDef (_eFormGlobals g))) }
-instance AttrHasTranslate EForm
-  where attrSetTranslate p g       = g { _eFormGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eFormGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Form
+  where attrSetAccessKey pp g = g { _formGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasAnmval Form
+  where attrSetAnmval pp g = g { _formGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasContentEditable Form
+  where attrSetContentEditable pp g = g  { _formGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasContextMenu Form
+  where attrSetContextMenu pp g     = g { _formGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasClass Form
+  where attrSetClassName pp g           = g { _formGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasDnmval Form
+  where attrSetDnmval pp g           = g { _formGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasDir Form
+  where attrSetDir pp g             = g { _formGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasDraggable Form
+  where attrSetDraggable pp g       = g { _formGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasHidden Form
+  where attrSetHidden pp g          = g { _formGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasId Form
+  where attrSetId pp g              = g { _formGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasLang Form
+  where attrSetLang pp g            = g { _formGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasRole Form
+  where attrSetRole pp g            = g { _formGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasSlot Form
+  where attrSetSlot pp g            = g { _formGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasSpellCheck Form
+  where attrSetSpellCheck pp g      = g { _formGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasStyle Form
+  where attrSetStyle pp g           = g { _formGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasTabIndex Form
+  where attrSetTabIndex pp g        = g { _formGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasTitle Form
+  where attrSetTitle pp g           = g { _formGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_formGlobals g))) }
+instance A.AttrHasTranslate Form
+  where attrSetTranslate pp g       = g { _formGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_formGlobals g))) }
 
-instance AttrGetClassName EForm where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eFormGlobals g)
+instance A.AttrGetClassName Form where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_formGlobals g)
 
-instance AttrHasAcceptCharSet EForm where attrSetAcceptCharSet p g = g {_eFormAcceptCharSet = Just p }
-instance AttrHasAction EForm where attrSetAction p g = g {_eFormAction = Just p }
-instance AttrHasAutoComplete EForm where attrSetAutoComplete p g = g {_eFormAutoComplete = Just p }
-instance AttrHasEncType EForm where attrSetEncType p g = g {_eFormEncType = Just p }
-instance AttrHasMethod EForm where attrSetMethod p g = g {_eFormMethod = Just p }
-instance AttrHasName EForm where attrSetName p g = g {_eFormName = Just p }
-instance AttrHasNoValidate EForm where attrSetNoValidate p g = g {_eFormNoValidate = Just p }
-instance AttrHasTarget EForm where attrSetTarget p g = g {_eFormTarget = Just p }
+instance A.AttrHasAcceptCharSet Form where attrSetAcceptCharSet pp g = g {_formAcceptCharSet = Just pp }
+instance A.AttrHasAction Form where attrSetAction pp g = g {_formAction = Just pp }
+instance A.AttrHasAutoComplete Form where attrSetAutoComplete pp g = g {_formAutoComplete = Just pp }
+instance A.AttrHasEncType Form where attrSetEncType pp g = g {_formEncType = Just pp }
+instance A.AttrHasMethod Form where attrSetMethod pp g = g {_formMethod = Just pp }
+instance A.AttrHasName Form where attrSetName pp g = g {_formName = Just pp }
+instance A.AttrHasNoValidate Form where attrSetNoValidate pp g = g {_formNoValidate = Just pp }
+instance A.AttrHasTarget Form where attrSetTarget pp g = g {_formTarget = Just pp }
 
-instance AttrHasCustom EForm where attrSetCustom p g       = g { _eFormCustom = Just p }
+instance A.AttrHasCustom Form where attrSetCustom pp g       = g { _formCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"form\" ... @
-eForm' :: forall t m a. DomBuilder t m => EForm -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eForm' b  = elAttr' "form" (attrMap b)
+form' ∷ forall t m a. DomBuilder t m ⇒ Form → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+form' bm  = elAttr' "form" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"form\" ... @
-eForm :: forall t m a. DomBuilder t m => EForm -> m a -> m a
-eForm b children = snd <$> eForm' b children
+form ∷ forall t m a. DomBuilder t m ⇒ Form → m a → m a
+form bm children = snd <$> form' bm children
 
 -- | A short-hand notion for @ el\' \"form\" ... @
-eFormN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFormN' = el' "form"
+formN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+formN' = el' "form"
 
 -- | A short-hand notion for @ el \"form\" ... @
-eFormN :: forall t m a. DomBuilder t m => m a -> m a
-eFormN children = snd <$> eFormN' children
+formN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+formN children = snd <$> formN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"form\" ... @
-eFormD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EForm -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eFormD' b = elDynAttr' "form" (attrMap <$> b)
+formD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Form → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+formD' bm = elDynAttr' "form" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"form\" ... @
-eFormD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EForm -> m a -> m a
-eFormD b children = snd <$> eFormD' b children
+formD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Form → m a → m a
+formD bm children = snd <$> formD' bm children
 
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Header-element has only the global attributes.
-data EHeader = EHeader
-  { _eHeaderGlobals :: Maybe Globals
-  , _eHeaderCustom  :: Maybe Attr
+-- | Header-element has only the global A.attributes.
+data Header = Header
+  { _headerGlobals ∷ Maybe A.Globals
+  , _headerCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EHeader where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eHeaderGlobals b
-    ] <> maybeToList (_eHeaderCustom b)
+instance A.AttrMap Header where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _headerGlobals bm
+    ] <> maybeToList (_headerCustom bm)
 
 
-instance Default EHeader where
-  def = EHeader def def
+defHeader ∷ Header
+defHeader = Header Nothing Nothing
 
-instance Monoid EHeader where
-  mempty = def
-  mappend (EHeader a1 a2) (EHeader b1 b2) = EHeader (a1 <> b1) (a2 <> b2)
+instance Monoid Header where
+  mempty = defHeader
+  mappend (Header a1 a2) (Header b1 b2) = Header (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EHeader where
-   attrSetGlobals p b = b { _eHeaderGlobals = Just p }
+instance A.AttrHasGlobals Header where
+   attrSetGlobals pp bm = bm { _headerGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EHeader
-  where attrSetAccessKey p g = g { _eHeaderGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasAnmval EHeader
-  where attrSetAnmval p g = g { _eHeaderGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasContentEditable EHeader
-  where attrSetContentEditable p g = g  { _eHeaderGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasContextMenu EHeader
-  where attrSetContextMenu p g     = g { _eHeaderGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasClass EHeader
-  where attrSetClassName p g           = g { _eHeaderGlobals = Just (attrSetClassName p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasDnmval EHeader
-  where attrSetDnmval p g           = g { _eHeaderGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasDir EHeader
-  where attrSetDir p g             = g { _eHeaderGlobals = Just (attrSetDir p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasDraggable EHeader
-  where attrSetDraggable p g       = g { _eHeaderGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasHidden EHeader
-  where attrSetHidden p g          = g { _eHeaderGlobals = Just (attrSetHidden p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasId EHeader
-  where attrSetId p g              = g { _eHeaderGlobals = Just (attrSetId p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasLang EHeader
-  where attrSetLang p g            = g { _eHeaderGlobals = Just (attrSetLang p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasRole EHeader
-  where attrSetRole p g            = g { _eHeaderGlobals = Just (attrSetRole p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasSlot EHeader
-  where attrSetSlot p g            = g { _eHeaderGlobals = Just (attrSetSlot p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasSpellCheck EHeader
-  where attrSetSpellCheck p g      = g { _eHeaderGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasStyle EHeader
-  where attrSetStyle p g           = g { _eHeaderGlobals = Just (attrSetStyle p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasTabIndex EHeader
-  where attrSetTabIndex p g        = g { _eHeaderGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasTitle EHeader
-  where attrSetTitle p g           = g { _eHeaderGlobals = Just (attrSetTitle p (fromMaybe gDef (_eHeaderGlobals g))) }
-instance AttrHasTranslate EHeader
-  where attrSetTranslate p g       = g { _eHeaderGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eHeaderGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Header
+  where attrSetAccessKey pp g = g { _headerGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasAnmval Header
+  where attrSetAnmval pp g = g { _headerGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasContentEditable Header
+  where attrSetContentEditable pp g = g  { _headerGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasContextMenu Header
+  where attrSetContextMenu pp g     = g { _headerGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasClass Header
+  where attrSetClassName pp g           = g { _headerGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasDnmval Header
+  where attrSetDnmval pp g           = g { _headerGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasDir Header
+  where attrSetDir pp g             = g { _headerGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasDraggable Header
+  where attrSetDraggable pp g       = g { _headerGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasHidden Header
+  where attrSetHidden pp g          = g { _headerGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasId Header
+  where attrSetId pp g              = g { _headerGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasLang Header
+  where attrSetLang pp g            = g { _headerGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasRole Header
+  where attrSetRole pp g            = g { _headerGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasSlot Header
+  where attrSetSlot pp g            = g { _headerGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasSpellCheck Header
+  where attrSetSpellCheck pp g      = g { _headerGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasStyle Header
+  where attrSetStyle pp g           = g { _headerGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasTabIndex Header
+  where attrSetTabIndex pp g        = g { _headerGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasTitle Header
+  where attrSetTitle pp g           = g { _headerGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_headerGlobals g))) }
+instance A.AttrHasTranslate Header
+  where attrSetTranslate pp g       = g { _headerGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_headerGlobals g))) }
 
-instance AttrGetClassName EHeader where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eHeaderGlobals g)
+instance A.AttrGetClassName Header where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_headerGlobals g)
 
-instance AttrHasCustom EHeader where attrSetCustom p g       = g { _eHeaderCustom = Just p }
+instance A.AttrHasCustom Header where attrSetCustom pp g       = g { _headerCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"header\" ... @
-eHeader' :: forall t m a. DomBuilder t m => EHeader -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eHeader' b  = elAttr' "header" (attrMap b)
+header' ∷ forall t m a. DomBuilder t m ⇒ Header → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+header' bm  = elAttr' "header" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"header\" ... @
-eHeader :: forall t m a. DomBuilder t m => EHeader -> m a -> m a
-eHeader b children = snd <$> eHeader' b children
+header ∷ forall t m a. DomBuilder t m ⇒ Header → m a → m a
+header bm children = snd <$> header' bm children
 
 -- | A short-hand notion for @ el\' \"header\" ... @
-eHeaderN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eHeaderN' = el' "header"
+headerN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+headerN' = el' "header"
 
 -- | A short-hand notion for @ el \"header\" ... @
-eHeaderN :: forall t m a. DomBuilder t m => m a -> m a
-eHeaderN children = snd <$> eHeaderN' children
+headerN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+headerN children = snd <$> headerN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"header\" ... @
-eHeaderD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EHeader -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eHeaderD' b  = elDynAttr' "header" (attrMap <$> b)
+headerD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Header → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+headerD' bm  = elDynAttr' "header" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"header\" ... @
-eHeaderD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EHeader -> m a -> m a
-eHeaderD b children = snd <$> eHeaderD' b children
+headerD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Header → m a → m a
+headerD bm children = snd <$> headerD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Hr-element has only the global attributes.
-data EHr = EHr
-  { _eHrGlobals :: Maybe Globals
-  , _eHrCustom  :: Maybe Attr
+-- | Hr-element has only the global A.attributes.
+data Hr = Hr
+  { _hrGlobals ∷ Maybe A.Globals
+  , _hrCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EHr where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eHrGlobals b
-    ] <> maybeToList (_eHrCustom b)
+instance A.AttrMap Hr where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _hrGlobals bm
+    ] <> maybeToList (_hrCustom bm)
 
 
-instance Default EHr where
-  def = EHr def def
+defHr ∷ Hr
+defHr = Hr Nothing Nothing
 
-instance Monoid EHr where
-  mempty = def
-  mappend (EHr a1 a2) (EHr b1 b2) = EHr (a1 <> b1) (a2 <> b2)
+instance Monoid Hr where
+  mempty = defHr
+  mappend (Hr a1 a2) (Hr b1 b2) = Hr (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EHr where
-   attrSetGlobals p b = b { _eHrGlobals = Just p }
+instance A.AttrHasGlobals Hr where
+   attrSetGlobals pp bm = bm { _hrGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EHr
-  where attrSetAccessKey p g = g { _eHrGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasAnmval EHr
-  where attrSetAnmval p g = g { _eHrGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasContentEditable EHr
-  where attrSetContentEditable p g = g  { _eHrGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasContextMenu EHr
-  where attrSetContextMenu p g     = g { _eHrGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasClass EHr
-  where attrSetClassName p g           = g { _eHrGlobals = Just (attrSetClassName p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasDnmval EHr
-  where attrSetDnmval p g           = g { _eHrGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasDir EHr
-  where attrSetDir p g             = g { _eHrGlobals = Just (attrSetDir p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasDraggable EHr
-  where attrSetDraggable p g       = g { _eHrGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasHidden EHr
-  where attrSetHidden p g          = g { _eHrGlobals = Just (attrSetHidden p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasId EHr
-  where attrSetId p g              = g { _eHrGlobals = Just (attrSetId p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasLang EHr
-  where attrSetLang p g            = g { _eHrGlobals = Just (attrSetLang p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasRole EHr
-  where attrSetRole p g            = g { _eHrGlobals = Just (attrSetRole p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasSlot EHr
-  where attrSetSlot p g            = g { _eHrGlobals = Just (attrSetSlot p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasSpellCheck EHr
-  where attrSetSpellCheck p g      = g { _eHrGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasStyle EHr
-  where attrSetStyle p g           = g { _eHrGlobals = Just (attrSetStyle p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasTabIndex EHr
-  where attrSetTabIndex p g        = g { _eHrGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasTitle EHr
-  where attrSetTitle p g           = g { _eHrGlobals = Just (attrSetTitle p (fromMaybe gDef (_eHrGlobals g))) }
-instance AttrHasTranslate EHr
-  where attrSetTranslate p g       = g { _eHrGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eHrGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Hr
+  where attrSetAccessKey pp g = g { _hrGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasAnmval Hr
+  where attrSetAnmval pp g = g { _hrGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasContentEditable Hr
+  where attrSetContentEditable pp g = g  { _hrGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasContextMenu Hr
+  where attrSetContextMenu pp g     = g { _hrGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasClass Hr
+  where attrSetClassName pp g           = g { _hrGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasDnmval Hr
+  where attrSetDnmval pp g           = g { _hrGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasDir Hr
+  where attrSetDir pp g             = g { _hrGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasDraggable Hr
+  where attrSetDraggable pp g       = g { _hrGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasHidden Hr
+  where attrSetHidden pp g          = g { _hrGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasId Hr
+  where attrSetId pp g              = g { _hrGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasLang Hr
+  where attrSetLang pp g            = g { _hrGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasRole Hr
+  where attrSetRole pp g            = g { _hrGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasSlot Hr
+  where attrSetSlot pp g            = g { _hrGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasSpellCheck Hr
+  where attrSetSpellCheck pp g      = g { _hrGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasStyle Hr
+  where attrSetStyle pp g           = g { _hrGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasTabIndex Hr
+  where attrSetTabIndex pp g        = g { _hrGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasTitle Hr
+  where attrSetTitle pp g           = g { _hrGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_hrGlobals g))) }
+instance A.AttrHasTranslate Hr
+  where attrSetTranslate pp g       = g { _hrGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_hrGlobals g))) }
 
-instance AttrGetClassName EHr where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eHrGlobals g)
+instance A.AttrGetClassName Hr where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_hrGlobals g)
 
-instance AttrHasCustom EHr where attrSetCustom p g       = g { _eHrCustom = Just p }
+instance A.AttrHasCustom Hr where attrSetCustom pp g       = g { _hrCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"hr\" ... @
-eHr' :: forall t m a. DomBuilder t m => EHr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eHr' b  = elAttr' "hr" (attrMap b)
+hr' ∷ forall t m a. DomBuilder t m ⇒ Hr → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+hr' bm  = elAttr' "hr" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"hr\" ... @
-eHr :: forall t m a. DomBuilder t m => EHr -> m a -> m a
-eHr b children = snd <$> eHr' b children
+hr ∷ forall t m a. DomBuilder t m ⇒ Hr → m a → m a
+hr bm children = snd <$> hr' bm children
 
 -- | A short-hand notion for @ el\' \"hr\" ... @
-eHrN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eHrN' = el' "hr"
+hrN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+hrN' = el' "hr"
 
 -- | A short-hand notion for @ el \"hr\" ... @
-eHrN :: forall t m a. DomBuilder t m => m a -> m a
-eHrN children = snd <$> eHrN' children
+hrN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+hrN children = snd <$> hrN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"hr\" ... @
-eHrD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EHr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eHrD' b  = elDynAttr' "hr" (attrMap <$> b)
+hrD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Hr → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+hrD' bm  = elDynAttr' "hr" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"hr\" ... @
-eHrD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EHr -> m a -> m a
-eHrD b children = snd <$> eHrD' b children
+hrD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Hr → m a → m a
+hrD bm children = snd <$> hrD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | I-element has only the global attributes.
-data EI = EI
-  { _eIGlobals :: Maybe Globals
-  , _eICustom  :: Maybe Attr
+-- | I-element has only the global A.attributes.
+data I = I
+  { _iGlobals ∷ Maybe A.Globals
+  , _iCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EI where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eIGlobals b
-    ] <> maybeToList (_eICustom b)
+instance A.AttrMap I where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _iGlobals bm
+    ] <> maybeToList (_iCustom bm)
 
 
-instance Default EI where
-  def = EI def def
+defI ∷ I
+defI = I Nothing Nothing
 
-instance Monoid EI where
-  mempty = def
-  mappend (EI a1 a2) (EI b1 b2) = EI (a1 <> b1) (a2 <> b2)
+instance Monoid I where
+  mempty = defI
+  mappend (I a1 a2) (I b1 b2) = I (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EI where
-   attrSetGlobals p b = b { _eIGlobals = Just p }
+instance A.AttrHasGlobals I where
+   attrSetGlobals pp bm = bm { _iGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EI
-  where attrSetAccessKey p g = g { _eIGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasAnmval EI
-  where attrSetAnmval p g = g { _eIGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasContentEditable EI
-  where attrSetContentEditable p g = g  { _eIGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasContextMenu EI
-  where attrSetContextMenu p g     = g { _eIGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasClass EI
-  where attrSetClassName p g           = g { _eIGlobals = Just (attrSetClassName p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasDnmval EI
-  where attrSetDnmval p g           = g { _eIGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasDir EI
-  where attrSetDir p g             = g { _eIGlobals = Just (attrSetDir p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasDraggable EI
-  where attrSetDraggable p g       = g { _eIGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasHidden EI
-  where attrSetHidden p g          = g { _eIGlobals = Just (attrSetHidden p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasId EI
-  where attrSetId p g              = g { _eIGlobals = Just (attrSetId p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasLang EI
-  where attrSetLang p g            = g { _eIGlobals = Just (attrSetLang p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasRole EI
-  where attrSetRole p g            = g { _eIGlobals = Just (attrSetRole p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasSlot EI
-  where attrSetSlot p g            = g { _eIGlobals = Just (attrSetSlot p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasSpellCheck EI
-  where attrSetSpellCheck p g      = g { _eIGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasStyle EI
-  where attrSetStyle p g           = g { _eIGlobals = Just (attrSetStyle p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasTabIndex EI
-  where attrSetTabIndex p g        = g { _eIGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasTitle EI
-  where attrSetTitle p g           = g { _eIGlobals = Just (attrSetTitle p (fromMaybe gDef (_eIGlobals g))) }
-instance AttrHasTranslate EI
-  where attrSetTranslate p g       = g { _eIGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eIGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey I
+  where attrSetAccessKey pp g = g { _iGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasAnmval I
+  where attrSetAnmval pp g = g { _iGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasContentEditable I
+  where attrSetContentEditable pp g = g  { _iGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasContextMenu I
+  where attrSetContextMenu pp g     = g { _iGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasClass I
+  where attrSetClassName pp g           = g { _iGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasDnmval I
+  where attrSetDnmval pp g           = g { _iGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasDir I
+  where attrSetDir pp g             = g { _iGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasDraggable I
+  where attrSetDraggable pp g       = g { _iGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasHidden I
+  where attrSetHidden pp g          = g { _iGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasId I
+  where attrSetId pp g              = g { _iGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasLang I
+  where attrSetLang pp g            = g { _iGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasRole I
+  where attrSetRole pp g            = g { _iGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasSlot I
+  where attrSetSlot pp g            = g { _iGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasSpellCheck I
+  where attrSetSpellCheck pp g      = g { _iGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasStyle I
+  where attrSetStyle pp g           = g { _iGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasTabIndex I
+  where attrSetTabIndex pp g        = g { _iGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasTitle I
+  where attrSetTitle pp g           = g { _iGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_iGlobals g))) }
+instance A.AttrHasTranslate I
+  where attrSetTranslate pp g       = g { _iGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_iGlobals g))) }
 
-instance AttrGetClassName EI where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eIGlobals g)
+instance A.AttrGetClassName I where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_iGlobals g)
 
-instance AttrHasCustom EI where attrSetCustom p g       = g { _eICustom = Just p }
+instance A.AttrHasCustom I where attrSetCustom pp g       = g { _iCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"i\" ... @
-eI' :: forall t m a. DomBuilder t m => EI -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eI' b  = elAttr' "i" (attrMap b)
+i' ∷ forall t m a. DomBuilder t m ⇒ I → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+i' bm  = elAttr' "i" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"i\" ... @
-eI :: forall t m a. DomBuilder t m => EI -> m a -> m a
-eI b children = snd <$> eI' b children
+i ∷ forall t m a. DomBuilder t m ⇒ I → m a → m a
+i bm children = snd <$> i' bm children
 
 -- | A short-hand notion for @ el\' \"i\" ... @
-eIN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eIN' = el' "i"
+iN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+iN' = el' "i"
 
 -- | A short-hand notion for @ el \"i\" ... @
-eIN :: forall t m a. DomBuilder t m => m a -> m a
-eIN children = snd <$> eIN' children
+iN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+iN children = snd <$> iN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"i\" ... @
-eID' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EI -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eID' b  = elDynAttr' "i" (attrMap <$> b)
+iD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t I → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+iD' bm  = elDynAttr' "i" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"i\" ... @
-eID :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EI -> m a -> m a
-eID b children = snd <$> eID' b children
+iD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t I → m a → m a
+iD bm children = snd <$> iD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | details-element
-data EIns = EIns
-  { _eInsGlobals  :: Maybe Globals
-  , _eInsCite     :: Maybe Cite
-  , _eInsDateTime :: Maybe DateTime
-  , _eInsCustom   :: Maybe Attr
+data Ins = Ins
+  { _insGlobals  ∷ Maybe A.Globals
+  , _insCite     ∷ Maybe A.Cite
+  , _insDateTime ∷ Maybe A.DateTime
+  , _insCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EIns where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eInsGlobals b
-    , attrMap <$> _eInsCite b
-    , attrMap <$> _eInsDateTime b
-    ] <> maybeToList (_eInsCustom b)
+instance A.AttrMap Ins where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _insGlobals bm
+    , A.attrMap <$> _insCite bm
+    , A.attrMap <$> _insDateTime bm
+    ] <> maybeToList (_insCustom bm)
 
 
-instance Default EIns where
-  def = EIns def def def def
+defIns ∷ Ins
+defIns = Ins Nothing Nothing Nothing Nothing
 
-instance Monoid EIns where
-  mempty = def
-  mappend (EIns a1 a2 a3 a4) (EIns b1 b2 b3 b4)
-    = EIns (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+instance Monoid Ins where
+  mempty = defIns
+  mappend (Ins a1 a2 a3 a4) (Ins b1 b2 b3 b4)
+    = Ins (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
-instance AttrHasGlobals EIns where
-   attrSetGlobals p b = b { _eInsGlobals = Just p }
+instance A.AttrHasGlobals Ins where
+   attrSetGlobals pp bm = bm { _insGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EIns
-  where attrSetAccessKey p g = g { _eInsGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasAnmval EIns
-  where attrSetAnmval p g = g { _eInsGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasContentEditable EIns
-  where attrSetContentEditable p g = g  { _eInsGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasContextMenu EIns
-  where attrSetContextMenu p g     = g { _eInsGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasClass EIns
-  where attrSetClassName p g           = g { _eInsGlobals = Just (attrSetClassName p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasDnmval EIns
-  where attrSetDnmval p g           = g { _eInsGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasDir EIns
-  where attrSetDir p g             = g { _eInsGlobals = Just (attrSetDir p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasDraggable EIns
-  where attrSetDraggable p g       = g { _eInsGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasHidden EIns
-  where attrSetHidden p g          = g { _eInsGlobals = Just (attrSetHidden p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasId EIns
-  where attrSetId p g              = g { _eInsGlobals = Just (attrSetId p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasLang EIns
-  where attrSetLang p g            = g { _eInsGlobals = Just (attrSetLang p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasRole EIns
-  where attrSetRole p g            = g { _eInsGlobals = Just (attrSetRole p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasSlot EIns
-  where attrSetSlot p g            = g { _eInsGlobals = Just (attrSetSlot p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasSpellCheck EIns
-  where attrSetSpellCheck p g      = g { _eInsGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasStyle EIns
-  where attrSetStyle p g           = g { _eInsGlobals = Just (attrSetStyle p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasTabIndex EIns
-  where attrSetTabIndex p g        = g { _eInsGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasTitle EIns
-  where attrSetTitle p g           = g { _eInsGlobals = Just (attrSetTitle p (fromMaybe gDef (_eInsGlobals g))) }
-instance AttrHasTranslate EIns
-  where attrSetTranslate p g       = g { _eInsGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eInsGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Ins
+  where attrSetAccessKey pp g = g { _insGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasAnmval Ins
+  where attrSetAnmval pp g = g { _insGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasContentEditable Ins
+  where attrSetContentEditable pp g = g  { _insGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasContextMenu Ins
+  where attrSetContextMenu pp g     = g { _insGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasClass Ins
+  where attrSetClassName pp g           = g { _insGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasDnmval Ins
+  where attrSetDnmval pp g           = g { _insGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasDir Ins
+  where attrSetDir pp g             = g { _insGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasDraggable Ins
+  where attrSetDraggable pp g       = g { _insGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasHidden Ins
+  where attrSetHidden pp g          = g { _insGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasId Ins
+  where attrSetId pp g              = g { _insGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasLang Ins
+  where attrSetLang pp g            = g { _insGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasRole Ins
+  where attrSetRole pp g            = g { _insGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasSlot Ins
+  where attrSetSlot pp g            = g { _insGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasSpellCheck Ins
+  where attrSetSpellCheck pp g      = g { _insGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasStyle Ins
+  where attrSetStyle pp g           = g { _insGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasTabIndex Ins
+  where attrSetTabIndex pp g        = g { _insGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasTitle Ins
+  where attrSetTitle pp g           = g { _insGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_insGlobals g))) }
+instance A.AttrHasTranslate Ins
+  where attrSetTranslate pp g       = g { _insGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_insGlobals g))) }
 
-instance AttrGetClassName EIns where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eInsGlobals g)
+instance A.AttrGetClassName Ins where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_insGlobals g)
 
-instance AttrHasCite EIns where attrSetCite p g = g {_eInsCite = Just p }
-instance AttrHasDateTime EIns where attrSetDateTime p g = g {_eInsDateTime = Just p }
+instance A.AttrHasCite Ins where attrSetCite pp g = g {_insCite = Just pp }
+instance A.AttrHasDateTime Ins where attrSetDateTime pp g = g {_insDateTime = Just pp }
 
-instance AttrHasCustom EIns where attrSetCustom p g       = g { _eInsCustom = Just p }
+instance A.AttrHasCustom Ins where attrSetCustom pp g       = g { _insCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"ins\" ... @
-eIns' :: forall t m a. DomBuilder t m => EIns -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eIns' b  = elAttr' "ins" (attrMap b)
+ins' ∷ forall t m a. DomBuilder t m ⇒ Ins → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ins' bm  = elAttr' "ins" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"ins\" ... @
-eIns :: forall t m a. DomBuilder t m => EIns -> m a -> m a
-eIns b children = snd <$> eIns' b children
+ins ∷ forall t m a. DomBuilder t m ⇒ Ins → m a → m a
+ins bm children = snd <$> ins' bm children
 
 -- | A short-hand notion for @ el\' \"ins\" ... @
-eInsN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eInsN' = el' "ins"
+insN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+insN' = el' "ins"
 
 -- | A short-hand notion for @ el \"ins\" ... @
-eInsN :: forall t m a. DomBuilder t m => m a -> m a
-eInsN children = snd <$> eInsN' children
+insN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+insN children = snd <$> insN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"ins\" ... @
-eInsD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EIns -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eInsD' b = elDynAttr' "ins" (attrMap <$> b)
+insD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ins → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+insD' bm = elDynAttr' "ins" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"ins\" ... @
-eInsD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EIns -> m a -> m a
-eInsD b children = snd <$> eInsD' b children
+insD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ins → m a → m a
+insD bm children = snd <$> insD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Kbd-element has only the global attributes.
-data EKbd = EKbd
-  { _eKbdGlobals :: Maybe Globals
-  , _eKbdCustom  :: Maybe Attr
+-- | Kbd-element has only the global A.attributes.
+data Kbd = Kbd
+  { _kbdGlobals ∷ Maybe A.Globals
+  , _kbdCustom  ∷ Maybe A.Attr
   }
 
-instance AttrMap EKbd where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eKbdGlobals b
-    ] <> maybeToList (_eKbdCustom b)
+instance A.AttrMap Kbd where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _kbdGlobals bm
+    ] <> maybeToList (_kbdCustom bm)
 
 
-instance Default EKbd where
-  def = EKbd def def
+defKbd ∷ Kbd
+defKbd = Kbd Nothing Nothing
 
-instance Monoid EKbd where
-  mempty = def
-  mappend (EKbd a1 a2) (EKbd b1 b2) = EKbd (a1 <> b1) (a2 <> b2)
+instance Monoid Kbd where
+  mempty = defKbd
+  mappend (Kbd a1 a2) (Kbd b1 b2) = Kbd (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EKbd where
-   attrSetGlobals p b = b { _eKbdGlobals = Just p }
+instance A.AttrHasGlobals Kbd where
+   attrSetGlobals pp bm = bm { _kbdGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EKbd
-  where attrSetAccessKey p g = g { _eKbdGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasAnmval EKbd
-  where attrSetAnmval p g = g { _eKbdGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasContentEditable EKbd
-  where attrSetContentEditable p g = g  { _eKbdGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasContextMenu EKbd
-  where attrSetContextMenu p g     = g { _eKbdGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasClass EKbd
-  where attrSetClassName p g           = g { _eKbdGlobals = Just (attrSetClassName p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasDnmval EKbd
-  where attrSetDnmval p g           = g { _eKbdGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasDir EKbd
-  where attrSetDir p g             = g { _eKbdGlobals = Just (attrSetDir p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasDraggable EKbd
-  where attrSetDraggable p g       = g { _eKbdGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasHidden EKbd
-  where attrSetHidden p g          = g { _eKbdGlobals = Just (attrSetHidden p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasId EKbd
-  where attrSetId p g              = g { _eKbdGlobals = Just (attrSetId p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasLang EKbd
-  where attrSetLang p g            = g { _eKbdGlobals = Just (attrSetLang p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasRole EKbd
-  where attrSetRole p g            = g { _eKbdGlobals = Just (attrSetRole p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasSlot EKbd
-  where attrSetSlot p g            = g { _eKbdGlobals = Just (attrSetSlot p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasSpellCheck EKbd
-  where attrSetSpellCheck p g      = g { _eKbdGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasStyle EKbd
-  where attrSetStyle p g           = g { _eKbdGlobals = Just (attrSetStyle p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasTabIndex EKbd
-  where attrSetTabIndex p g        = g { _eKbdGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasTitle EKbd
-  where attrSetTitle p g           = g { _eKbdGlobals = Just (attrSetTitle p (fromMaybe gDef (_eKbdGlobals g))) }
-instance AttrHasTranslate EKbd
-  where attrSetTranslate p g       = g { _eKbdGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eKbdGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Kbd
+  where attrSetAccessKey pp g = g { _kbdGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasAnmval Kbd
+  where attrSetAnmval pp g = g { _kbdGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasContentEditable Kbd
+  where attrSetContentEditable pp g = g  { _kbdGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasContextMenu Kbd
+  where attrSetContextMenu pp g     = g { _kbdGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasClass Kbd
+  where attrSetClassName pp g           = g { _kbdGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasDnmval Kbd
+  where attrSetDnmval pp g           = g { _kbdGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasDir Kbd
+  where attrSetDir pp g             = g { _kbdGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasDraggable Kbd
+  where attrSetDraggable pp g       = g { _kbdGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasHidden Kbd
+  where attrSetHidden pp g          = g { _kbdGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasId Kbd
+  where attrSetId pp g              = g { _kbdGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasLang Kbd
+  where attrSetLang pp g            = g { _kbdGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasRole Kbd
+  where attrSetRole pp g            = g { _kbdGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasSlot Kbd
+  where attrSetSlot pp g            = g { _kbdGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasSpellCheck Kbd
+  where attrSetSpellCheck pp g      = g { _kbdGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasStyle Kbd
+  where attrSetStyle pp g           = g { _kbdGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasTabIndex Kbd
+  where attrSetTabIndex pp g        = g { _kbdGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasTitle Kbd
+  where attrSetTitle pp g           = g { _kbdGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
+instance A.AttrHasTranslate Kbd
+  where attrSetTranslate pp g       = g { _kbdGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_kbdGlobals g))) }
 
-instance AttrGetClassName EKbd where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eKbdGlobals g)
+instance A.AttrGetClassName Kbd where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_kbdGlobals g)
 
-instance AttrHasCustom EKbd where attrSetCustom p g       = g { _eKbdCustom = Just p }
+instance A.AttrHasCustom Kbd where attrSetCustom pp g       = g { _kbdCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"kbd\" ... @
-eKbd' :: forall t m a. DomBuilder t m => EKbd -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eKbd' b  = elAttr' "kbd" (attrMap b)
+kbd' ∷ forall t m a. DomBuilder t m ⇒ Kbd → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+kbd' bm  = elAttr' "kbd" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"kbd\" ... @
-eKbd :: forall t m a. DomBuilder t m => EKbd -> m a -> m a
-eKbd b children = snd <$> eKbd' b children
+kbd ∷ forall t m a. DomBuilder t m ⇒ Kbd → m a → m a
+kbd bm children = snd <$> kbd' bm children
 
 -- | A short-hand notion for @ el\' \"kbd\" ... @
-eKbdN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eKbdN' = el' "kbd"
+kbdN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+kbdN' = el' "kbd"
 
 -- | A short-hand notion for @ el \"kbd\" ... @
-eKbdN :: forall t m a. DomBuilder t m => m a -> m a
-eKbdN children = snd <$> eKbdN' children
+kbdN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+kbdN children = snd <$> kbdN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"kbd\" ... @
-eKbdD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EKbd -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eKbdD' b  = elDynAttr' "kbd" (attrMap <$> b)
+kbdD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Kbd → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+kbdD' bm  = elDynAttr' "kbd" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"kbd\" ... @
-eKbdD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EKbd -> m a -> m a
-eKbdD b children = snd <$> eKbdD' b children
+kbdD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Kbd → m a → m a
+kbdD bm children = snd <$> kbdD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Li-element
-data ELi = ELi
-  { _eLiGlobals   :: Maybe Globals
-  , _eLiValueOlLi :: Maybe ValueOlLi
-  , _eLiCustom    :: Maybe Attr
+data Li = Li
+  { _liGlobals   ∷ Maybe A.Globals
+  , _liValueOlLi ∷ Maybe A.ValueOlLi
+  , _liCustom    ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ELi where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eLiGlobals b
-    , attrMap <$> _eLiValueOlLi b
-    ] <> maybeToList (_eLiCustom b)
+instance A.AttrMap Li where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _liGlobals bm
+    , A.attrMap <$> _liValueOlLi bm
+    ] <> maybeToList (_liCustom bm)
 
 
-instance Default ELi where
-  def = ELi def def def
+defLi ∷ Li
+defLi = Li Nothing Nothing Nothing
 
-instance Monoid ELi where
-  mempty = def
-  mappend (ELi a1 a2 a3) (ELi b1 b2 b3) = ELi (a1 <> b1) (a2 <> b2) (a3 <> b3)
+instance Monoid Li where
+  mempty = defLi
+  mappend (Li a1 a2 a3) (Li b1 b2 b3) = Li (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
-instance AttrHasGlobals ELi where
-   attrSetGlobals p b = b { _eLiGlobals = Just p }
+instance A.AttrHasGlobals Li where
+   attrSetGlobals pp bm = bm { _liGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ELi
-  where attrSetAccessKey p g = g { _eLiGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasAnmval ELi
-  where attrSetAnmval p g = g { _eLiGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasContentEditable ELi
-  where attrSetContentEditable p g = g  { _eLiGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasContextMenu ELi
-  where attrSetContextMenu p g     = g { _eLiGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasClass ELi
-  where attrSetClassName p g           = g { _eLiGlobals = Just (attrSetClassName p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasDnmval ELi
-  where attrSetDnmval p g           = g { _eLiGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasDir ELi
-  where attrSetDir p g             = g { _eLiGlobals = Just (attrSetDir p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasDraggable ELi
-  where attrSetDraggable p g       = g { _eLiGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasHidden ELi
-  where attrSetHidden p g          = g { _eLiGlobals = Just (attrSetHidden p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasId ELi
-  where attrSetId p g              = g { _eLiGlobals = Just (attrSetId p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasLang ELi
-  where attrSetLang p g            = g { _eLiGlobals = Just (attrSetLang p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasRole ELi
-  where attrSetRole p g            = g { _eLiGlobals = Just (attrSetRole p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasSlot ELi
-  where attrSetSlot p g            = g { _eLiGlobals = Just (attrSetSlot p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasSpellCheck ELi
-  where attrSetSpellCheck p g      = g { _eLiGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasStyle ELi
-  where attrSetStyle p g           = g { _eLiGlobals = Just (attrSetStyle p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasTabIndex ELi
-  where attrSetTabIndex p g        = g { _eLiGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasTitle ELi
-  where attrSetTitle p g           = g { _eLiGlobals = Just (attrSetTitle p (fromMaybe gDef (_eLiGlobals g))) }
-instance AttrHasTranslate ELi
-  where attrSetTranslate p g       = g { _eLiGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eLiGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Li
+  where attrSetAccessKey pp g = g { _liGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasAnmval Li
+  where attrSetAnmval pp g = g { _liGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasContentEditable Li
+  where attrSetContentEditable pp g = g  { _liGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasContextMenu Li
+  where attrSetContextMenu pp g     = g { _liGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasClass Li
+  where attrSetClassName pp g           = g { _liGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasDnmval Li
+  where attrSetDnmval pp g           = g { _liGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasDir Li
+  where attrSetDir pp g             = g { _liGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasDraggable Li
+  where attrSetDraggable pp g       = g { _liGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasHidden Li
+  where attrSetHidden pp g          = g { _liGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasId Li
+  where attrSetId pp g              = g { _liGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasLang Li
+  where attrSetLang pp g            = g { _liGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasRole Li
+  where attrSetRole pp g            = g { _liGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasSlot Li
+  where attrSetSlot pp g            = g { _liGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasSpellCheck Li
+  where attrSetSpellCheck pp g      = g { _liGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasStyle Li
+  where attrSetStyle pp g           = g { _liGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasTabIndex Li
+  where attrSetTabIndex pp g        = g { _liGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasTitle Li
+  where attrSetTitle pp g           = g { _liGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_liGlobals g))) }
+instance A.AttrHasTranslate Li
+  where attrSetTranslate pp g       = g { _liGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_liGlobals g))) }
 
-instance AttrGetClassName ELi where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eLiGlobals g)
+instance A.AttrGetClassName Li where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_liGlobals g)
 
-instance AttrHasValueOlLi  ELi where attrSetValueOlLi p g  = g { _eLiValueOlLi  = Just p }
+instance A.AttrHasValueOlLi  Li where attrSetValueOlLi pp g  = g { _liValueOlLi  = Just pp }
 
-instance AttrHasCustom ELi where attrSetCustom p g       = g { _eLiCustom = Just p }
+instance A.AttrHasCustom Li where attrSetCustom pp g       = g { _liCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"li\" ... @
-eLi' :: forall t m a. DomBuilder t m => ELi -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eLi' b  = elAttr' "li" (attrMap b)
+li' ∷ forall t m a. DomBuilder t m ⇒ Li → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+li' bm  = elAttr' "li" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"li\" ... @
-eLi :: forall t m a. DomBuilder t m => ELi -> m a -> m a
-eLi b children = snd <$> eLi' b children
+li ∷ forall t m a. DomBuilder t m ⇒ Li → m a → m a
+li bm children = snd <$> li' bm children
 
 -- | A short-hand notion for @ el\' \"li\" ... @
-eLiN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eLiN' = el' "li"
+liN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+liN' = el' "li"
 
 -- | A short-hand notion for @ el \"li\" ... @
-eLiN :: forall t m a. DomBuilder t m => m a -> m a
-eLiN children = snd <$> eLiN' children
+liN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+liN children = snd <$> liN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"li\" ... @
-eLiD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ELi -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eLiD' b  = elDynAttr' "li" (attrMap <$> b)
+liD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Li → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+liD' bm  = elDynAttr' "li" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"li\" ... @
-eLiD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ELi -> m a -> m a
-eLiD b children = snd <$> eLiD' b children
+liD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Li → m a → m a
+liD bm children = snd <$> liD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Legend-element has only the global attributes.
-data ELegend = ELegend
-  { _eLegendGlobals :: Maybe Globals
-  , _eLegendCustom  :: Maybe Attr
+-- | Legend-element has only the global A.attributes.
+data Legend = Legend
+  { _legendGlobals ∷ Maybe A.Globals
+  , _legendCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ELegend where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eLegendGlobals b
-    ] <> maybeToList (_eLegendCustom b)
+instance A.AttrMap Legend where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _legendGlobals bm
+    ] <> maybeToList (_legendCustom bm)
 
 
-instance Default ELegend where
-  def = ELegend def def
+defLegend ∷ Legend
+defLegend = Legend Nothing Nothing
 
-instance Monoid ELegend where
-  mempty = def
-  mappend (ELegend a1 a2) (ELegend b1 b2) = ELegend (a1 <> b1) (a2 <> b2)
+instance Monoid Legend where
+  mempty = defLegend
+  mappend (Legend a1 a2) (Legend b1 b2) = Legend (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ELegend where
-   attrSetGlobals p b = b { _eLegendGlobals = Just p }
+instance A.AttrHasGlobals Legend where
+   attrSetGlobals pp bm = bm { _legendGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ELegend
-  where attrSetAccessKey p g = g { _eLegendGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasAnmval ELegend
-  where attrSetAnmval p g = g { _eLegendGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasContentEditable ELegend
-  where attrSetContentEditable p g = g  { _eLegendGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasContextMenu ELegend
-  where attrSetContextMenu p g     = g { _eLegendGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasClass ELegend
-  where attrSetClassName p g           = g { _eLegendGlobals = Just (attrSetClassName p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasDnmval ELegend
-  where attrSetDnmval p g           = g { _eLegendGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasDir ELegend
-  where attrSetDir p g             = g { _eLegendGlobals = Just (attrSetDir p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasDraggable ELegend
-  where attrSetDraggable p g       = g { _eLegendGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasHidden ELegend
-  where attrSetHidden p g          = g { _eLegendGlobals = Just (attrSetHidden p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasId ELegend
-  where attrSetId p g              = g { _eLegendGlobals = Just (attrSetId p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasLang ELegend
-  where attrSetLang p g            = g { _eLegendGlobals = Just (attrSetLang p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasRole ELegend
-  where attrSetRole p g            = g { _eLegendGlobals = Just (attrSetRole p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasSlot ELegend
-  where attrSetSlot p g            = g { _eLegendGlobals = Just (attrSetSlot p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasSpellCheck ELegend
-  where attrSetSpellCheck p g      = g { _eLegendGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasStyle ELegend
-  where attrSetStyle p g           = g { _eLegendGlobals = Just (attrSetStyle p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasTabIndex ELegend
-  where attrSetTabIndex p g        = g { _eLegendGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasTitle ELegend
-  where attrSetTitle p g           = g { _eLegendGlobals = Just (attrSetTitle p (fromMaybe gDef (_eLegendGlobals g))) }
-instance AttrHasTranslate ELegend
-  where attrSetTranslate p g       = g { _eLegendGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eLegendGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Legend
+  where attrSetAccessKey pp g = g { _legendGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasAnmval Legend
+  where attrSetAnmval pp g = g { _legendGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasContentEditable Legend
+  where attrSetContentEditable pp g = g  { _legendGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasContextMenu Legend
+  where attrSetContextMenu pp g     = g { _legendGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasClass Legend
+  where attrSetClassName pp g           = g { _legendGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasDnmval Legend
+  where attrSetDnmval pp g           = g { _legendGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasDir Legend
+  where attrSetDir pp g             = g { _legendGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasDraggable Legend
+  where attrSetDraggable pp g       = g { _legendGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasHidden Legend
+  where attrSetHidden pp g          = g { _legendGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasId Legend
+  where attrSetId pp g              = g { _legendGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasLang Legend
+  where attrSetLang pp g            = g { _legendGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasRole Legend
+  where attrSetRole pp g            = g { _legendGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasSlot Legend
+  where attrSetSlot pp g            = g { _legendGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasSpellCheck Legend
+  where attrSetSpellCheck pp g      = g { _legendGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasStyle Legend
+  where attrSetStyle pp g           = g { _legendGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasTabIndex Legend
+  where attrSetTabIndex pp g        = g { _legendGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasTitle Legend
+  where attrSetTitle pp g           = g { _legendGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_legendGlobals g))) }
+instance A.AttrHasTranslate Legend
+  where attrSetTranslate pp g       = g { _legendGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_legendGlobals g))) }
 
-instance AttrGetClassName ELegend where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eLegendGlobals g)
+instance A.AttrGetClassName Legend where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_legendGlobals g)
 
-instance AttrHasCustom ELegend where attrSetCustom p g       = g { _eLegendCustom = Just p }
+instance A.AttrHasCustom Legend where attrSetCustom pp g       = g { _legendCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"legend\" ... @
-eLegend' :: forall t m a. DomBuilder t m => ELegend -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eLegend' b  = elAttr' "legend" (attrMap b)
+legend' ∷ forall t m a. DomBuilder t m ⇒ Legend → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+legend' bm  = elAttr' "legend" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"legend\" ... @
-eLegend :: forall t m a. DomBuilder t m => ELegend -> m a -> m a
-eLegend b children = snd <$> eLegend' b children
+legend ∷ forall t m a. DomBuilder t m ⇒ Legend → m a → m a
+legend bm children = snd <$> legend' bm children
 
 -- | A short-hand notion for @ el\' \"legend\" ... @
-eLegendN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eLegendN' = el' "legend"
+legendN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+legendN' = el' "legend"
 
 -- | A short-hand notion for @ el \"legend\" ... @
-eLegendN :: forall t m a. DomBuilder t m => m a -> m a
-eLegendN children = snd <$> eLegendN' children
+legendN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+legendN children = snd <$> legendN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"legend\" ... @
-eLegendD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ELegend -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eLegendD' b  = elDynAttr' "legend" (attrMap <$> b)
+legendD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Legend → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+legendD' bm  = elDynAttr' "legend" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"legend\" ... @
-eLegendD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ELegend -> m a -> m a
-eLegendD b children = snd <$> eLegendD' b children
+legendD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Legend → m a → m a
+legendD bm children = snd <$> legendD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Mark-element has only the global attributes.
-data EMark = EMark
-  { _eMarkGlobals :: Maybe Globals
-  , _eMarkCustom  :: Maybe Attr
+-- | Mark-element has only the global A.attributes.
+data Mark = Mark
+  { _markGlobals ∷ Maybe A.Globals
+  , _markCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EMark where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eMarkGlobals b
-    ] <> maybeToList (_eMarkCustom b)
+instance A.AttrMap Mark where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _markGlobals bm
+    ] <> maybeToList (_markCustom bm)
 
 
-instance Default EMark where
-  def = EMark def def
+defMark ∷ Mark
+defMark = Mark Nothing Nothing
 
-instance Monoid EMark where
-  mempty = def
-  mappend (EMark a1 a2) (EMark b1 b2) = EMark (a1 <> b1) (a2 <> b2)
+instance Monoid Mark where
+  mempty = defMark
+  mappend (Mark a1 a2) (Mark b1 b2) = Mark (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EMark where
-   attrSetGlobals p b = b { _eMarkGlobals = Just p }
+instance A.AttrHasGlobals Mark where
+   attrSetGlobals pp bm = bm { _markGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EMark
-  where attrSetAccessKey p g = g { _eMarkGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasAnmval EMark
-  where attrSetAnmval p g = g { _eMarkGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasContentEditable EMark
-  where attrSetContentEditable p g = g  { _eMarkGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasContextMenu EMark
-  where attrSetContextMenu p g     = g { _eMarkGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasClass EMark
-  where attrSetClassName p g           = g { _eMarkGlobals = Just (attrSetClassName p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasDnmval EMark
-  where attrSetDnmval p g           = g { _eMarkGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasDir EMark
-  where attrSetDir p g             = g { _eMarkGlobals = Just (attrSetDir p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasDraggable EMark
-  where attrSetDraggable p g       = g { _eMarkGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasHidden EMark
-  where attrSetHidden p g          = g { _eMarkGlobals = Just (attrSetHidden p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasId EMark
-  where attrSetId p g              = g { _eMarkGlobals = Just (attrSetId p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasLang EMark
-  where attrSetLang p g            = g { _eMarkGlobals = Just (attrSetLang p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasRole EMark
-  where attrSetRole p g            = g { _eMarkGlobals = Just (attrSetRole p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasSlot EMark
-  where attrSetSlot p g            = g { _eMarkGlobals = Just (attrSetSlot p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasSpellCheck EMark
-  where attrSetSpellCheck p g      = g { _eMarkGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasStyle EMark
-  where attrSetStyle p g           = g { _eMarkGlobals = Just (attrSetStyle p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasTabIndex EMark
-  where attrSetTabIndex p g        = g { _eMarkGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasTitle EMark
-  where attrSetTitle p g           = g { _eMarkGlobals = Just (attrSetTitle p (fromMaybe gDef (_eMarkGlobals g))) }
-instance AttrHasTranslate EMark
-  where attrSetTranslate p g       = g { _eMarkGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eMarkGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Mark
+  where attrSetAccessKey pp g = g { _markGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasAnmval Mark
+  where attrSetAnmval pp g = g { _markGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasContentEditable Mark
+  where attrSetContentEditable pp g = g  { _markGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasContextMenu Mark
+  where attrSetContextMenu pp g     = g { _markGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasClass Mark
+  where attrSetClassName pp g           = g { _markGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasDnmval Mark
+  where attrSetDnmval pp g           = g { _markGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasDir Mark
+  where attrSetDir pp g             = g { _markGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasDraggable Mark
+  where attrSetDraggable pp g       = g { _markGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasHidden Mark
+  where attrSetHidden pp g          = g { _markGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasId Mark
+  where attrSetId pp g              = g { _markGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasLang Mark
+  where attrSetLang pp g            = g { _markGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasRole Mark
+  where attrSetRole pp g            = g { _markGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasSlot Mark
+  where attrSetSlot pp g            = g { _markGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasSpellCheck Mark
+  where attrSetSpellCheck pp g      = g { _markGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasStyle Mark
+  where attrSetStyle pp g           = g { _markGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasTabIndex Mark
+  where attrSetTabIndex pp g        = g { _markGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasTitle Mark
+  where attrSetTitle pp g           = g { _markGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_markGlobals g))) }
+instance A.AttrHasTranslate Mark
+  where attrSetTranslate pp g       = g { _markGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_markGlobals g))) }
 
-instance AttrGetClassName EMark where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eMarkGlobals g)
+instance A.AttrGetClassName Mark where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_markGlobals g)
 
-instance AttrHasCustom EMark where attrSetCustom p g       = g { _eMarkCustom = Just p }
+instance A.AttrHasCustom Mark where attrSetCustom pp g       = g { _markCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"mark\" ... @
-eMark' :: forall t m a. DomBuilder t m => EMark -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMark' b  = elAttr' "mark" (attrMap b)
+mark' ∷ forall t m a. DomBuilder t m ⇒ Mark → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+mark' bm  = elAttr' "mark" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"mark\" ... @
-eMark :: forall t m a. DomBuilder t m => EMark -> m a -> m a
-eMark b children = snd <$> eMark' b children
+mark ∷ forall t m a. DomBuilder t m ⇒ Mark → m a → m a
+mark bm children = snd <$> mark' bm children
 
 -- | A short-hand notion for @ el\' \"mark\" ... @
-eMarkN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMarkN' = el' "mark"
+markN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+markN' = el' "mark"
 
 -- | A short-hand notion for @ el \"mark\" ... @
-eMarkN :: forall t m a. DomBuilder t m => m a -> m a
-eMarkN children = snd <$> eMarkN' children
+markN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+markN children = snd <$> markN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"mark\" ... @
-eMarkD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMark -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMarkD' b  = elDynAttr' "mark" (attrMap <$> b)
+markD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Mark → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+markD' bm  = elDynAttr' "mark" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"mark\" ... @
-eMarkD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMark -> m a -> m a
-eMarkD b children = snd <$> eMarkD' b children
+markD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Mark → m a → m a
+markD bm children = snd <$> markD' bm children
 
 
 
@@ -3128,319 +3120,319 @@ eMarkD b children = snd <$> eMarkD' b children
 ------------------------------------------------------------------------------
 
 -- | Menu-element
-data EMenu = EMenu
-  { _eMenuGlobals :: Maybe Globals
-  , _eMenuLabel   :: Maybe Label
-  , _eMenuType    :: Maybe MenuType
-  , _eMenuCustom  :: Maybe Attr
+data Menu = Menu
+  { _menuGlobals ∷ Maybe A.Globals
+  , _menuLabel   ∷ Maybe A.Label
+  , _menuType    ∷ Maybe A.MenuType
+  , _menuCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EMenu where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eMenuGlobals b
-    , attrMap <$> _eMenuLabel b
-    , attrMap <$> _eMenuType b
-    ] <> maybeToList (_eMenuCustom b)
+instance A.AttrMap Menu where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _menuGlobals bm
+    , A.attrMap <$> _menuLabel bm
+    , A.attrMap <$> _menuType bm
+    ] <> maybeToList (_menuCustom bm)
 
 
-instance Default EMenu where
-  def = EMenu def def def def
+defMenu ∷ Menu
+defMenu = Menu Nothing Nothing Nothing Nothing
 
-instance Monoid EMenu where
-  mempty = def
-  mappend (EMenu a1 a2 a3 a4) (EMenu b1 b2 b3 b4)
-    = EMenu (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+instance Monoid Menu where
+  mempty = defMenu
+  mappend (Menu a1 a2 a3 a4) (Menu b1 b2 b3 b4)
+    = Menu (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
-instance AttrHasGlobals EMenu where
-   attrSetGlobals p b = b { _eMenuGlobals = Just p }
+instance A.AttrHasGlobals Menu where
+   attrSetGlobals pp bm = bm { _menuGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EMenu
-  where attrSetAccessKey p g = g { _eMenuGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasAnmval EMenu
-  where attrSetAnmval p g = g { _eMenuGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasContentEditable EMenu
-  where attrSetContentEditable p g = g  { _eMenuGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasContextMenu EMenu
-  where attrSetContextMenu p g     = g { _eMenuGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasClass EMenu
-  where attrSetClassName p g           = g { _eMenuGlobals = Just (attrSetClassName p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasDnmval EMenu
-  where attrSetDnmval p g           = g { _eMenuGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasDir EMenu
-  where attrSetDir p g             = g { _eMenuGlobals = Just (attrSetDir p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasDraggable EMenu
-  where attrSetDraggable p g       = g { _eMenuGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasHidden EMenu
-  where attrSetHidden p g          = g { _eMenuGlobals = Just (attrSetHidden p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasId EMenu
-  where attrSetId p g              = g { _eMenuGlobals = Just (attrSetId p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasLang EMenu
-  where attrSetLang p g            = g { _eMenuGlobals = Just (attrSetLang p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasRole EMenu
-  where attrSetRole p g            = g { _eMenuGlobals = Just (attrSetRole p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasSlot EMenu
-  where attrSetSlot p g            = g { _eMenuGlobals = Just (attrSetSlot p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasSpellCheck EMenu
-  where attrSetSpellCheck p g      = g { _eMenuGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasStyle EMenu
-  where attrSetStyle p g           = g { _eMenuGlobals = Just (attrSetStyle p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasTabIndex EMenu
-  where attrSetTabIndex p g        = g { _eMenuGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasTitle EMenu
-  where attrSetTitle p g           = g { _eMenuGlobals = Just (attrSetTitle p (fromMaybe gDef (_eMenuGlobals g))) }
-instance AttrHasTranslate EMenu
-  where attrSetTranslate p g       = g { _eMenuGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eMenuGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Menu
+  where attrSetAccessKey pp g = g { _menuGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasAnmval Menu
+  where attrSetAnmval pp g = g { _menuGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasContentEditable Menu
+  where attrSetContentEditable pp g = g  { _menuGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasContextMenu Menu
+  where attrSetContextMenu pp g     = g { _menuGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasClass Menu
+  where attrSetClassName pp g           = g { _menuGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasDnmval Menu
+  where attrSetDnmval pp g           = g { _menuGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasDir Menu
+  where attrSetDir pp g             = g { _menuGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasDraggable Menu
+  where attrSetDraggable pp g       = g { _menuGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasHidden Menu
+  where attrSetHidden pp g          = g { _menuGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasId Menu
+  where attrSetId pp g              = g { _menuGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasLang Menu
+  where attrSetLang pp g            = g { _menuGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasRole Menu
+  where attrSetRole pp g            = g { _menuGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasSlot Menu
+  where attrSetSlot pp g            = g { _menuGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasSpellCheck Menu
+  where attrSetSpellCheck pp g      = g { _menuGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasStyle Menu
+  where attrSetStyle pp g           = g { _menuGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasTabIndex Menu
+  where attrSetTabIndex pp g        = g { _menuGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasTitle Menu
+  where attrSetTitle pp g           = g { _menuGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_menuGlobals g))) }
+instance A.AttrHasTranslate Menu
+  where attrSetTranslate pp g       = g { _menuGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_menuGlobals g))) }
 
-instance AttrGetClassName EMenu where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eMenuGlobals g)
+instance A.AttrGetClassName Menu where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_menuGlobals g)
 
-instance AttrHasMenuType EMenu where attrSetMenuType p g = g { _eMenuType = Just p }
-instance AttrHasLabel  EMenu where attrSetLabel p g  = g { _eMenuLabel  = Just p }
+instance A.AttrHasMenuType Menu where attrSetMenuType pp g = g { _menuType = Just pp }
+instance A.AttrHasLabel  Menu where attrSetLabel pp g  = g { _menuLabel  = Just pp }
 
-instance AttrHasCustom EMenu where attrSetCustom p g       = g { _eMenuCustom = Just p }
+instance A.AttrHasCustom Menu where attrSetCustom pp g       = g { _menuCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"menu\" ... @
-eMenu' :: forall t m a. DomBuilder t m => EMenu -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMenu' b  = elAttr' "menu" (attrMap b)
+menu' ∷ forall t m a. DomBuilder t m ⇒ Menu → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+menu' bm  = elAttr' "menu" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"menu\" ... @
-eMenu :: forall t m a. DomBuilder t m => EMenu -> m a -> m a
-eMenu b children = snd <$> eMenu' b children
+menu ∷ forall t m a. DomBuilder t m ⇒ Menu → m a → m a
+menu bm children = snd <$> menu' bm children
 
 -- | A short-hand notion for @ el\' \"menu\" ... @
-eMenuN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMenuN' = el' "menu"
+menuN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+menuN' = el' "menu"
 
 -- | A short-hand notion for @ el \"menu\" ... @
-eMenuN :: forall t m a. DomBuilder t m => m a -> m a
-eMenuN children = snd <$> eMenuN' children
+menuN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+menuN children = snd <$> menuN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"menu\" ... @
-eMenuD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMenu -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMenuD' b  = elDynAttr' "menu" (attrMap <$> b)
+menuD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Menu → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+menuD' bm  = elDynAttr' "menu" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"menu\" ... @
-eMenuD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMenu -> m a -> m a
-eMenuD b children = snd <$> eMenuD' b children
+menuD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Menu → m a → m a
+menuD bm children = snd <$> menuD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | MenuItem-element
-data EMenuItem = EMenuItem
-  { _eMenuItemGlobals  :: Maybe Globals
-  , _eMenuItemIcon     :: Maybe Icon
-  , _eMenuItemDisabled :: Maybe Disabled
-  , _eMenuItemDefault  :: Maybe Default_
-  , _eMenuItemLabel    :: Maybe Label
-  , _eMenuItemType     :: Maybe MenuItemType
-  , _eMenuItemCustom   :: Maybe Attr
+data MenuItem = MenuItem
+  { _menuItemGlobals  ∷ Maybe A.Globals
+  , _menuItemIcon     ∷ Maybe A.Icon
+  , _menuItemDisabled ∷ Maybe A.Disabled
+  , _menuItemDefault  ∷ Maybe A.Default_
+  , _menuItemLabel    ∷ Maybe A.Label
+  , _menuItemType     ∷ Maybe A.MenuItemType
+  , _menuItemCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EMenuItem where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eMenuItemGlobals b
-    , attrMap <$> _eMenuItemIcon b
-    , attrMap <$> _eMenuItemDisabled b
-    , attrMap <$> _eMenuItemDefault b
-    , attrMap <$> _eMenuItemLabel b
-    , attrMap <$> _eMenuItemType b
-    ] <> maybeToList (_eMenuItemCustom b)
+instance A.AttrMap MenuItem where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _menuItemGlobals bm
+    , A.attrMap <$> _menuItemIcon bm
+    , A.attrMap <$> _menuItemDisabled bm
+    , A.attrMap <$> _menuItemDefault bm
+    , A.attrMap <$> _menuItemLabel bm
+    , A.attrMap <$> _menuItemType bm
+    ] <> maybeToList (_menuItemCustom bm)
 
 
-instance Default EMenuItem where
-  def = EMenuItem def def def def def def def
+defMenuItem ∷ MenuItem
+defMenuItem = MenuItem Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EMenuItem where
-  mempty = def
-  mappend (EMenuItem a1 a2 a3 a4 a5 a6 a7) (EMenuItem b1 b2 b3 b4 b5 b6 b7)
-    = EMenuItem (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+instance Monoid MenuItem where
+  mempty = defMenuItem
+  mappend (MenuItem a1 a2 a3 a4 a5 a6 a7) (MenuItem b1 b2 b3 b4 b5 b6 b7)
+    = MenuItem (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
         (a6 <> b6) (a7 <> b7)
 
-instance AttrHasGlobals EMenuItem where
-   attrSetGlobals p b = b { _eMenuItemGlobals = Just p }
+instance A.AttrHasGlobals MenuItem where
+   attrSetGlobals pp bm = bm { _menuItemGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EMenuItem
-  where attrSetAccessKey p g = g { _eMenuItemGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasAnmval EMenuItem
-  where attrSetAnmval p g = g { _eMenuItemGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasContentEditable EMenuItem
-  where attrSetContentEditable p g = g  { _eMenuItemGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasContextMenu EMenuItem
-  where attrSetContextMenu p g     = g { _eMenuItemGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasClass EMenuItem
-  where attrSetClassName p g           = g { _eMenuItemGlobals = Just (attrSetClassName p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasDnmval EMenuItem
-  where attrSetDnmval p g           = g { _eMenuItemGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasDir EMenuItem
-  where attrSetDir p g             = g { _eMenuItemGlobals = Just (attrSetDir p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasDraggable EMenuItem
-  where attrSetDraggable p g       = g { _eMenuItemGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasHidden EMenuItem
-  where attrSetHidden p g          = g { _eMenuItemGlobals = Just (attrSetHidden p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasId EMenuItem
-  where attrSetId p g              = g { _eMenuItemGlobals = Just (attrSetId p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasLang EMenuItem
-  where attrSetLang p g            = g { _eMenuItemGlobals = Just (attrSetLang p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasRole EMenuItem
-  where attrSetRole p g            = g { _eMenuItemGlobals = Just (attrSetRole p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasSlot EMenuItem
-  where attrSetSlot p g            = g { _eMenuItemGlobals = Just (attrSetSlot p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasSpellCheck EMenuItem
-  where attrSetSpellCheck p g      = g { _eMenuItemGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasStyle EMenuItem
-  where attrSetStyle p g           = g { _eMenuItemGlobals = Just (attrSetStyle p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasTabIndex EMenuItem
-  where attrSetTabIndex p g        = g { _eMenuItemGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasTitle EMenuItem
-  where attrSetTitle p g           = g { _eMenuItemGlobals = Just (attrSetTitle p (fromMaybe gDef (_eMenuItemGlobals g))) }
-instance AttrHasTranslate EMenuItem
-  where attrSetTranslate p g       = g { _eMenuItemGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eMenuItemGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey MenuItem
+  where attrSetAccessKey pp g = g { _menuItemGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasAnmval MenuItem
+  where attrSetAnmval pp g = g { _menuItemGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasContentEditable MenuItem
+  where attrSetContentEditable pp g = g  { _menuItemGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasContextMenu MenuItem
+  where attrSetContextMenu pp g     = g { _menuItemGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasClass MenuItem
+  where attrSetClassName pp g           = g { _menuItemGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasDnmval MenuItem
+  where attrSetDnmval pp g           = g { _menuItemGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasDir MenuItem
+  where attrSetDir pp g             = g { _menuItemGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasDraggable MenuItem
+  where attrSetDraggable pp g       = g { _menuItemGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasHidden MenuItem
+  where attrSetHidden pp g          = g { _menuItemGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasId MenuItem
+  where attrSetId pp g              = g { _menuItemGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasLang MenuItem
+  where attrSetLang pp g            = g { _menuItemGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasRole MenuItem
+  where attrSetRole pp g            = g { _menuItemGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasSlot MenuItem
+  where attrSetSlot pp g            = g { _menuItemGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasSpellCheck MenuItem
+  where attrSetSpellCheck pp g      = g { _menuItemGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasStyle MenuItem
+  where attrSetStyle pp g           = g { _menuItemGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasTabIndex MenuItem
+  where attrSetTabIndex pp g        = g { _menuItemGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasTitle MenuItem
+  where attrSetTitle pp g           = g { _menuItemGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
+instance A.AttrHasTranslate MenuItem
+  where attrSetTranslate pp g       = g { _menuItemGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_menuItemGlobals g))) }
 
-instance AttrGetClassName EMenuItem where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eMenuItemGlobals g)
+instance A.AttrGetClassName MenuItem where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_menuItemGlobals g)
 
-instance AttrHasIcon  EMenuItem where attrSetIcon p g  = g { _eMenuItemIcon  = Just p }
-instance AttrHasDisabled  EMenuItem where attrSetDisabled p g  = g { _eMenuItemDisabled  = Just p }
-instance AttrHasDefault  EMenuItem where attrSetDefault p g  = g { _eMenuItemDefault  = Just p }
-instance AttrHasLabel  EMenuItem where attrSetLabel p g  = g { _eMenuItemLabel  = Just p }
-instance AttrHasMenuItemType EMenuItem where attrSetMenuItemType p g = g { _eMenuItemType = Just p }
+instance A.AttrHasIcon  MenuItem where attrSetIcon pp g  = g { _menuItemIcon  = Just pp }
+instance A.AttrHasDisabled  MenuItem where attrSetDisabled pp g  = g { _menuItemDisabled  = Just pp }
+instance A.AttrHasDefault  MenuItem where attrSetDefault pp g  = g { _menuItemDefault  = Just pp }
+instance A.AttrHasLabel  MenuItem where attrSetLabel pp g  = g { _menuItemLabel  = Just pp }
+instance A.AttrHasMenuItemType MenuItem where attrSetMenuItemType pp g = g { _menuItemType = Just pp }
 
-instance AttrHasCustom EMenuItem where attrSetCustom p g       = g { _eMenuItemCustom = Just p }
+instance A.AttrHasCustom MenuItem where attrSetCustom pp g       = g { _menuItemCustom = Just pp }
 
-eMenuItem' :: forall t m a. DomBuilder t m => EMenuItem -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMenuItem' b  = elAttr' "menuitem" (attrMap b)
+menuItem' ∷ forall t m a. DomBuilder t m ⇒ MenuItem → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+menuItem' bm  = elAttr' "menuitem" (A.attrMap bm)
 
-eMenuItem :: forall t m a. DomBuilder t m => EMenuItem -> m a -> m a
-eMenuItem b children = snd <$> eMenuItem' b children
+menuItem ∷ forall t m a. DomBuilder t m ⇒ MenuItem → m a → m a
+menuItem bm children = snd <$> menuItem' bm children
 
-eMenuItemN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMenuItemN' = el' "menuitem"
+menuItemN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+menuItemN' = el' "menuitem"
 
-eMenuItemN :: forall t m a. DomBuilder t m => m a -> m a
-eMenuItemN children = snd <$> eMenuItemN' children
+menuItemN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+menuItemN children = snd <$> menuItemN' children
 
-eMenuItemD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMenuItem -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMenuItemD' b  = elDynAttr' "menuitem" (attrMap <$> b)
+menuItemD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t MenuItem → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+menuItemD' bm  = elDynAttr' "menuitem" (A.attrMap <$> bm)
 
-eMenuItemD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMenuItem -> m a -> m a
-eMenuItemD b children = snd <$> eMenuItemD' b children
+menuItemD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t MenuItem → m a → m a
+menuItemD bm children = snd <$> menuItemD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Meter-element
-data EMeter = EMeter
-  { _eMeterGlobals     :: Maybe Globals
-  , _eMeterHigh        :: Maybe High
-  , _eMeterMin         :: Maybe Min
-  , _eMeterMax         :: Maybe Max
-  , _eMeterLow         :: Maybe Low
-  , _eMeterOptimum     :: Maybe Optimum
-  , _eMeterValueNumber :: Maybe ValueNumber
-  , _eMeterCustom      :: Maybe Attr
+data Meter = Meter
+  { _meterGlobals     ∷ Maybe A.Globals
+  , _meterHigh        ∷ Maybe A.High
+  , _meterMin         ∷ Maybe A.Min
+  , _meterMax         ∷ Maybe A.Max
+  , _meterLow         ∷ Maybe A.Low
+  , _meterOptimum     ∷ Maybe A.Optimum
+  , _meterValueNumber ∷ Maybe A.ValueNumber
+  , _meterCustom      ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EMeter where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eMeterGlobals b
-    , attrMap <$> _eMeterHigh b
-    , attrMap <$> _eMeterMin b
-    , attrMap <$> _eMeterMax b
-    , attrMap <$> _eMeterLow b
-    , attrMap <$> _eMeterOptimum b
-    , attrMap <$> _eMeterValueNumber b
-    ] <> maybeToList (_eMeterCustom b)
+instance A.AttrMap Meter where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _meterGlobals bm
+    , A.attrMap <$> _meterHigh bm
+    , A.attrMap <$> _meterMin bm
+    , A.attrMap <$> _meterMax bm
+    , A.attrMap <$> _meterLow bm
+    , A.attrMap <$> _meterOptimum bm
+    , A.attrMap <$> _meterValueNumber bm
+    ] <> maybeToList (_meterCustom bm)
 
-instance Default EMeter where
-  def = EMeter def def def def def def def def
+defMeter ∷ Meter
+defMeter = Meter Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EMeter where
-  mempty = def
-  mappend (EMeter a1 a2 a3 a4 a5 a6 a7 a8) (EMeter b1 b2 b3 b4 b5 b6 b7 b8)
-    = EMeter (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+instance Monoid Meter where
+  mempty = defMeter
+  mappend (Meter a1 a2 a3 a4 a5 a6 a7 a8) (Meter b1 b2 b3 b4 b5 b6 b7 b8)
+    = Meter (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
              (a6 <> b6) (a7 <> b7) (a8 <> b8)
 
-instance AttrHasGlobals EMeter where
-   attrSetGlobals p b = b { _eMeterGlobals = Just p }
+instance A.AttrHasGlobals Meter where
+   attrSetGlobals pp bm = bm { _meterGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EMeter
-  where attrSetAccessKey p g = g { _eMeterGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasAnmval EMeter
-  where attrSetAnmval p g = g { _eMeterGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasContentEditable EMeter
-  where attrSetContentEditable p g = g  { _eMeterGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasContextMenu EMeter
-  where attrSetContextMenu p g     = g { _eMeterGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasClass EMeter
-  where attrSetClassName p g           = g { _eMeterGlobals = Just (attrSetClassName p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasDnmval EMeter
-  where attrSetDnmval p g           = g { _eMeterGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasDir EMeter
-  where attrSetDir p g             = g { _eMeterGlobals = Just (attrSetDir p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasDraggable EMeter
-  where attrSetDraggable p g       = g { _eMeterGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasHidden EMeter
-  where attrSetHidden p g          = g { _eMeterGlobals = Just (attrSetHidden p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasId EMeter
-  where attrSetId p g              = g { _eMeterGlobals = Just (attrSetId p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasLang EMeter
-  where attrSetLang p g            = g { _eMeterGlobals = Just (attrSetLang p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasRole EMeter
-  where attrSetRole p g            = g { _eMeterGlobals = Just (attrSetRole p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasSlot EMeter
-  where attrSetSlot p g            = g { _eMeterGlobals = Just (attrSetSlot p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasSpellCheck EMeter
-  where attrSetSpellCheck p g      = g { _eMeterGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasStyle EMeter
-  where attrSetStyle p g           = g { _eMeterGlobals = Just (attrSetStyle p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasTabIndex EMeter
-  where attrSetTabIndex p g        = g { _eMeterGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasTitle EMeter
-  where attrSetTitle p g           = g { _eMeterGlobals = Just (attrSetTitle p (fromMaybe gDef (_eMeterGlobals g))) }
-instance AttrHasTranslate EMeter
-  where attrSetTranslate p g       = g { _eMeterGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eMeterGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Meter
+  where attrSetAccessKey pp g = g { _meterGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasAnmval Meter
+  where attrSetAnmval pp g = g { _meterGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasContentEditable Meter
+  where attrSetContentEditable pp g = g  { _meterGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasContextMenu Meter
+  where attrSetContextMenu pp g     = g { _meterGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasClass Meter
+  where attrSetClassName pp g           = g { _meterGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasDnmval Meter
+  where attrSetDnmval pp g           = g { _meterGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasDir Meter
+  where attrSetDir pp g             = g { _meterGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasDraggable Meter
+  where attrSetDraggable pp g       = g { _meterGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasHidden Meter
+  where attrSetHidden pp g          = g { _meterGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasId Meter
+  where attrSetId pp g              = g { _meterGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasLang Meter
+  where attrSetLang pp g            = g { _meterGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasRole Meter
+  where attrSetRole pp g            = g { _meterGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasSlot Meter
+  where attrSetSlot pp g            = g { _meterGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasSpellCheck Meter
+  where attrSetSpellCheck pp g      = g { _meterGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasStyle Meter
+  where attrSetStyle pp g           = g { _meterGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasTabIndex Meter
+  where attrSetTabIndex pp g        = g { _meterGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasTitle Meter
+  where attrSetTitle pp g           = g { _meterGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_meterGlobals g))) }
+instance A.AttrHasTranslate Meter
+  where attrSetTranslate pp g       = g { _meterGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_meterGlobals g))) }
 
-instance AttrGetClassName EMeter where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eMeterGlobals g)
+instance A.AttrGetClassName Meter where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_meterGlobals g)
 
-instance AttrHasHigh EMeter where attrSetHigh p g = g {_eMeterHigh = Just p }
-instance AttrHasMin EMeter where attrSetMin p g = g {_eMeterMin = Just p }
-instance AttrHasMax EMeter where attrSetMax p g = g {_eMeterMax = Just p }
-instance AttrHasLow EMeter where attrSetLow p g = g {_eMeterLow = Just p }
-instance AttrHasOptimum EMeter where attrSetOptimum p g = g {_eMeterOptimum = Just p }
-instance AttrHasValueNumber EMeter where attrSetValueNumber p g = g {_eMeterValueNumber = Just p }
+instance A.AttrHasHigh Meter where attrSetHigh pp g = g {_meterHigh = Just pp }
+instance A.AttrHasMin Meter where attrSetMin pp g = g {_meterMin = Just pp }
+instance A.AttrHasMax Meter where attrSetMax pp g = g {_meterMax = Just pp }
+instance A.AttrHasLow Meter where attrSetLow pp g = g {_meterLow = Just pp }
+instance A.AttrHasOptimum Meter where attrSetOptimum pp g = g {_meterOptimum = Just pp }
+instance A.AttrHasValueNumber Meter where attrSetValueNumber pp g = g {_meterValueNumber = Just pp }
 
-instance AttrHasCustom EMeter where attrSetCustom p g       = g { _eMeterCustom = Just p }
+instance A.AttrHasCustom Meter where attrSetCustom pp g       = g { _meterCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"meter\" ... @
-eMeter' :: forall t m a. DomBuilder t m => EMeter -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMeter' b  = elAttr' "meter" (attrMap b)
+meter' ∷ forall t m a. DomBuilder t m ⇒ Meter → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+meter' bm  = elAttr' "meter" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"meter\" ... @
-eMeter :: forall t m a. DomBuilder t m => EMeter -> m a -> m a
-eMeter b children = snd <$> eMeter' b children
+meter ∷ forall t m a. DomBuilder t m ⇒ Meter → m a → m a
+meter bm children = snd <$> meter' bm children
 
 -- | A short-hand notion for @ el\' \"meter\" ... @
-eMeterN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMeterN' = el' "meter"
+meterN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+meterN' = el' "meter"
 
 -- | A short-hand notion for @ el \"meter\" ... @
-eMeterN :: forall t m a. DomBuilder t m => m a -> m a
-eMeterN children = snd <$> eMeterN' children
+meterN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+meterN children = snd <$> meterN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"meter\" ... @
-eMeterD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMeter -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eMeterD' b  = elDynAttr' "meter" (attrMap <$> b)
+meterD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Meter → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+meterD' bm  = elDynAttr' "meter" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"meter\" ... @
-eMeterD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EMeter -> m a -> m a
-eMeterD b children = snd <$> eMeterD' b children
+meterD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Meter → m a → m a
+meterD bm children = snd <$> meterD' bm children
 
 
 
@@ -3448,2459 +3440,2459 @@ eMeterD b children = snd <$> eMeterD' b children
 ------------------------------------------------------------------------------
 
 -- | Ol-element
-data EOl = EOl
-  { _eOlGlobals  :: Maybe Globals
-  , _eOlReversed :: Maybe Reversed
-  , _eOlStart    :: Maybe Start
-  , _eOlType     :: Maybe OlType
-  , _eOlCustom   :: Maybe Attr
+data Ol = Ol
+  { _olGlobals  ∷ Maybe A.Globals
+  , _olReversed ∷ Maybe A.Reversed
+  , _olStart    ∷ Maybe A.Start
+  , _olType     ∷ Maybe A.OlType
+  , _olCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EOl where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eOlGlobals b
-    , attrMap <$> _eOlReversed b
-    , attrMap <$> _eOlStart b
-    , attrMap <$> _eOlType b
-    ] <> maybeToList (_eOlCustom b)
+instance A.AttrMap Ol where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _olGlobals bm
+    , A.attrMap <$> _olReversed bm
+    , A.attrMap <$> _olStart bm
+    , A.attrMap <$> _olType bm
+    ] <> maybeToList (_olCustom bm)
 
 
-instance Default EOl where
-  def = EOl def def def def def
+defOl ∷ Ol
+defOl = Ol Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EOl where
-  mempty = def
-  mappend (EOl a1 a2 a3 a4 a5) (EOl b1 b2 b3 b4 b5)
-    = EOl (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+instance Monoid Ol where
+  mempty = defOl
+  mappend (Ol a1 a2 a3 a4 a5) (Ol b1 b2 b3 b4 b5)
+    = Ol (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
 
-instance AttrHasGlobals EOl where
-   attrSetGlobals p b = b { _eOlGlobals = Just p }
+instance A.AttrHasGlobals Ol where
+   attrSetGlobals pp bm = bm { _olGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EOl
-  where attrSetAccessKey p g = g { _eOlGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasAnmval EOl
-  where attrSetAnmval p g = g { _eOlGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasContentEditable EOl
-  where attrSetContentEditable p g = g  { _eOlGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasContextMenu EOl
-  where attrSetContextMenu p g     = g { _eOlGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasClass EOl
-  where attrSetClassName p g           = g { _eOlGlobals = Just (attrSetClassName p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasDnmval EOl
-  where attrSetDnmval p g           = g { _eOlGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasDir EOl
-  where attrSetDir p g             = g { _eOlGlobals = Just (attrSetDir p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasDraggable EOl
-  where attrSetDraggable p g       = g { _eOlGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasHidden EOl
-  where attrSetHidden p g          = g { _eOlGlobals = Just (attrSetHidden p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasId EOl
-  where attrSetId p g              = g { _eOlGlobals = Just (attrSetId p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasLang EOl
-  where attrSetLang p g            = g { _eOlGlobals = Just (attrSetLang p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasRole EOl
-  where attrSetRole p g            = g { _eOlGlobals = Just (attrSetRole p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasSlot EOl
-  where attrSetSlot p g            = g { _eOlGlobals = Just (attrSetSlot p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasSpellCheck EOl
-  where attrSetSpellCheck p g      = g { _eOlGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasStyle EOl
-  where attrSetStyle p g           = g { _eOlGlobals = Just (attrSetStyle p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasTabIndex EOl
-  where attrSetTabIndex p g        = g { _eOlGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasTitle EOl
-  where attrSetTitle p g           = g { _eOlGlobals = Just (attrSetTitle p (fromMaybe gDef (_eOlGlobals g))) }
-instance AttrHasTranslate EOl
-  where attrSetTranslate p g       = g { _eOlGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eOlGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Ol
+  where attrSetAccessKey pp g = g { _olGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasAnmval Ol
+  where attrSetAnmval pp g = g { _olGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasContentEditable Ol
+  where attrSetContentEditable pp g = g  { _olGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasContextMenu Ol
+  where attrSetContextMenu pp g     = g { _olGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasClass Ol
+  where attrSetClassName pp g           = g { _olGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasDnmval Ol
+  where attrSetDnmval pp g           = g { _olGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasDir Ol
+  where attrSetDir pp g             = g { _olGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasDraggable Ol
+  where attrSetDraggable pp g       = g { _olGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasHidden Ol
+  where attrSetHidden pp g          = g { _olGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasId Ol
+  where attrSetId pp g              = g { _olGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasLang Ol
+  where attrSetLang pp g            = g { _olGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasRole Ol
+  where attrSetRole pp g            = g { _olGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasSlot Ol
+  where attrSetSlot pp g            = g { _olGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasSpellCheck Ol
+  where attrSetSpellCheck pp g      = g { _olGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasStyle Ol
+  where attrSetStyle pp g           = g { _olGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasTabIndex Ol
+  where attrSetTabIndex pp g        = g { _olGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasTitle Ol
+  where attrSetTitle pp g           = g { _olGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_olGlobals g))) }
+instance A.AttrHasTranslate Ol
+  where attrSetTranslate pp g       = g { _olGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_olGlobals g))) }
 
-instance AttrGetClassName EOl where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eOlGlobals g)
+instance A.AttrGetClassName Ol where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_olGlobals g)
 
-instance AttrHasReversed EOl where attrSetReversed p g  = g { _eOlReversed  = Just p }
+instance A.AttrHasReversed Ol where attrSetReversed pp g  = g { _olReversed  = Just pp }
 
-instance AttrHasStart    EOl where attrSetStart p g  = g { _eOlStart  = Just p }
+instance A.AttrHasStart    Ol where attrSetStart pp g  = g { _olStart  = Just pp }
 
-instance AttrHasOlType   EOl where attrSetOlType p g  = g { _eOlType  = Just p }
+instance A.AttrHasOlType   Ol where attrSetOlType pp g  = g { _olType  = Just pp }
 
-instance AttrHasCustom EOl where attrSetCustom p g       = g { _eOlCustom = Just p }
+instance A.AttrHasCustom Ol where attrSetCustom pp g       = g { _olCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"ol\" ... @
-eOl' :: forall t m a. DomBuilder t m => EOl -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOl' b  = elAttr' "ol" (attrMap b)
+ol' ∷ forall t m a. DomBuilder t m ⇒ Ol → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ol' bm  = elAttr' "ol" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"ol\" ... @
-eOl :: forall t m a. DomBuilder t m => EOl -> m a -> m a
-eOl b children = snd <$> eOl' b children
+ol ∷ forall t m a. DomBuilder t m ⇒ Ol → m a → m a
+ol bm children = snd <$> ol' bm children
 
 -- | A short-hand notion for @ el\' \"ol\" ... @
-eOlN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOlN' = el' "ol"
+olN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+olN' = el' "ol"
 
 -- | A short-hand notion for @ el \"ol\" ... @
-eOlN :: forall t m a. DomBuilder t m => m a -> m a
-eOlN children = snd <$> eOlN' children
+olN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+olN children = snd <$> olN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"ol\" ... @
-eOlD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOl -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOlD' b  = elDynAttr' "ol" (attrMap <$> b)
+olD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ol → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+olD' bm  = elDynAttr' "ol" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"ol\" ... @
-eOlD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOl -> m a -> m a
-eOlD b children = snd <$> eOlD' b children
+olD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ol → m a → m a
+olD bm children = snd <$> olD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | OptGroup-element
-data EOptGroup = EOptGroup
-  { _eOptGroupGlobals  :: Maybe Globals
-  , _eOptGroupDisabled :: Maybe Disabled
-  , _eOptGroupLabel    :: Maybe Label
-  , _eOptGroupCustom   :: Maybe Attr
+data OptGroup = OptGroup
+  { _optGroupGlobals  ∷ Maybe A.Globals
+  , _optGroupDisabled ∷ Maybe A.Disabled
+  , _optGroupLabel    ∷ Maybe A.Label
+  , _optGroupCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EOptGroup where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eOptGroupGlobals b
-    , attrMap <$> _eOptGroupDisabled b
-    , attrMap <$> _eOptGroupLabel b
-    ] <> maybeToList (_eOptGroupCustom b)
+instance A.AttrMap OptGroup where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _optGroupGlobals bm
+    , A.attrMap <$> _optGroupDisabled bm
+    , A.attrMap <$> _optGroupLabel bm
+    ] <> maybeToList (_optGroupCustom bm)
 
 
-instance Default EOptGroup where
-  def = EOptGroup def def def def
+defOptGroup ∷ OptGroup
+defOptGroup = OptGroup Nothing Nothing Nothing Nothing
 
-instance AttrHasGlobals EOptGroup where
-   attrSetGlobals p b = b { _eOptGroupGlobals = Just p }
+instance A.AttrHasGlobals OptGroup where
+   attrSetGlobals pp bm = bm { _optGroupGlobals = Just pp }
 
-instance Monoid EOptGroup where
-  mempty = def
-  mappend (EOptGroup a1 a2 a3 a4) (EOptGroup b1 b2 b3 b4)
-    = EOptGroup (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+instance Monoid OptGroup where
+  mempty = defOptGroup
+  mappend (OptGroup a1 a2 a3 a4) (OptGroup b1 b2 b3 b4)
+    = OptGroup (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EOptGroup
-  where attrSetAccessKey p g = g { _eOptGroupGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasAnmval EOptGroup
-  where attrSetAnmval p g = g { _eOptGroupGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasContentEditable EOptGroup
-  where attrSetContentEditable p g = g  { _eOptGroupGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasContextMenu EOptGroup
-  where attrSetContextMenu p g     = g { _eOptGroupGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasClass EOptGroup
-  where attrSetClassName p g           = g { _eOptGroupGlobals = Just (attrSetClassName p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasDnmval EOptGroup
-  where attrSetDnmval p g           = g { _eOptGroupGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasDir EOptGroup
-  where attrSetDir p g             = g { _eOptGroupGlobals = Just (attrSetDir p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasDraggable EOptGroup
-  where attrSetDraggable p g       = g { _eOptGroupGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasHidden EOptGroup
-  where attrSetHidden p g          = g { _eOptGroupGlobals = Just (attrSetHidden p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasId EOptGroup
-  where attrSetId p g              = g { _eOptGroupGlobals = Just (attrSetId p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasLang EOptGroup
-  where attrSetLang p g            = g { _eOptGroupGlobals = Just (attrSetLang p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasRole EOptGroup
-  where attrSetRole p g            = g { _eOptGroupGlobals = Just (attrSetRole p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasSlot EOptGroup
-  where attrSetSlot p g            = g { _eOptGroupGlobals = Just (attrSetSlot p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasSpellCheck EOptGroup
-  where attrSetSpellCheck p g      = g { _eOptGroupGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasStyle EOptGroup
-  where attrSetStyle p g           = g { _eOptGroupGlobals = Just (attrSetStyle p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasTabIndex EOptGroup
-  where attrSetTabIndex p g        = g { _eOptGroupGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasTitle EOptGroup
-  where attrSetTitle p g           = g { _eOptGroupGlobals = Just (attrSetTitle p (fromMaybe gDef (_eOptGroupGlobals g))) }
-instance AttrHasTranslate EOptGroup
-  where attrSetTranslate p g       = g { _eOptGroupGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eOptGroupGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey OptGroup
+  where attrSetAccessKey pp g = g { _optGroupGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasAnmval OptGroup
+  where attrSetAnmval pp g = g { _optGroupGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasContentEditable OptGroup
+  where attrSetContentEditable pp g = g  { _optGroupGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasContextMenu OptGroup
+  where attrSetContextMenu pp g     = g { _optGroupGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasClass OptGroup
+  where attrSetClassName pp g           = g { _optGroupGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasDnmval OptGroup
+  where attrSetDnmval pp g           = g { _optGroupGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasDir OptGroup
+  where attrSetDir pp g             = g { _optGroupGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasDraggable OptGroup
+  where attrSetDraggable pp g       = g { _optGroupGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasHidden OptGroup
+  where attrSetHidden pp g          = g { _optGroupGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasId OptGroup
+  where attrSetId pp g              = g { _optGroupGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasLang OptGroup
+  where attrSetLang pp g            = g { _optGroupGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasRole OptGroup
+  where attrSetRole pp g            = g { _optGroupGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasSlot OptGroup
+  where attrSetSlot pp g            = g { _optGroupGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasSpellCheck OptGroup
+  where attrSetSpellCheck pp g      = g { _optGroupGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasStyle OptGroup
+  where attrSetStyle pp g           = g { _optGroupGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasTabIndex OptGroup
+  where attrSetTabIndex pp g        = g { _optGroupGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasTitle OptGroup
+  where attrSetTitle pp g           = g { _optGroupGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
+instance A.AttrHasTranslate OptGroup
+  where attrSetTranslate pp g       = g { _optGroupGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_optGroupGlobals g))) }
 
-instance AttrGetClassName EOptGroup where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eOptGroupGlobals g)
+instance A.AttrGetClassName OptGroup where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_optGroupGlobals g)
 
-instance AttrHasDisabled EOptGroup where attrSetDisabled p g  = g { _eOptGroupDisabled  = Just p }
+instance A.AttrHasDisabled OptGroup where attrSetDisabled pp g  = g { _optGroupDisabled  = Just pp }
 
-instance AttrHasLabel    EOptGroup where attrSetLabel p g  = g { _eOptGroupLabel  = Just p }
+instance A.AttrHasLabel    OptGroup where attrSetLabel pp g  = g { _optGroupLabel  = Just pp }
 
-instance AttrHasCustom EOptGroup where attrSetCustom p g       = g { _eOptGroupCustom = Just p }
+instance A.AttrHasCustom OptGroup where attrSetCustom pp g       = g { _optGroupCustom = Just pp }
 
-eOptGroup' :: forall t m a. DomBuilder t m => EOptGroup -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOptGroup' b  = elAttr' "optgroup" (attrMap b)
+optGroup' ∷ forall t m a. DomBuilder t m ⇒ OptGroup → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+optGroup' bm  = elAttr' "optgroup" (A.attrMap bm)
 
-eOptGroup :: forall t m a. DomBuilder t m => EOptGroup -> m a -> m a
-eOptGroup b children = snd <$> eOptGroup' b children
+optGroup ∷ forall t m a. DomBuilder t m ⇒ OptGroup → m a → m a
+optGroup bm children = snd <$> optGroup' bm children
 
-eOptGroupN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOptGroupN' = el' "optgroup"
+optGroupN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+optGroupN' = el' "optgroup"
 
-eOptGroupN :: forall t m a. DomBuilder t m => m a -> m a
-eOptGroupN children = snd <$> eOptGroupN' children
+optGroupN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+optGroupN children = snd <$> optGroupN' children
 
-eOptGroupD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOptGroup -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOptGroupD' b  = elDynAttr' "optgroup" (attrMap <$> b)
+optGroupD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t OptGroup → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+optGroupD' bm  = elDynAttr' "optgroup" (A.attrMap <$> bm)
 
-eOptGroupD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOptGroup -> m a -> m a
-eOptGroupD b children = snd <$> eOptGroupD' b children
+optGroupD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t OptGroup → m a → m a
+optGroupD bm children = snd <$> optGroupD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Option-element
-data EOption = EOption
-  { _eOptionGlobals   :: Maybe Globals
-  , _eOptionDisabled  :: Maybe Disabled
-  , _eOptionLabel     :: Maybe Label
-  , _eOptionSelected  :: Maybe Selected
-  , _eOptionValueText :: Maybe ValueText
-  , _eOptionCustom    :: Maybe Attr
+data Option = Option
+  { _optionGlobals   ∷ Maybe A.Globals
+  , _optionDisabled  ∷ Maybe A.Disabled
+  , _optionLabel     ∷ Maybe A.Label
+  , _optionSelected  ∷ Maybe A.Selected
+  , _optionValueText ∷ Maybe A.ValueText
+  , _optionCustom    ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EOption where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eOptionGlobals b
-    , attrMap <$> _eOptionDisabled b
-    , attrMap <$> _eOptionLabel b
-    , attrMap <$> _eOptionSelected b
-    , attrMap <$> _eOptionValueText b
-    ] <> maybeToList (_eOptionCustom b)
+instance A.AttrMap Option where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _optionGlobals bm
+    , A.attrMap <$> _optionDisabled bm
+    , A.attrMap <$> _optionLabel bm
+    , A.attrMap <$> _optionSelected bm
+    , A.attrMap <$> _optionValueText bm
+    ] <> maybeToList (_optionCustom bm)
 
 
-instance Default EOption where
-  def = EOption def def def def def def
+defOption ∷ Option
+defOption = Option Nothing Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EOption where
-  mempty = def
-  mappend (EOption a1 a2 a3 a4 a5 a6) (EOption b1 b2 b3 b4 b5 b6)
-    = EOption (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
+instance Monoid Option where
+  mempty = defOption
+  mappend (Option a1 a2 a3 a4 a5 a6) (Option b1 b2 b3 b4 b5 b6)
+    = Option (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
 
-instance AttrHasGlobals EOption where
-   attrSetGlobals p b = b { _eOptionGlobals = Just p }
+instance A.AttrHasGlobals Option where
+   attrSetGlobals pp bm = bm { _optionGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EOption
-  where attrSetAccessKey p g = g { _eOptionGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasAnmval EOption
-  where attrSetAnmval p g = g { _eOptionGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasContentEditable EOption
-  where attrSetContentEditable p g = g  { _eOptionGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasContextMenu EOption
-  where attrSetContextMenu p g     = g { _eOptionGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasClass EOption
-  where attrSetClassName p g           = g { _eOptionGlobals = Just (attrSetClassName p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasDnmval EOption
-  where attrSetDnmval p g           = g { _eOptionGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasDir EOption
-  where attrSetDir p g             = g { _eOptionGlobals = Just (attrSetDir p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasDraggable EOption
-  where attrSetDraggable p g       = g { _eOptionGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasHidden EOption
-  where attrSetHidden p g          = g { _eOptionGlobals = Just (attrSetHidden p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasId EOption
-  where attrSetId p g              = g { _eOptionGlobals = Just (attrSetId p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasLang EOption
-  where attrSetLang p g            = g { _eOptionGlobals = Just (attrSetLang p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasRole EOption
-  where attrSetRole p g            = g { _eOptionGlobals = Just (attrSetRole p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasSlot EOption
-  where attrSetSlot p g            = g { _eOptionGlobals = Just (attrSetSlot p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasSpellCheck EOption
-  where attrSetSpellCheck p g      = g { _eOptionGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasStyle EOption
-  where attrSetStyle p g           = g { _eOptionGlobals = Just (attrSetStyle p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasTabIndex EOption
-  where attrSetTabIndex p g        = g { _eOptionGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasTitle EOption
-  where attrSetTitle p g           = g { _eOptionGlobals = Just (attrSetTitle p (fromMaybe gDef (_eOptionGlobals g))) }
-instance AttrHasTranslate EOption
-  where attrSetTranslate p g       = g { _eOptionGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eOptionGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Option
+  where attrSetAccessKey pp g = g { _optionGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasAnmval Option
+  where attrSetAnmval pp g = g { _optionGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasContentEditable Option
+  where attrSetContentEditable pp g = g  { _optionGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasContextMenu Option
+  where attrSetContextMenu pp g     = g { _optionGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasClass Option
+  where attrSetClassName pp g           = g { _optionGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasDnmval Option
+  where attrSetDnmval pp g           = g { _optionGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasDir Option
+  where attrSetDir pp g             = g { _optionGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasDraggable Option
+  where attrSetDraggable pp g       = g { _optionGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasHidden Option
+  where attrSetHidden pp g          = g { _optionGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasId Option
+  where attrSetId pp g              = g { _optionGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasLang Option
+  where attrSetLang pp g            = g { _optionGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasRole Option
+  where attrSetRole pp g            = g { _optionGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasSlot Option
+  where attrSetSlot pp g            = g { _optionGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasSpellCheck Option
+  where attrSetSpellCheck pp g      = g { _optionGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasStyle Option
+  where attrSetStyle pp g           = g { _optionGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasTabIndex Option
+  where attrSetTabIndex pp g        = g { _optionGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasTitle Option
+  where attrSetTitle pp g           = g { _optionGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_optionGlobals g))) }
+instance A.AttrHasTranslate Option
+  where attrSetTranslate pp g       = g { _optionGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_optionGlobals g))) }
 
-instance AttrGetClassName EOption where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eOptionGlobals g)
+instance A.AttrGetClassName Option where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_optionGlobals g)
 
-instance AttrHasDisabled EOption where attrSetDisabled p g  = g { _eOptionDisabled  = Just p }
+instance A.AttrHasDisabled Option where attrSetDisabled pp g  = g { _optionDisabled  = Just pp }
 
-instance AttrHasLabel    EOption where attrSetLabel p g  = g { _eOptionLabel  = Just p }
-instance AttrHasSelected    EOption where attrSetSelected p g  = g { _eOptionSelected  = Just p }
-instance AttrHasValueText    EOption where attrSetValueText p g  = g { _eOptionValueText  = Just p }
+instance A.AttrHasLabel    Option where attrSetLabel pp g  = g { _optionLabel  = Just pp }
+instance A.AttrHasSelected    Option where attrSetSelected pp g  = g { _optionSelected  = Just pp }
+instance A.AttrHasValueText    Option where attrSetValueText pp g  = g { _optionValueText  = Just pp }
 
-instance AttrHasCustom EOption where attrSetCustom p g       = g { _eOptionCustom = Just p }
+instance A.AttrHasCustom Option where attrSetCustom pp g       = g { _optionCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"option\" ... @
-eOption' :: forall t m a. DomBuilder t m => EOption -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOption' b  = elAttr' "option" (attrMap b)
+option' ∷ forall t m a. DomBuilder t m ⇒ Option → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+option' bm  = elAttr' "option" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"option\" ... @
-eOption :: forall t m a. DomBuilder t m => EOption -> m a -> m a
-eOption b children = snd <$> eOption' b children
+option ∷ forall t m a. DomBuilder t m ⇒ Option → m a → m a
+option bm children = snd <$> option' bm children
 
 -- | A short-hand notion for @ el\' \"option\" ... @
-eOptionN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOptionN' = el' "option"
+optionN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+optionN' = el' "option"
 
 -- | A short-hand notion for @ el \"option\" ... @
-eOptionN :: forall t m a. DomBuilder t m => m a -> m a
-eOptionN children = snd <$> eOptionN' children
+optionN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+optionN children = snd <$> optionN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"option\" ... @
-eOptionD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOption -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOptionD' b  = elDynAttr' "option" (attrMap <$> b)
+optionD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Option → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+optionD' bm  = elDynAttr' "option" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"option\" ... @
-eOptionD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOption -> m a -> m a
-eOptionD b children = snd <$> eOptionD' b children
+optionD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Option → m a → m a
+optionD bm children = snd <$> optionD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Output-element
-data EOutput = EOutput
-  { _eOutputGlobals :: Maybe Globals
-  , _eOutputForId   :: Maybe ForId
-  , _eOutputForm    :: Maybe Form
-  , _eOutputName    :: Maybe Name
-  , _eOutputCustom  :: Maybe Attr
+data Output = Output
+  { _outputGlobals ∷ Maybe A.Globals
+  , _outputForId   ∷ Maybe A.ForId
+  , _outputForm    ∷ Maybe A.Form
+  , _outputName    ∷ Maybe A.Name
+  , _outputCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EOutput where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eOutputGlobals b
-    , attrMap <$> _eOutputForId b
-    , attrMap <$> _eOutputForm b
-    , attrMap <$> _eOutputName b
-    ] <> maybeToList (_eOutputCustom b)
+instance A.AttrMap Output where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _outputGlobals bm
+    , A.attrMap <$> _outputForId bm
+    , A.attrMap <$> _outputForm bm
+    , A.attrMap <$> _outputName bm
+    ] <> maybeToList (_outputCustom bm)
 
 
-instance Default EOutput where
-  def = EOutput def def def def def
+defOutput ∷ Output
+defOutput = Output Nothing Nothing Nothing Nothing Nothing
 
-instance Monoid EOutput where
-  mempty = def
-  mappend (EOutput a1 a2 a3 a4 a5) (EOutput b1 b2 b3 b4 b5)
-    = EOutput (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+instance Monoid Output where
+  mempty = defOutput
+  mappend (Output a1 a2 a3 a4 a5) (Output b1 b2 b3 b4 b5)
+    = Output (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
 
-instance AttrHasGlobals EOutput where
-   attrSetGlobals p b = b { _eOutputGlobals = Just p }
+instance A.AttrHasGlobals Output where
+   attrSetGlobals pp bm = bm { _outputGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EOutput
-  where attrSetAccessKey p g = g { _eOutputGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasAnmval EOutput
-  where attrSetAnmval p g = g { _eOutputGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasContentEditable EOutput
-  where attrSetContentEditable p g = g  { _eOutputGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasContextMenu EOutput
-  where attrSetContextMenu p g     = g { _eOutputGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasClass EOutput
-  where attrSetClassName p g           = g { _eOutputGlobals = Just (attrSetClassName p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasDnmval EOutput
-  where attrSetDnmval p g           = g { _eOutputGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasDir EOutput
-  where attrSetDir p g             = g { _eOutputGlobals = Just (attrSetDir p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasDraggable EOutput
-  where attrSetDraggable p g       = g { _eOutputGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasHidden EOutput
-  where attrSetHidden p g          = g { _eOutputGlobals = Just (attrSetHidden p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasId EOutput
-  where attrSetId p g              = g { _eOutputGlobals = Just (attrSetId p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasLang EOutput
-  where attrSetLang p g            = g { _eOutputGlobals = Just (attrSetLang p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasRole EOutput
-  where attrSetRole p g            = g { _eOutputGlobals = Just (attrSetRole p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasSlot EOutput
-  where attrSetSlot p g            = g { _eOutputGlobals = Just (attrSetSlot p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasSpellCheck EOutput
-  where attrSetSpellCheck p g      = g { _eOutputGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasStyle EOutput
-  where attrSetStyle p g           = g { _eOutputGlobals = Just (attrSetStyle p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasTabIndex EOutput
-  where attrSetTabIndex p g        = g { _eOutputGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasTitle EOutput
-  where attrSetTitle p g           = g { _eOutputGlobals = Just (attrSetTitle p (fromMaybe gDef (_eOutputGlobals g))) }
-instance AttrHasTranslate EOutput
-  where attrSetTranslate p g       = g { _eOutputGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eOutputGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Output
+  where attrSetAccessKey pp g = g { _outputGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasAnmval Output
+  where attrSetAnmval pp g = g { _outputGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasContentEditable Output
+  where attrSetContentEditable pp g = g  { _outputGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasContextMenu Output
+  where attrSetContextMenu pp g     = g { _outputGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasClass Output
+  where attrSetClassName pp g           = g { _outputGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasDnmval Output
+  where attrSetDnmval pp g           = g { _outputGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasDir Output
+  where attrSetDir pp g             = g { _outputGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasDraggable Output
+  where attrSetDraggable pp g       = g { _outputGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasHidden Output
+  where attrSetHidden pp g          = g { _outputGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasId Output
+  where attrSetId pp g              = g { _outputGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasLang Output
+  where attrSetLang pp g            = g { _outputGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasRole Output
+  where attrSetRole pp g            = g { _outputGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasSlot Output
+  where attrSetSlot pp g            = g { _outputGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasSpellCheck Output
+  where attrSetSpellCheck pp g      = g { _outputGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasStyle Output
+  where attrSetStyle pp g           = g { _outputGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasTabIndex Output
+  where attrSetTabIndex pp g        = g { _outputGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasTitle Output
+  where attrSetTitle pp g           = g { _outputGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_outputGlobals g))) }
+instance A.AttrHasTranslate Output
+  where attrSetTranslate pp g       = g { _outputGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_outputGlobals g))) }
 
-instance AttrGetClassName EOutput where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eOutputGlobals g)
+instance A.AttrGetClassName Output where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_outputGlobals g)
 
-instance AttrHasForId EOutput where attrSetForId p g  = g { _eOutputForId  = Just p }
-instance AttrHasForm EOutput where attrSetForm p g  = g { _eOutputForm  = Just p }
+instance A.AttrHasForId Output where attrSetForId pp g  = g { _outputForId  = Just pp }
+instance A.AttrHasForm Output where attrSetForm pp g  = g { _outputForm  = Just pp }
 
-instance AttrHasName    EOutput where attrSetName p g  = g { _eOutputName  = Just p }
+instance A.AttrHasName    Output where attrSetName pp g  = g { _outputName  = Just pp }
 
-instance AttrHasCustom EOutput where attrSetCustom p g       = g { _eOutputCustom = Just p }
+instance A.AttrHasCustom Output where attrSetCustom pp g       = g { _outputCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"output\" ... @
-eOutput' :: forall t m a. DomBuilder t m => EOutput -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOutput' b  = elAttr' "output" (attrMap b)
+output' ∷ forall t m a. DomBuilder t m ⇒ Output → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+output' bm  = elAttr' "output" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"output\" ... @
-eOutput :: forall t m a. DomBuilder t m => EOutput -> m a -> m a
-eOutput b children = snd <$> eOutput' b children
+output ∷ forall t m a. DomBuilder t m ⇒ Output → m a → m a
+output bm children = snd <$> output' bm children
 
 -- | A short-hand notion for @ el\' \"output\" ... @
-eOutputN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOutputN' = el' "output"
+outputN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+outputN' = el' "output"
 
 -- | A short-hand notion for @ el \"output\" ... @
-eOutputN :: forall t m a. DomBuilder t m => m a -> m a
-eOutputN children = snd <$> eOutputN' children
+outputN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+outputN children = snd <$> outputN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"output\" ... @
-eOutputD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOutput -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eOutputD' b  = elDynAttr' "output" (attrMap <$> b)
+outputD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Output → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+outputD' bm  = elDynAttr' "output" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"output\" ... @
-eOutputD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EOutput -> m a -> m a
-eOutputD b children = snd <$> eOutputD' b children
+outputD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Output → m a → m a
+outputD bm children = snd <$> outputD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | P-element has only the global attributes.
-data EP = EP
-  { _ePGlobals :: Maybe Globals
-  , _ePCustom  :: Maybe Attr
+-- | P-element has only the global A.attributes.
+data P = P
+  { _pGlobals ∷ Maybe A.Globals
+  , _pCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EP where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _ePGlobals b
-    ] <> maybeToList (_ePCustom b)
+instance A.AttrMap P where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _pGlobals bm
+    ] <> maybeToList (_pCustom bm)
 
 
-instance Default EP where
-  def = EP def def
+defP ∷ P
+defP = P Nothing Nothing
 
-instance Monoid EP where
-  mempty = def
-  mappend (EP a1 a2) (EP b1 b2) = EP (a1 <> b1) (a2 <> b2)
+instance Monoid P where
+  mempty = defP
+  mappend (P a1 a2) (P b1 b2) = P (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EP where
-   attrSetGlobals p b = b { _ePGlobals = Just p }
+instance A.AttrHasGlobals P where
+   attrSetGlobals pp bm = bm { _pGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EP
-  where attrSetAccessKey p g = g { _ePGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasAnmval EP
-  where attrSetAnmval p g = g { _ePGlobals = Just (attrSetAnmval p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasContentEditable EP
-  where attrSetContentEditable p g = g  { _ePGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasContextMenu EP
-  where attrSetContextMenu p g     = g { _ePGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasClass EP
-  where attrSetClassName p g           = g { _ePGlobals = Just (attrSetClassName p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasDnmval EP
-  where attrSetDnmval p g           = g { _ePGlobals = Just (attrSetDnmval p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasDir EP
-  where attrSetDir p g             = g { _ePGlobals = Just (attrSetDir p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasDraggable EP
-  where attrSetDraggable p g       = g { _ePGlobals = Just (attrSetDraggable p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasHidden EP
-  where attrSetHidden p g          = g { _ePGlobals = Just (attrSetHidden p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasId EP
-  where attrSetId p g              = g { _ePGlobals = Just (attrSetId p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasLang EP
-  where attrSetLang p g            = g { _ePGlobals = Just (attrSetLang p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasRole EP
-  where attrSetRole p g            = g { _ePGlobals = Just (attrSetRole p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasSlot EP
-  where attrSetSlot p g            = g { _ePGlobals = Just (attrSetSlot p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasSpellCheck EP
-  where attrSetSpellCheck p g      = g { _ePGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasStyle EP
-  where attrSetStyle p g           = g { _ePGlobals = Just (attrSetStyle p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasTabIndex EP
-  where attrSetTabIndex p g        = g { _ePGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasTitle EP
-  where attrSetTitle p g           = g { _ePGlobals = Just (attrSetTitle p (fromMaybe gDef (_ePGlobals g))) }
-instance AttrHasTranslate EP
-  where attrSetTranslate p g       = g { _ePGlobals = Just (attrSetTranslate p (fromMaybe gDef (_ePGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey P
+  where attrSetAccessKey pp g = g { _pGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasAnmval P
+  where attrSetAnmval pp g = g { _pGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasContentEditable P
+  where attrSetContentEditable pp g = g  { _pGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasContextMenu P
+  where attrSetContextMenu pp g     = g { _pGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasClass P
+  where attrSetClassName pp g           = g { _pGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasDnmval P
+  where attrSetDnmval pp g           = g { _pGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasDir P
+  where attrSetDir pp g             = g { _pGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasDraggable P
+  where attrSetDraggable pp g       = g { _pGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasHidden P
+  where attrSetHidden pp g          = g { _pGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasId P
+  where attrSetId pp g              = g { _pGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasLang P
+  where attrSetLang pp g            = g { _pGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasRole P
+  where attrSetRole pp g            = g { _pGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasSlot P
+  where attrSetSlot pp g            = g { _pGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasSpellCheck P
+  where attrSetSpellCheck pp g      = g { _pGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasStyle P
+  where attrSetStyle pp g           = g { _pGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasTabIndex P
+  where attrSetTabIndex pp g        = g { _pGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasTitle P
+  where attrSetTitle pp g           = g { _pGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_pGlobals g))) }
+instance A.AttrHasTranslate P
+  where attrSetTranslate pp g       = g { _pGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_pGlobals g))) }
 
-instance AttrGetClassName EP where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_ePGlobals g)
+instance A.AttrGetClassName P where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_pGlobals g)
 
-instance AttrHasCustom EP where attrSetCustom p g       = g { _ePCustom = Just p }
+instance A.AttrHasCustom P where attrSetCustom pp g       = g { _pCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"p\" ... @
-eP' :: forall t m a. DomBuilder t m => EP -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eP' b  = elAttr' "p" (attrMap b)
+p' ∷ forall t m a. DomBuilder t m ⇒ P → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+p' bm  = elAttr' "p" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"p\" ... @
-eP :: forall t m a. DomBuilder t m => EP -> m a -> m a
-eP b children = snd <$> eP' b children
+p ∷ forall t m a. DomBuilder t m ⇒ P → m a → m a
+p bm children = snd <$> p' bm children
 
 -- | A short-hand notion for @ el\' \"p\" ... @
-ePN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-ePN' = el' "p"
+pN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+pN' = el' "p"
 
 -- | A short-hand notion for @ el \"p\" ... @
-ePN :: forall t m a. DomBuilder t m => m a -> m a
-ePN children = snd <$> ePN' children
+pN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+pN children = snd <$> pN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"p\" ... @
-ePD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EP -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-ePD' b  = elDynAttr' "p" (attrMap <$> b)
+pD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t P → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+pD' bm  = elDynAttr' "p" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"p\" ... @
-ePD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EP -> m a -> m a
-ePD b children = snd <$> ePD' b children
+pD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t P → m a → m a
+pD bm children = snd <$> pD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Pre-element has only the global attributes.
-data EPre = EPre
-  { _ePreGlobals :: Maybe Globals
-  , _ePreCustom  :: Maybe Attr
+-- | Pre-element has only the global A.attributes.
+data Pre = Pre
+  { _prglobals ∷ Maybe A.Globals
+  , _prcustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EPre where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _ePreGlobals b
-    ] <> maybeToList (_ePreCustom b)
+instance A.AttrMap Pre where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _prglobals bm
+    ] <> maybeToList (_prcustom bm)
 
 
-instance Default EPre where
-  def = EPre def def
+defPre ∷ Pre
+defPre = Pre Nothing Nothing
 
-instance Monoid EPre where
-  mempty = def
-  mappend (EPre a1 a2) (EPre b1 b2) = EPre (a1 <> b1) (a2 <> b2)
+instance Monoid Pre where
+  mempty = defPre
+  mappend (Pre a1 a2) (Pre b1 b2) = Pre (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EPre where
-   attrSetGlobals p b = b { _ePreGlobals = Just p }
+instance A.AttrHasGlobals Pre where
+   attrSetGlobals pp bm = bm { _prglobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EPre
-  where attrSetAccessKey p g = g { _ePreGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasAnmval EPre
-  where attrSetAnmval p g = g { _ePreGlobals = Just (attrSetAnmval p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasContentEditable EPre
-  where attrSetContentEditable p g = g  { _ePreGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasContextMenu EPre
-  where attrSetContextMenu p g     = g { _ePreGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasClass EPre
-  where attrSetClassName p g           = g { _ePreGlobals = Just (attrSetClassName p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasDnmval EPre
-  where attrSetDnmval p g           = g { _ePreGlobals = Just (attrSetDnmval p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasDir EPre
-  where attrSetDir p g             = g { _ePreGlobals = Just (attrSetDir p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasDraggable EPre
-  where attrSetDraggable p g       = g { _ePreGlobals = Just (attrSetDraggable p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasHidden EPre
-  where attrSetHidden p g          = g { _ePreGlobals = Just (attrSetHidden p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasId EPre
-  where attrSetId p g              = g { _ePreGlobals = Just (attrSetId p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasLang EPre
-  where attrSetLang p g            = g { _ePreGlobals = Just (attrSetLang p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasRole EPre
-  where attrSetRole p g            = g { _ePreGlobals = Just (attrSetRole p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasSlot EPre
-  where attrSetSlot p g            = g { _ePreGlobals = Just (attrSetSlot p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasSpellCheck EPre
-  where attrSetSpellCheck p g      = g { _ePreGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasStyle EPre
-  where attrSetStyle p g           = g { _ePreGlobals = Just (attrSetStyle p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasTabIndex EPre
-  where attrSetTabIndex p g        = g { _ePreGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasTitle EPre
-  where attrSetTitle p g           = g { _ePreGlobals = Just (attrSetTitle p (fromMaybe gDef (_ePreGlobals g))) }
-instance AttrHasTranslate EPre
-  where attrSetTranslate p g       = g { _ePreGlobals = Just (attrSetTranslate p (fromMaybe gDef (_ePreGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Pre
+  where attrSetAccessKey pp g = g { _prglobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasAnmval Pre
+  where attrSetAnmval pp g = g { _prglobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasContentEditable Pre
+  where attrSetContentEditable pp g = g  { _prglobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasContextMenu Pre
+  where attrSetContextMenu pp g     = g { _prglobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasClass Pre
+  where attrSetClassName pp g           = g { _prglobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasDnmval Pre
+  where attrSetDnmval pp g           = g { _prglobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasDir Pre
+  where attrSetDir pp g             = g { _prglobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasDraggable Pre
+  where attrSetDraggable pp g       = g { _prglobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasHidden Pre
+  where attrSetHidden pp g          = g { _prglobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasId Pre
+  where attrSetId pp g              = g { _prglobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasLang Pre
+  where attrSetLang pp g            = g { _prglobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasRole Pre
+  where attrSetRole pp g            = g { _prglobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasSlot Pre
+  where attrSetSlot pp g            = g { _prglobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasSpellCheck Pre
+  where attrSetSpellCheck pp g      = g { _prglobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasStyle Pre
+  where attrSetStyle pp g           = g { _prglobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasTabIndex Pre
+  where attrSetTabIndex pp g        = g { _prglobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasTitle Pre
+  where attrSetTitle pp g           = g { _prglobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_prglobals g))) }
+instance A.AttrHasTranslate Pre
+  where attrSetTranslate pp g       = g { _prglobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_prglobals g))) }
 
-instance AttrGetClassName EPre where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_ePreGlobals g)
+instance A.AttrGetClassName Pre where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_prglobals g)
 
-instance AttrHasCustom EPre where attrSetCustom p g       = g { _ePreCustom = Just p }
+instance A.AttrHasCustom Pre where attrSetCustom pp g       = g { _prcustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"pre\" ... @
-ePre' :: forall t m a. DomBuilder t m => EPre -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-ePre' b  = elAttr' "pre" (attrMap b)
+pre' ∷ forall t m a. DomBuilder t m ⇒ Pre → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+pre' bm  = elAttr' "pre" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"pre\" ... @
-ePre :: forall t m a. DomBuilder t m => EPre -> m a -> m a
-ePre b children = snd <$> ePre' b children
+pre ∷ forall t m a. DomBuilder t m ⇒ Pre → m a → m a
+pre bm children = snd <$> pre' bm children
 
 -- | A short-hand notion for @ el\' \"pre\" ... @
-ePreN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-ePreN' = el' "pre"
+prn' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+prn' = el' "pre"
 
 -- | A short-hand notion for @ el \"pre\" ... @
-ePreN :: forall t m a. DomBuilder t m => m a -> m a
-ePreN children = snd <$> ePreN' children
+prn ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+prn children = snd <$> prn' children
 
 -- | A short-hand notion for @ elDynAttr\' \"pre\" ... @
-ePreD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EPre -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-ePreD' b  = elDynAttr' "pre" (attrMap <$> b)
+prd' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Pre → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+prd' bm  = elDynAttr' "pre" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"pre\" ... @
-ePreD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EPre -> m a -> m a
-ePreD b children = snd <$> ePreD' b children
+prd ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Pre → m a → m a
+prd bm children = snd <$> prd' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Progress-element
-data EProgress = EProgress
-  { _eProgressGlobals     :: Maybe Globals
-  , _eProgressMax         :: Maybe Max
-  , _eProgressValueNumber :: Maybe ValueNumber
-  , _eProgressCustom      :: Maybe Attr
+data Progress = Progress
+  { _progressGlobals     ∷ Maybe A.Globals
+  , _progressMax         ∷ Maybe A.Max
+  , _progressValueNumber ∷ Maybe A.ValueNumber
+  , _progressCustom      ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EProgress where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eProgressGlobals b
-    , attrMap <$> _eProgressMax b
-    , attrMap <$> _eProgressValueNumber b
-    ] <> maybeToList (_eProgressCustom b)
+instance A.AttrMap Progress where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _progressGlobals bm
+    , A.attrMap <$> _progressMax bm
+    , A.attrMap <$> _progressValueNumber bm
+    ] <> maybeToList (_progressCustom bm)
 
 
-instance Default EProgress where
-  def = EProgress def def def def
+defProgress ∷ Progress
+defProgress = Progress Nothing Nothing Nothing Nothing
 
-instance Monoid EProgress where
-  mempty = def
-  mappend (EProgress a1 a2 a3 a4) (EProgress b1 b2 b3 b4)
-    = EProgress (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
+instance Monoid Progress where
+  mempty = defProgress
+  mappend (Progress a1 a2 a3 a4) (Progress b1 b2 b3 b4)
+    = Progress (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4)
 
-instance AttrHasGlobals EProgress where
-   attrSetGlobals p b = b { _eProgressGlobals = Just p }
+instance A.AttrHasGlobals Progress where
+   attrSetGlobals pp bm = bm { _progressGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EProgress
-  where attrSetAccessKey p g = g { _eProgressGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasAnmval EProgress
-  where attrSetAnmval p g = g { _eProgressGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasContentEditable EProgress
-  where attrSetContentEditable p g = g  { _eProgressGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasContextMenu EProgress
-  where attrSetContextMenu p g     = g { _eProgressGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasClass EProgress
-  where attrSetClassName p g           = g { _eProgressGlobals = Just (attrSetClassName p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasDnmval EProgress
-  where attrSetDnmval p g           = g { _eProgressGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasDir EProgress
-  where attrSetDir p g             = g { _eProgressGlobals = Just (attrSetDir p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasDraggable EProgress
-  where attrSetDraggable p g       = g { _eProgressGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasHidden EProgress
-  where attrSetHidden p g          = g { _eProgressGlobals = Just (attrSetHidden p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasId EProgress
-  where attrSetId p g              = g { _eProgressGlobals = Just (attrSetId p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasLang EProgress
-  where attrSetLang p g            = g { _eProgressGlobals = Just (attrSetLang p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasRole EProgress
-  where attrSetRole p g            = g { _eProgressGlobals = Just (attrSetRole p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasSlot EProgress
-  where attrSetSlot p g            = g { _eProgressGlobals = Just (attrSetSlot p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasSpellCheck EProgress
-  where attrSetSpellCheck p g      = g { _eProgressGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasStyle EProgress
-  where attrSetStyle p g           = g { _eProgressGlobals = Just (attrSetStyle p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasTabIndex EProgress
-  where attrSetTabIndex p g        = g { _eProgressGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasTitle EProgress
-  where attrSetTitle p g           = g { _eProgressGlobals = Just (attrSetTitle p (fromMaybe gDef (_eProgressGlobals g))) }
-instance AttrHasTranslate EProgress
-  where attrSetTranslate p g       = g { _eProgressGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eProgressGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Progress
+  where attrSetAccessKey pp g = g { _progressGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasAnmval Progress
+  where attrSetAnmval pp g = g { _progressGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasContentEditable Progress
+  where attrSetContentEditable pp g = g  { _progressGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasContextMenu Progress
+  where attrSetContextMenu pp g     = g { _progressGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasClass Progress
+  where attrSetClassName pp g           = g { _progressGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasDnmval Progress
+  where attrSetDnmval pp g           = g { _progressGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasDir Progress
+  where attrSetDir pp g             = g { _progressGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasDraggable Progress
+  where attrSetDraggable pp g       = g { _progressGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasHidden Progress
+  where attrSetHidden pp g          = g { _progressGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasId Progress
+  where attrSetId pp g              = g { _progressGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasLang Progress
+  where attrSetLang pp g            = g { _progressGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasRole Progress
+  where attrSetRole pp g            = g { _progressGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasSlot Progress
+  where attrSetSlot pp g            = g { _progressGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasSpellCheck Progress
+  where attrSetSpellCheck pp g      = g { _progressGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasStyle Progress
+  where attrSetStyle pp g           = g { _progressGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasTabIndex Progress
+  where attrSetTabIndex pp g        = g { _progressGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasTitle Progress
+  where attrSetTitle pp g           = g { _progressGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_progressGlobals g))) }
+instance A.AttrHasTranslate Progress
+  where attrSetTranslate pp g       = g { _progressGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_progressGlobals g))) }
 
-instance AttrGetClassName EProgress where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eProgressGlobals g)
+instance A.AttrGetClassName Progress where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_progressGlobals g)
 
-instance AttrHasMax EProgress where attrSetMax p g  = g { _eProgressMax  = Just p }
+instance A.AttrHasMax Progress where attrSetMax pp g  = g { _progressMax  = Just pp }
 
-instance AttrHasValueNumber    EProgress where attrSetValueNumber p g  = g { _eProgressValueNumber  = Just p }
+instance A.AttrHasValueNumber    Progress where attrSetValueNumber pp g  = g { _progressValueNumber  = Just pp }
 
-instance AttrHasCustom EProgress where attrSetCustom p g       = g { _eProgressCustom = Just p }
+instance A.AttrHasCustom Progress where attrSetCustom pp g       = g { _progressCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"progress\" ... @
-eProgress' :: forall t m a. DomBuilder t m => EProgress -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eProgress' b  = elAttr' "progress" (attrMap b)
+progress' ∷ forall t m a. DomBuilder t m ⇒ Progress → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+progress' bm  = elAttr' "progress" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"progress\" ... @
-eProgress :: forall t m a. DomBuilder t m => EProgress -> m a -> m a
-eProgress b children = snd <$> eProgress' b children
+progress ∷ forall t m a. DomBuilder t m ⇒ Progress → m a → m a
+progress bm children = snd <$> progress' bm children
 
 -- | A short-hand notion for @ el\' \"progress\" ... @
-eProgressN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eProgressN' = el' "progress"
+progressN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+progressN' = el' "progress"
 
 -- | A short-hand notion for @ el \"progress\" ... @
-eProgressN :: forall t m a. DomBuilder t m => m a -> m a
-eProgressN children = snd <$> eProgressN' children
+progressN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+progressN children = snd <$> progressN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"progress\" ... @
-eProgressD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EProgress -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eProgressD' b  = elDynAttr' "progress" (attrMap <$> b)
+progressD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Progress → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+progressD' bm  = elDynAttr' "progress" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"progress\" ... @
-eProgressD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EProgress -> m a -> m a
-eProgressD b children = snd <$> eProgressD' b children
+progressD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Progress → m a → m a
+progressD bm children = snd <$> progressD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Q-element
-data EQ_ = EQ_
-  { _eQGlobals :: Maybe Globals
-  , _eQCite    :: Maybe Cite
-  , _eQCustom  :: Maybe Attr
+data Q_ = Q_
+  { _qGlobals ∷ Maybe A.Globals
+  , _qCite    ∷ Maybe A.Cite
+  , _qCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EQ_ where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eQGlobals b
-    , attrMap <$> _eQCite b
-    ] <> maybeToList (_eQCustom b)
+instance A.AttrMap Q_ where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _qGlobals bm
+    , A.attrMap <$> _qCite bm
+    ] <> maybeToList (_qCustom bm)
 
 
-instance Default EQ_ where
-  def = EQ_ def def def
+defQ_ ∷ Q_
+defQ_ = Q_ Nothing Nothing Nothing
 
-instance Monoid EQ_ where
-  mempty = def
-  mappend (EQ_ a1 a2 a3) (EQ_ b1 b2 b3) = EQ_ (a1 <> b1) (a2 <> b2) (a3 <> b3)
+instance Monoid Q_ where
+  mempty = defQ_
+  mappend (Q_ a1 a2 a3) (Q_ b1 b2 b3) = Q_ (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
-instance AttrHasGlobals EQ_ where
-   attrSetGlobals p b = b { _eQGlobals = Just p }
+instance A.AttrHasGlobals Q_ where
+   attrSetGlobals pp bm = bm { _qGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EQ_
-  where attrSetAccessKey p g = g { _eQGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasAnmval EQ_
-  where attrSetAnmval p g = g { _eQGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasContentEditable EQ_
-  where attrSetContentEditable p g = g  { _eQGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasContextMenu EQ_
-  where attrSetContextMenu p g     = g { _eQGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasClass EQ_
-  where attrSetClassName p g           = g { _eQGlobals = Just (attrSetClassName p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasDnmval EQ_
-  where attrSetDnmval p g           = g { _eQGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasDir EQ_
-  where attrSetDir p g             = g { _eQGlobals = Just (attrSetDir p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasDraggable EQ_
-  where attrSetDraggable p g       = g { _eQGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasHidden EQ_
-  where attrSetHidden p g          = g { _eQGlobals = Just (attrSetHidden p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasId EQ_
-  where attrSetId p g              = g { _eQGlobals = Just (attrSetId p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasLang EQ_
-  where attrSetLang p g            = g { _eQGlobals = Just (attrSetLang p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasRole EQ_
-  where attrSetRole p g            = g { _eQGlobals = Just (attrSetRole p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasSlot EQ_
-  where attrSetSlot p g            = g { _eQGlobals = Just (attrSetSlot p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasSpellCheck EQ_
-  where attrSetSpellCheck p g      = g { _eQGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasStyle EQ_
-  where attrSetStyle p g           = g { _eQGlobals = Just (attrSetStyle p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasTabIndex EQ_
-  where attrSetTabIndex p g        = g { _eQGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasTitle EQ_
-  where attrSetTitle p g           = g { _eQGlobals = Just (attrSetTitle p (fromMaybe gDef (_eQGlobals g))) }
-instance AttrHasTranslate EQ_
-  where attrSetTranslate p g       = g { _eQGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eQGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Q_
+  where attrSetAccessKey pp g = g { _qGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasAnmval Q_
+  where attrSetAnmval pp g = g { _qGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasContentEditable Q_
+  where attrSetContentEditable pp g = g  { _qGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasContextMenu Q_
+  where attrSetContextMenu pp g     = g { _qGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasClass Q_
+  where attrSetClassName pp g           = g { _qGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasDnmval Q_
+  where attrSetDnmval pp g           = g { _qGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasDir Q_
+  where attrSetDir pp g             = g { _qGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasDraggable Q_
+  where attrSetDraggable pp g       = g { _qGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasHidden Q_
+  where attrSetHidden pp g          = g { _qGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasId Q_
+  where attrSetId pp g              = g { _qGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasLang Q_
+  where attrSetLang pp g            = g { _qGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasRole Q_
+  where attrSetRole pp g            = g { _qGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasSlot Q_
+  where attrSetSlot pp g            = g { _qGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasSpellCheck Q_
+  where attrSetSpellCheck pp g      = g { _qGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasStyle Q_
+  where attrSetStyle pp g           = g { _qGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasTabIndex Q_
+  where attrSetTabIndex pp g        = g { _qGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasTitle Q_
+  where attrSetTitle pp g           = g { _qGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_qGlobals g))) }
+instance A.AttrHasTranslate Q_
+  where attrSetTranslate pp g       = g { _qGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_qGlobals g))) }
 
-instance AttrGetClassName EQ_ where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eQGlobals g)
+instance A.AttrGetClassName Q_ where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_qGlobals g)
 
-instance AttrHasCite EQ_ where attrSetCite p g  = g { _eQCite  = Just p }
+instance A.AttrHasCite Q_ where attrSetCite pp g  = g { _qCite  = Just pp }
 
-instance AttrHasCustom EQ_ where attrSetCustom p g       = g { _eQCustom = Just p }
+instance A.AttrHasCustom Q_ where attrSetCustom pp g       = g { _qCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"q\" ... @
-eQ' :: forall t m a. DomBuilder t m => EQ_ -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eQ' b  = elAttr' "q" (attrMap b)
+q' ∷ forall t m a. DomBuilder t m ⇒ Q_ → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+q' bm  = elAttr' "q" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"q\" ... @
-eQ :: forall t m a. DomBuilder t m => EQ_ -> m a -> m a
-eQ b children = snd <$> eQ' b children
+q ∷ forall t m a. DomBuilder t m ⇒ Q_ → m a → m a
+q bm children = snd <$> q' bm children
 
 -- | A short-hand notion for @ el\' \"q\" ... @
-eQN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eQN' = el' "q"
+qN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+qN' = el' "q"
 
 -- | A short-hand notion for @ el \"q\" ... @
-eQN :: forall t m a. DomBuilder t m => m a -> m a
-eQN children = snd <$> eQN' children
+qN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+qN children = snd <$> qN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"q\" ... @
-eQD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EQ_ -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eQD' b  = elDynAttr' "q" (attrMap <$> b)
+qD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Q_ → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+qD' bm  = elDynAttr' "q" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"q\" ... @
-eQD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EQ_ -> m a -> m a
-eQD b children = snd <$> eQD' b children
+qD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Q_ → m a → m a
+qD bm children = snd <$> qD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Rb-element
-data ERb = ERb
-  { _eRbGlobals :: Maybe Globals
-  , _eRbCustom  :: Maybe Attr
+data Rb = Rb
+  { _rbGlobals ∷ Maybe A.Globals
+  , _rbCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ERb where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eRbGlobals b
-    ] <> maybeToList (_eRbCustom b)
+instance A.AttrMap Rb where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _rbGlobals bm
+    ] <> maybeToList (_rbCustom bm)
 
 
-instance Default ERb where
-  def = ERb def def
+defRb ∷ Rb
+defRb = Rb Nothing Nothing
 
-instance Monoid ERb where
-  mempty = def
-  mappend (ERb a1 a2) (ERb b1 b2) = ERb (a1 <> b1) (a2 <> b2)
+instance Monoid Rb where
+  mempty = defRb
+  mappend (Rb a1 a2) (Rb b1 b2) = Rb (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ERb where
-   attrSetGlobals p b = b { _eRbGlobals = Just p }
+instance A.AttrHasGlobals Rb where
+   attrSetGlobals pp bm = bm { _rbGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ERb
-  where attrSetAccessKey p g = g { _eRbGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasAnmval ERb
-  where attrSetAnmval p g = g { _eRbGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasContentEditable ERb
-  where attrSetContentEditable p g = g  { _eRbGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasContextMenu ERb
-  where attrSetContextMenu p g     = g { _eRbGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasClass ERb
-  where attrSetClassName p g           = g { _eRbGlobals = Just (attrSetClassName p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasDnmval ERb
-  where attrSetDnmval p g           = g { _eRbGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasDir ERb
-  where attrSetDir p g             = g { _eRbGlobals = Just (attrSetDir p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasDraggable ERb
-  where attrSetDraggable p g       = g { _eRbGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasHidden ERb
-  where attrSetHidden p g          = g { _eRbGlobals = Just (attrSetHidden p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasId ERb
-  where attrSetId p g              = g { _eRbGlobals = Just (attrSetId p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasLang ERb
-  where attrSetLang p g            = g { _eRbGlobals = Just (attrSetLang p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasRole ERb
-  where attrSetRole p g            = g { _eRbGlobals = Just (attrSetRole p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasSlot ERb
-  where attrSetSlot p g            = g { _eRbGlobals = Just (attrSetSlot p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasSpellCheck ERb
-  where attrSetSpellCheck p g      = g { _eRbGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasStyle ERb
-  where attrSetStyle p g           = g { _eRbGlobals = Just (attrSetStyle p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasTabIndex ERb
-  where attrSetTabIndex p g        = g { _eRbGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasTitle ERb
-  where attrSetTitle p g           = g { _eRbGlobals = Just (attrSetTitle p (fromMaybe gDef (_eRbGlobals g))) }
-instance AttrHasTranslate ERb
-  where attrSetTranslate p g       = g { _eRbGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eRbGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Rb
+  where attrSetAccessKey pp g = g { _rbGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasAnmval Rb
+  where attrSetAnmval pp g = g { _rbGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasContentEditable Rb
+  where attrSetContentEditable pp g = g  { _rbGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasContextMenu Rb
+  where attrSetContextMenu pp g     = g { _rbGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasClass Rb
+  where attrSetClassName pp g           = g { _rbGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasDnmval Rb
+  where attrSetDnmval pp g           = g { _rbGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasDir Rb
+  where attrSetDir pp g             = g { _rbGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasDraggable Rb
+  where attrSetDraggable pp g       = g { _rbGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasHidden Rb
+  where attrSetHidden pp g          = g { _rbGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasId Rb
+  where attrSetId pp g              = g { _rbGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasLang Rb
+  where attrSetLang pp g            = g { _rbGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasRole Rb
+  where attrSetRole pp g            = g { _rbGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasSlot Rb
+  where attrSetSlot pp g            = g { _rbGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasSpellCheck Rb
+  where attrSetSpellCheck pp g      = g { _rbGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasStyle Rb
+  where attrSetStyle pp g           = g { _rbGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasTabIndex Rb
+  where attrSetTabIndex pp g        = g { _rbGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasTitle Rb
+  where attrSetTitle pp g           = g { _rbGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_rbGlobals g))) }
+instance A.AttrHasTranslate Rb
+  where attrSetTranslate pp g       = g { _rbGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_rbGlobals g))) }
 
-instance AttrGetClassName ERb where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eRbGlobals g)
+instance A.AttrGetClassName Rb where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_rbGlobals g)
 
-instance AttrHasCustom ERb where attrSetCustom p g       = g { _eRbCustom = Just p }
+instance A.AttrHasCustom Rb where attrSetCustom pp g       = g { _rbCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"rb\" ... @
-eRb' :: forall t m a. DomBuilder t m => ERb -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRb' b  = elAttr' "rb" (attrMap b)
+rb' ∷ forall t m a. DomBuilder t m ⇒ Rb → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rb' bm  = elAttr' "rb" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"rb\" ... @
-eRb :: forall t m a. DomBuilder t m => ERb -> m a -> m a
-eRb b children = snd <$> eRb' b children
+rb ∷ forall t m a. DomBuilder t m ⇒ Rb → m a → m a
+rb bm children = snd <$> rb' bm children
 
 -- | A short-hand notion for @ el\' \"rb\" ... @
-eRbN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRbN' = el' "rb"
+rbN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rbN' = el' "rb"
 
 -- | A short-hand notion for @ el \"rb\" ... @
-eRbN :: forall t m a. DomBuilder t m => m a -> m a
-eRbN children = snd <$> eRbN' children
+rbN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+rbN children = snd <$> rbN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"rb\" ... @
-eRbD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERb -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRbD' b  = elDynAttr' "rb" (attrMap <$> b)
+rbD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rb → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rbD' bm  = elDynAttr' "rb" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"rb\" ... @
-eRbD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERb -> m a -> m a
-eRbD b children = snd <$> eRbD' b children
+rbD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rb → m a → m a
+rbD bm children = snd <$> rbD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Rp-element has only the global attributes.
-data ERp = ERp
-  { _eRpGlobals :: Maybe Globals
-  , _eRpCustom  :: Maybe Attr
+-- | Rp-element has only the global A.attributes.
+data Rp = Rp
+  { _rpGlobals ∷ Maybe A.Globals
+  , _rpCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ERp where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eRpGlobals b
-    ] <> maybeToList (_eRpCustom b)
+instance A.AttrMap Rp where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _rpGlobals bm
+    ] <> maybeToList (_rpCustom bm)
 
 
-instance Default ERp where
-  def = ERp def def
+defRp ∷ Rp
+defRp = Rp Nothing Nothing
 
-instance Monoid ERp where
-  mempty = def
-  mappend (ERp a1 a2) (ERp b1 b2) = ERp (a1 <> b1) (a2 <> b2)
+instance Monoid Rp where
+  mempty = defRp
+  mappend (Rp a1 a2) (Rp b1 b2) = Rp (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ERp where
-   attrSetGlobals p b = b { _eRpGlobals = Just p }
+instance A.AttrHasGlobals Rp where
+   attrSetGlobals pp bm = bm { _rpGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ERp
-  where attrSetAccessKey p g = g { _eRpGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasAnmval ERp
-  where attrSetAnmval p g = g { _eRpGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasContentEditable ERp
-  where attrSetContentEditable p g = g  { _eRpGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasContextMenu ERp
-  where attrSetContextMenu p g     = g { _eRpGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasClass ERp
-  where attrSetClassName p g           = g { _eRpGlobals = Just (attrSetClassName p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasDnmval ERp
-  where attrSetDnmval p g           = g { _eRpGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasDir ERp
-  where attrSetDir p g             = g { _eRpGlobals = Just (attrSetDir p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasDraggable ERp
-  where attrSetDraggable p g       = g { _eRpGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasHidden ERp
-  where attrSetHidden p g          = g { _eRpGlobals = Just (attrSetHidden p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasId ERp
-  where attrSetId p g              = g { _eRpGlobals = Just (attrSetId p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasLang ERp
-  where attrSetLang p g            = g { _eRpGlobals = Just (attrSetLang p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasRole ERp
-  where attrSetRole p g            = g { _eRpGlobals = Just (attrSetRole p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasSlot ERp
-  where attrSetSlot p g            = g { _eRpGlobals = Just (attrSetSlot p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasSpellCheck ERp
-  where attrSetSpellCheck p g      = g { _eRpGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasStyle ERp
-  where attrSetStyle p g           = g { _eRpGlobals = Just (attrSetStyle p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasTabIndex ERp
-  where attrSetTabIndex p g        = g { _eRpGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasTitle ERp
-  where attrSetTitle p g           = g { _eRpGlobals = Just (attrSetTitle p (fromMaybe gDef (_eRpGlobals g))) }
-instance AttrHasTranslate ERp
-  where attrSetTranslate p g       = g { _eRpGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eRpGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Rp
+  where attrSetAccessKey pp g = g { _rpGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasAnmval Rp
+  where attrSetAnmval pp g = g { _rpGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasContentEditable Rp
+  where attrSetContentEditable pp g = g  { _rpGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasContextMenu Rp
+  where attrSetContextMenu pp g     = g { _rpGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasClass Rp
+  where attrSetClassName pp g           = g { _rpGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasDnmval Rp
+  where attrSetDnmval pp g           = g { _rpGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasDir Rp
+  where attrSetDir pp g             = g { _rpGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasDraggable Rp
+  where attrSetDraggable pp g       = g { _rpGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasHidden Rp
+  where attrSetHidden pp g          = g { _rpGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasId Rp
+  where attrSetId pp g              = g { _rpGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasLang Rp
+  where attrSetLang pp g            = g { _rpGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasRole Rp
+  where attrSetRole pp g            = g { _rpGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasSlot Rp
+  where attrSetSlot pp g            = g { _rpGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasSpellCheck Rp
+  where attrSetSpellCheck pp g      = g { _rpGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasStyle Rp
+  where attrSetStyle pp g           = g { _rpGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasTabIndex Rp
+  where attrSetTabIndex pp g        = g { _rpGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasTitle Rp
+  where attrSetTitle pp g           = g { _rpGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_rpGlobals g))) }
+instance A.AttrHasTranslate Rp
+  where attrSetTranslate pp g       = g { _rpGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_rpGlobals g))) }
 
-instance AttrGetClassName ERp where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eRpGlobals g)
+instance A.AttrGetClassName Rp where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_rpGlobals g)
 
-instance AttrHasCustom ERp where attrSetCustom p g       = g { _eRpCustom = Just p }
+instance A.AttrHasCustom Rp where attrSetCustom pp g       = g { _rpCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"rp\" ... @
-eRp' :: forall t m a. DomBuilder t m => ERp -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRp' b  = elAttr' "rp" (attrMap b)
+rp' ∷ forall t m a. DomBuilder t m ⇒ Rp → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rp' bm  = elAttr' "rp" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"rp\" ... @
-eRp :: forall t m a. DomBuilder t m => ERp -> m a -> m a
-eRp b children = snd <$> eRp' b children
+rp ∷ forall t m a. DomBuilder t m ⇒ Rp → m a → m a
+rp bm children = snd <$> rp' bm children
 
 -- | A short-hand notion for @ el\' \"rp\" ... @
-eRpN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRpN' = el' "rp"
+rpN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rpN' = el' "rp"
 
 -- | A short-hand notion for @ el \"rp\" ... @
-eRpN :: forall t m a. DomBuilder t m => m a -> m a
-eRpN children = snd <$> eRpN' children
+rpN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+rpN children = snd <$> rpN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"rp\" ... @
-eRpD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERp -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRpD' b  = elDynAttr' "rp" (attrMap <$> b)
+rpD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rp → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rpD' bm  = elDynAttr' "rp" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"rp\" ... @
-eRpD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERp -> m a -> m a
-eRpD b children = snd <$> eRpD' b children
+rpD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rp → m a → m a
+rpD bm children = snd <$> rpD' bm children
 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Rt-element has only the global attributes.
-data ERt = ERt
-  { _eRtGlobals :: Maybe Globals
-  , _eRtCustom  :: Maybe Attr
+-- | Rt-element has only the global A.attributes.
+data Rt = Rt
+  { _rtGlobals ∷ Maybe A.Globals
+  , _rtCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ERt where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eRtGlobals b
-    ] <> maybeToList (_eRtCustom b)
+instance A.AttrMap Rt where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _rtGlobals bm
+    ] <> maybeToList (_rtCustom bm)
 
 
-instance Default ERt where
-  def = ERt def def
+defRt ∷ Rt
+defRt = Rt Nothing Nothing
 
-instance Monoid ERt where
-  mempty = def
-  mappend (ERt a1 a2) (ERt b1 b2) = ERt (a1 <> b1) (a2 <> b2)
+instance Monoid Rt where
+  mempty = defRt
+  mappend (Rt a1 a2) (Rt b1 b2) = Rt (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ERt where
-   attrSetGlobals p b = b { _eRtGlobals = Just p }
+instance A.AttrHasGlobals Rt where
+   attrSetGlobals pp bm = bm { _rtGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ERt
-  where attrSetAccessKey p g = g { _eRtGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasAnmval ERt
-  where attrSetAnmval p g = g { _eRtGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasContentEditable ERt
-  where attrSetContentEditable p g = g  { _eRtGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasContextMenu ERt
-  where attrSetContextMenu p g     = g { _eRtGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasClass ERt
-  where attrSetClassName p g           = g { _eRtGlobals = Just (attrSetClassName p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasDnmval ERt
-  where attrSetDnmval p g           = g { _eRtGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasDir ERt
-  where attrSetDir p g             = g { _eRtGlobals = Just (attrSetDir p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasDraggable ERt
-  where attrSetDraggable p g       = g { _eRtGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasHidden ERt
-  where attrSetHidden p g          = g { _eRtGlobals = Just (attrSetHidden p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasId ERt
-  where attrSetId p g              = g { _eRtGlobals = Just (attrSetId p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasLang ERt
-  where attrSetLang p g            = g { _eRtGlobals = Just (attrSetLang p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasRole ERt
-  where attrSetRole p g            = g { _eRtGlobals = Just (attrSetRole p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasSlot ERt
-  where attrSetSlot p g            = g { _eRtGlobals = Just (attrSetSlot p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasSpellCheck ERt
-  where attrSetSpellCheck p g      = g { _eRtGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasStyle ERt
-  where attrSetStyle p g           = g { _eRtGlobals = Just (attrSetStyle p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasTabIndex ERt
-  where attrSetTabIndex p g        = g { _eRtGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasTitle ERt
-  where attrSetTitle p g           = g { _eRtGlobals = Just (attrSetTitle p (fromMaybe gDef (_eRtGlobals g))) }
-instance AttrHasTranslate ERt
-  where attrSetTranslate p g       = g { _eRtGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eRtGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Rt
+  where attrSetAccessKey pp g = g { _rtGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasAnmval Rt
+  where attrSetAnmval pp g = g { _rtGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasContentEditable Rt
+  where attrSetContentEditable pp g = g  { _rtGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasContextMenu Rt
+  where attrSetContextMenu pp g     = g { _rtGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasClass Rt
+  where attrSetClassName pp g           = g { _rtGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasDnmval Rt
+  where attrSetDnmval pp g           = g { _rtGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasDir Rt
+  where attrSetDir pp g             = g { _rtGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasDraggable Rt
+  where attrSetDraggable pp g       = g { _rtGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasHidden Rt
+  where attrSetHidden pp g          = g { _rtGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasId Rt
+  where attrSetId pp g              = g { _rtGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasLang Rt
+  where attrSetLang pp g            = g { _rtGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasRole Rt
+  where attrSetRole pp g            = g { _rtGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasSlot Rt
+  where attrSetSlot pp g            = g { _rtGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasSpellCheck Rt
+  where attrSetSpellCheck pp g      = g { _rtGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasStyle Rt
+  where attrSetStyle pp g           = g { _rtGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasTabIndex Rt
+  where attrSetTabIndex pp g        = g { _rtGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasTitle Rt
+  where attrSetTitle pp g           = g { _rtGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_rtGlobals g))) }
+instance A.AttrHasTranslate Rt
+  where attrSetTranslate pp g       = g { _rtGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_rtGlobals g))) }
 
-instance AttrGetClassName ERt where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eRtGlobals g)
+instance A.AttrGetClassName Rt where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_rtGlobals g)
 
-instance AttrHasCustom ERt where attrSetCustom p g       = g { _eRtCustom = Just p }
+instance A.AttrHasCustom Rt where attrSetCustom pp g       = g { _rtCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"rt\" ... @
-eRt' :: forall t m a. DomBuilder t m => ERt -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRt' b  = elAttr' "rt" (attrMap b)
+rt' ∷ forall t m a. DomBuilder t m ⇒ Rt → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rt' bm  = elAttr' "rt" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"rt\" ... @
-eRt :: forall t m a. DomBuilder t m => ERt -> m a -> m a
-eRt b children = snd <$> eRt' b children
+rt ∷ forall t m a. DomBuilder t m ⇒ Rt → m a → m a
+rt bm children = snd <$> rt' bm children
 
 -- | A short-hand notion for @ el\' \"rt\" ... @
-eRtN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRtN' = el' "rt"
+rtN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rtN' = el' "rt"
 
 -- | A short-hand notion for @ el \"rt\" ... @
-eRtN :: forall t m a. DomBuilder t m => m a -> m a
-eRtN children = snd <$> eRtN' children
+rtN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+rtN children = snd <$> rtN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"rt\" ... @
-eRtD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERt -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRtD' b  = elDynAttr' "rt" (attrMap <$> b)
+rtD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rt → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rtD' bm  = elDynAttr' "rt" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"rt\" ... @
-eRtD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERt -> m a -> m a
-eRtD b children = snd <$> eRtD' b children
+rtD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rt → m a → m a
+rtD bm children = snd <$> rtD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Rtc-element has only the global attributes.
-data ERtc = ERtc
-  { _eRtcGlobals :: Maybe Globals
-  , _eRtcCustom  :: Maybe Attr
+-- | Rtc-element has only the global A.attributes.
+data Rtc = Rtc
+  { _rtcGlobals ∷ Maybe A.Globals
+  , _rtcCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ERtc where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eRtcGlobals b
-    ] <> maybeToList (_eRtcCustom b)
+instance A.AttrMap Rtc where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _rtcGlobals bm
+    ] <> maybeToList (_rtcCustom bm)
 
 
-instance Default ERtc where
-  def = ERtc def def
+defRtc ∷ Rtc
+defRtc = Rtc Nothing Nothing
 
-instance Monoid ERtc where
-  mempty = def
-  mappend (ERtc a1 a2) (ERtc b1 b2) = ERtc (a1 <> b1) (a2 <> b2)
+instance Monoid Rtc where
+  mempty = defRtc
+  mappend (Rtc a1 a2) (Rtc b1 b2) = Rtc (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ERtc where
-   attrSetGlobals p b = b { _eRtcGlobals = Just p }
+instance A.AttrHasGlobals Rtc where
+   attrSetGlobals pp bm = bm { _rtcGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ERtc
-  where attrSetAccessKey p g = g { _eRtcGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasAnmval ERtc
-  where attrSetAnmval p g = g { _eRtcGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasContentEditable ERtc
-  where attrSetContentEditable p g = g  { _eRtcGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasContextMenu ERtc
-  where attrSetContextMenu p g     = g { _eRtcGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasClass ERtc
-  where attrSetClassName p g           = g { _eRtcGlobals = Just (attrSetClassName p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasDnmval ERtc
-  where attrSetDnmval p g           = g { _eRtcGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasDir ERtc
-  where attrSetDir p g             = g { _eRtcGlobals = Just (attrSetDir p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasDraggable ERtc
-  where attrSetDraggable p g       = g { _eRtcGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasHidden ERtc
-  where attrSetHidden p g          = g { _eRtcGlobals = Just (attrSetHidden p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasId ERtc
-  where attrSetId p g              = g { _eRtcGlobals = Just (attrSetId p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasLang ERtc
-  where attrSetLang p g            = g { _eRtcGlobals = Just (attrSetLang p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasRole ERtc
-  where attrSetRole p g            = g { _eRtcGlobals = Just (attrSetRole p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasSlot ERtc
-  where attrSetSlot p g            = g { _eRtcGlobals = Just (attrSetSlot p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasSpellCheck ERtc
-  where attrSetSpellCheck p g      = g { _eRtcGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasStyle ERtc
-  where attrSetStyle p g           = g { _eRtcGlobals = Just (attrSetStyle p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasTabIndex ERtc
-  where attrSetTabIndex p g        = g { _eRtcGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasTitle ERtc
-  where attrSetTitle p g           = g { _eRtcGlobals = Just (attrSetTitle p (fromMaybe gDef (_eRtcGlobals g))) }
-instance AttrHasTranslate ERtc
-  where attrSetTranslate p g       = g { _eRtcGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eRtcGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Rtc
+  where attrSetAccessKey pp g = g { _rtcGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasAnmval Rtc
+  where attrSetAnmval pp g = g { _rtcGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasContentEditable Rtc
+  where attrSetContentEditable pp g = g  { _rtcGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasContextMenu Rtc
+  where attrSetContextMenu pp g     = g { _rtcGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasClass Rtc
+  where attrSetClassName pp g           = g { _rtcGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasDnmval Rtc
+  where attrSetDnmval pp g           = g { _rtcGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasDir Rtc
+  where attrSetDir pp g             = g { _rtcGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasDraggable Rtc
+  where attrSetDraggable pp g       = g { _rtcGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasHidden Rtc
+  where attrSetHidden pp g          = g { _rtcGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasId Rtc
+  where attrSetId pp g              = g { _rtcGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasLang Rtc
+  where attrSetLang pp g            = g { _rtcGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasRole Rtc
+  where attrSetRole pp g            = g { _rtcGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasSlot Rtc
+  where attrSetSlot pp g            = g { _rtcGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasSpellCheck Rtc
+  where attrSetSpellCheck pp g      = g { _rtcGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasStyle Rtc
+  where attrSetStyle pp g           = g { _rtcGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasTabIndex Rtc
+  where attrSetTabIndex pp g        = g { _rtcGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasTitle Rtc
+  where attrSetTitle pp g           = g { _rtcGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
+instance A.AttrHasTranslate Rtc
+  where attrSetTranslate pp g       = g { _rtcGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_rtcGlobals g))) }
 
-instance AttrGetClassName ERtc where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eRtcGlobals g)
+instance A.AttrGetClassName Rtc where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_rtcGlobals g)
 
-instance AttrHasCustom ERtc where attrSetCustom p g       = g { _eRtcCustom = Just p }
+instance A.AttrHasCustom Rtc where attrSetCustom pp g       = g { _rtcCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"rtc\" ... @
-eRtc' :: forall t m a. DomBuilder t m => ERtc -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRtc' b  = elAttr' "rtc" (attrMap b)
+rtc' ∷ forall t m a. DomBuilder t m ⇒ Rtc → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rtc' bm  = elAttr' "rtc" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"rtc\" ... @
-eRtc :: forall t m a. DomBuilder t m => ERtc -> m a -> m a
-eRtc b children = snd <$> eRtc' b children
+rtc ∷ forall t m a. DomBuilder t m ⇒ Rtc → m a → m a
+rtc bm children = snd <$> rtc' bm children
 
 -- | A short-hand notion for @ el\' \"rtc\" ... @
-eRtcN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRtcN' = el' "rtc"
+rtcN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rtcN' = el' "rtc"
 
 -- | A short-hand notion for @ el \"rtc\" ... @
-eRtcN :: forall t m a. DomBuilder t m => m a -> m a
-eRtcN children = snd <$> eRtcN' children
+rtcN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+rtcN children = snd <$> rtcN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"rtc\" ... @
-eRtcD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERtc -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRtcD' b  = elDynAttr' "rtc" (attrMap <$> b)
+rtcD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rtc → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rtcD' bm  = elDynAttr' "rtc" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"rtc\" ... @
-eRtcD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERtc -> m a -> m a
-eRtcD b children = snd <$> eRtcD' b children
+rtcD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Rtc → m a → m a
+rtcD bm children = snd <$> rtcD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Ruby-element has only the global attributes.
-data ERuby = ERuby
-  { _eRubyGlobals :: Maybe Globals
-  , _eRubyCustom  :: Maybe Attr
+-- | Ruby-element has only the global A.attributes.
+data Ruby = Ruby
+  { _rubyGlobals ∷ Maybe A.Globals
+  , _rubyCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ERuby where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eRubyGlobals b
-    ] <> maybeToList (_eRubyCustom b)
+instance A.AttrMap Ruby where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _rubyGlobals bm
+    ] <> maybeToList (_rubyCustom bm)
 
 
-instance Default ERuby where
-  def = ERuby def def
+defRuby ∷ Ruby
+defRuby = Ruby Nothing Nothing
 
-instance Monoid ERuby where
-  mempty = def
-  mappend (ERuby a1 a2) (ERuby b1 b2) = ERuby (a1 <> b1) (a2 <> b2)
+instance Monoid Ruby where
+  mempty = defRuby
+  mappend (Ruby a1 a2) (Ruby b1 b2) = Ruby (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ERuby where
-   attrSetGlobals p b = b { _eRubyGlobals = Just p }
+instance A.AttrHasGlobals Ruby where
+   attrSetGlobals pp bm = bm { _rubyGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ERuby
-  where attrSetAccessKey p g = g { _eRubyGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasAnmval ERuby
-  where attrSetAnmval p g = g { _eRubyGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasContentEditable ERuby
-  where attrSetContentEditable p g = g  { _eRubyGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasContextMenu ERuby
-  where attrSetContextMenu p g     = g { _eRubyGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasClass ERuby
-  where attrSetClassName p g           = g { _eRubyGlobals = Just (attrSetClassName p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasDnmval ERuby
-  where attrSetDnmval p g           = g { _eRubyGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasDir ERuby
-  where attrSetDir p g             = g { _eRubyGlobals = Just (attrSetDir p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasDraggable ERuby
-  where attrSetDraggable p g       = g { _eRubyGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasHidden ERuby
-  where attrSetHidden p g          = g { _eRubyGlobals = Just (attrSetHidden p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasId ERuby
-  where attrSetId p g              = g { _eRubyGlobals = Just (attrSetId p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasLang ERuby
-  where attrSetLang p g            = g { _eRubyGlobals = Just (attrSetLang p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasRole ERuby
-  where attrSetRole p g            = g { _eRubyGlobals = Just (attrSetRole p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasSlot ERuby
-  where attrSetSlot p g            = g { _eRubyGlobals = Just (attrSetSlot p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasSpellCheck ERuby
-  where attrSetSpellCheck p g      = g { _eRubyGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasStyle ERuby
-  where attrSetStyle p g           = g { _eRubyGlobals = Just (attrSetStyle p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasTabIndex ERuby
-  where attrSetTabIndex p g        = g { _eRubyGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasTitle ERuby
-  where attrSetTitle p g           = g { _eRubyGlobals = Just (attrSetTitle p (fromMaybe gDef (_eRubyGlobals g))) }
-instance AttrHasTranslate ERuby
-  where attrSetTranslate p g       = g { _eRubyGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eRubyGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Ruby
+  where attrSetAccessKey pp g = g { _rubyGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasAnmval Ruby
+  where attrSetAnmval pp g = g { _rubyGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasContentEditable Ruby
+  where attrSetContentEditable pp g = g  { _rubyGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasContextMenu Ruby
+  where attrSetContextMenu pp g     = g { _rubyGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasClass Ruby
+  where attrSetClassName pp g           = g { _rubyGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasDnmval Ruby
+  where attrSetDnmval pp g           = g { _rubyGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasDir Ruby
+  where attrSetDir pp g             = g { _rubyGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasDraggable Ruby
+  where attrSetDraggable pp g       = g { _rubyGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasHidden Ruby
+  where attrSetHidden pp g          = g { _rubyGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasId Ruby
+  where attrSetId pp g              = g { _rubyGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasLang Ruby
+  where attrSetLang pp g            = g { _rubyGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasRole Ruby
+  where attrSetRole pp g            = g { _rubyGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasSlot Ruby
+  where attrSetSlot pp g            = g { _rubyGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasSpellCheck Ruby
+  where attrSetSpellCheck pp g      = g { _rubyGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasStyle Ruby
+  where attrSetStyle pp g           = g { _rubyGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasTabIndex Ruby
+  where attrSetTabIndex pp g        = g { _rubyGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasTitle Ruby
+  where attrSetTitle pp g           = g { _rubyGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
+instance A.AttrHasTranslate Ruby
+  where attrSetTranslate pp g       = g { _rubyGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_rubyGlobals g))) }
 
-instance AttrGetClassName ERuby where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eRubyGlobals g)
+instance A.AttrGetClassName Ruby where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_rubyGlobals g)
 
-instance AttrHasCustom ERuby where attrSetCustom p g       = g { _eRubyCustom = Just p }
+instance A.AttrHasCustom Ruby where attrSetCustom pp g       = g { _rubyCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"ruby\" ... @
-eRuby' :: forall t m a. DomBuilder t m => ERuby -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRuby' b  = elAttr' "ruby" (attrMap b)
+ruby' ∷ forall t m a. DomBuilder t m ⇒ Ruby → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ruby' bm  = elAttr' "ruby" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"ruby\" ... @
-eRuby :: forall t m a. DomBuilder t m => ERuby -> m a -> m a
-eRuby b children = snd <$> eRuby' b children
+ruby ∷ forall t m a. DomBuilder t m ⇒ Ruby → m a → m a
+ruby bm children = snd <$> ruby' bm children
 
 -- | A short-hand notion for @ el\' \"ruby\" ... @
-eRubyN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRubyN' = el' "ruby"
+rubyN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rubyN' = el' "ruby"
 
 -- | A short-hand notion for @ el \"ruby\" ... @
-eRubyN :: forall t m a. DomBuilder t m => m a -> m a
-eRubyN children = snd <$> eRubyN' children
+rubyN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+rubyN children = snd <$> rubyN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"ruby\" ... @
-eRubyD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERuby -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eRubyD' b  = elDynAttr' "ruby" (attrMap <$> b)
+rubyD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ruby → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+rubyD' bm  = elDynAttr' "ruby" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"ruby\" ... @
-eRubyD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ERuby -> m a -> m a
-eRubyD b children = snd <$> eRubyD' b children
+rubyD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ruby → m a → m a
+rubyD bm children = snd <$> rubyD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | S-element has only the global attributes.
-data ES = ES
-  { _eSGlobals :: Maybe Globals
-  , _eSCustom  :: Maybe Attr
+-- | S-element has only the global A.attributes.
+data S = S
+  { _sGlobals ∷ Maybe A.Globals
+  , _sCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ES where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSGlobals b
-    ] <> maybeToList (_eSCustom b)
+instance A.AttrMap S where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _sGlobals bm
+    ] <> maybeToList (_sCustom bm)
 
 
-instance Default ES where
-  def = ES def def
+defS ∷ S
+defS = S Nothing Nothing
 
-instance Monoid ES where
-  mempty = def
-  mappend (ES a1 a2) (ES b1 b2) = ES (a1 <> b1) (a2 <> b2)
+instance Monoid S where
+  mempty = defS
+  mappend (S a1 a2) (S b1 b2) = S (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ES where
-   attrSetGlobals p b = b { _eSGlobals = Just p }
+instance A.AttrHasGlobals S where
+   attrSetGlobals pp bm = bm { _sGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ES
-  where attrSetAccessKey p g = g { _eSGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasAnmval ES
-  where attrSetAnmval p g = g { _eSGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasContentEditable ES
-  where attrSetContentEditable p g = g  { _eSGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasContextMenu ES
-  where attrSetContextMenu p g     = g { _eSGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasClass ES
-  where attrSetClassName p g           = g { _eSGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasDnmval ES
-  where attrSetDnmval p g           = g { _eSGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasDir ES
-  where attrSetDir p g             = g { _eSGlobals = Just (attrSetDir p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasDraggable ES
-  where attrSetDraggable p g       = g { _eSGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasHidden ES
-  where attrSetHidden p g          = g { _eSGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasId ES
-  where attrSetId p g              = g { _eSGlobals = Just (attrSetId p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasLang ES
-  where attrSetLang p g            = g { _eSGlobals = Just (attrSetLang p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasRole ES
-  where attrSetRole p g            = g { _eSGlobals = Just (attrSetRole p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasSlot ES
-  where attrSetSlot p g            = g { _eSGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasSpellCheck ES
-  where attrSetSpellCheck p g      = g { _eSGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasStyle ES
-  where attrSetStyle p g           = g { _eSGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasTabIndex ES
-  where attrSetTabIndex p g        = g { _eSGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasTitle ES
-  where attrSetTitle p g           = g { _eSGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSGlobals g))) }
-instance AttrHasTranslate ES
-  where attrSetTranslate p g       = g { _eSGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey S
+  where attrSetAccessKey pp g = g { _sGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasAnmval S
+  where attrSetAnmval pp g = g { _sGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasContentEditable S
+  where attrSetContentEditable pp g = g  { _sGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasContextMenu S
+  where attrSetContextMenu pp g     = g { _sGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasClass S
+  where attrSetClassName pp g           = g { _sGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasDnmval S
+  where attrSetDnmval pp g           = g { _sGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasDir S
+  where attrSetDir pp g             = g { _sGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasDraggable S
+  where attrSetDraggable pp g       = g { _sGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasHidden S
+  where attrSetHidden pp g          = g { _sGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasId S
+  where attrSetId pp g              = g { _sGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasLang S
+  where attrSetLang pp g            = g { _sGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasRole S
+  where attrSetRole pp g            = g { _sGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasSlot S
+  where attrSetSlot pp g            = g { _sGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasSpellCheck S
+  where attrSetSpellCheck pp g      = g { _sGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasStyle S
+  where attrSetStyle pp g           = g { _sGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasTabIndex S
+  where attrSetTabIndex pp g        = g { _sGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasTitle S
+  where attrSetTitle pp g           = g { _sGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_sGlobals g))) }
+instance A.AttrHasTranslate S
+  where attrSetTranslate pp g       = g { _sGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_sGlobals g))) }
 
-instance AttrGetClassName ES where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSGlobals g)
+instance A.AttrGetClassName S where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_sGlobals g)
 
-instance AttrHasCustom ES where attrSetCustom p g       = g { _eSCustom = Just p }
+instance A.AttrHasCustom S where attrSetCustom pp g       = g { _sCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"s\" ... @
-eS' :: forall t m a. DomBuilder t m => ES -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eS' b  = elAttr' "s" (attrMap b)
+s' ∷ forall t m a. DomBuilder t m ⇒ S → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+s' bm  = elAttr' "s" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"s\" ... @
-eS :: forall t m a. DomBuilder t m => ES -> m a -> m a
-eS b children = snd <$> eS' b children
+s ∷ forall t m a. DomBuilder t m ⇒ S → m a → m a
+s bm children = snd <$> s' bm children
 
 -- | A short-hand notion for @ el\' \"s\" ... @
-eSN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSN' = el' "s"
+sN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+sN' = el' "s"
 
 -- | A short-hand notion for @ el \"s\" ... @
-eSN :: forall t m a. DomBuilder t m => m a -> m a
-eSN children = snd <$> eSN' children
+sN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+sN children = snd <$> sN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"s\" ... @
-eSD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ES -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSD' b  = elDynAttr' "s" (attrMap <$> b)
+sD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t S → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+sD' bm  = elDynAttr' "s" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"s\" ... @
-eSD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ES -> m a -> m a
-eSD b children = snd <$> eSD' b children
+sD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t S → m a → m a
+sD bm children = snd <$> sD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Samp-element has only the global attributes.
-data ESamp = ESamp
-  { _eSampGlobals :: Maybe Globals
-  , _eSampCustom  :: Maybe Attr
+-- | Samp-element has only the global A.attributes.
+data Samp = Samp
+  { _sampGlobals ∷ Maybe A.Globals
+  , _sampCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ESamp where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSampGlobals b
-    ] <> maybeToList (_eSampCustom b)
+instance A.AttrMap Samp where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _sampGlobals bm
+    ] <> maybeToList (_sampCustom bm)
 
 
-instance Default ESamp where
-  def = ESamp def def
+defSamp ∷ Samp
+defSamp = Samp Nothing Nothing
 
-instance Monoid ESamp where
-  mempty = def
-  mappend (ESamp a1 a2) (ESamp b1 b2) = ESamp (a1 <> b1) (a2 <> b2)
+instance Monoid Samp where
+  mempty = defSamp
+  mappend (Samp a1 a2) (Samp b1 b2) = Samp (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ESamp where
-   attrSetGlobals p b = b { _eSampGlobals = Just p }
+instance A.AttrHasGlobals Samp where
+   attrSetGlobals pp bm = bm { _sampGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ESamp
-  where attrSetAccessKey p g = g { _eSampGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasAnmval ESamp
-  where attrSetAnmval p g = g { _eSampGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasContentEditable ESamp
-  where attrSetContentEditable p g = g  { _eSampGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasContextMenu ESamp
-  where attrSetContextMenu p g     = g { _eSampGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasClass ESamp
-  where attrSetClassName p g           = g { _eSampGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasDnmval ESamp
-  where attrSetDnmval p g           = g { _eSampGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasDir ESamp
-  where attrSetDir p g             = g { _eSampGlobals = Just (attrSetDir p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasDraggable ESamp
-  where attrSetDraggable p g       = g { _eSampGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasHidden ESamp
-  where attrSetHidden p g          = g { _eSampGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasId ESamp
-  where attrSetId p g              = g { _eSampGlobals = Just (attrSetId p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasLang ESamp
-  where attrSetLang p g            = g { _eSampGlobals = Just (attrSetLang p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasRole ESamp
-  where attrSetRole p g            = g { _eSampGlobals = Just (attrSetRole p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasSlot ESamp
-  where attrSetSlot p g            = g { _eSampGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasSpellCheck ESamp
-  where attrSetSpellCheck p g      = g { _eSampGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasStyle ESamp
-  where attrSetStyle p g           = g { _eSampGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasTabIndex ESamp
-  where attrSetTabIndex p g        = g { _eSampGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasTitle ESamp
-  where attrSetTitle p g           = g { _eSampGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSampGlobals g))) }
-instance AttrHasTranslate ESamp
-  where attrSetTranslate p g       = g { _eSampGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSampGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Samp
+  where attrSetAccessKey pp g = g { _sampGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasAnmval Samp
+  where attrSetAnmval pp g = g { _sampGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasContentEditable Samp
+  where attrSetContentEditable pp g = g  { _sampGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasContextMenu Samp
+  where attrSetContextMenu pp g     = g { _sampGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasClass Samp
+  where attrSetClassName pp g           = g { _sampGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasDnmval Samp
+  where attrSetDnmval pp g           = g { _sampGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasDir Samp
+  where attrSetDir pp g             = g { _sampGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasDraggable Samp
+  where attrSetDraggable pp g       = g { _sampGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasHidden Samp
+  where attrSetHidden pp g          = g { _sampGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasId Samp
+  where attrSetId pp g              = g { _sampGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasLang Samp
+  where attrSetLang pp g            = g { _sampGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasRole Samp
+  where attrSetRole pp g            = g { _sampGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasSlot Samp
+  where attrSetSlot pp g            = g { _sampGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasSpellCheck Samp
+  where attrSetSpellCheck pp g      = g { _sampGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasStyle Samp
+  where attrSetStyle pp g           = g { _sampGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasTabIndex Samp
+  where attrSetTabIndex pp g        = g { _sampGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasTitle Samp
+  where attrSetTitle pp g           = g { _sampGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_sampGlobals g))) }
+instance A.AttrHasTranslate Samp
+  where attrSetTranslate pp g       = g { _sampGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_sampGlobals g))) }
 
-instance AttrGetClassName ESamp where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSampGlobals g)
+instance A.AttrGetClassName Samp where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_sampGlobals g)
 
-instance AttrHasCustom ESamp where attrSetCustom p g       = g { _eSampCustom = Just p }
+instance A.AttrHasCustom Samp where attrSetCustom pp g       = g { _sampCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"samp\" ... @
-eSamp' :: forall t m a. DomBuilder t m => ESamp -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSamp' b  = elAttr' "samp" (attrMap b)
+samp' ∷ forall t m a. DomBuilder t m ⇒ Samp → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+samp' bm  = elAttr' "samp" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"samp\" ... @
-eSamp :: forall t m a. DomBuilder t m => ESamp -> m a -> m a
-eSamp b children = snd <$> eSamp' b children
+samp ∷ forall t m a. DomBuilder t m ⇒ Samp → m a → m a
+samp bm children = snd <$> samp' bm children
 
 -- | A short-hand notion for @ el\' \"samp\" ... @
-eSampN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSampN' = el' "samp"
+sampN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+sampN' = el' "samp"
 
 -- | A short-hand notion for @ el \"samp\" ... @
-eSampN :: forall t m a. DomBuilder t m => m a -> m a
-eSampN children = snd <$> eSampN' children
+sampN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+sampN children = snd <$> sampN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"samp\" ... @
-eSampD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESamp -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSampD' b  = elDynAttr' "samp" (attrMap <$> b)
+sampD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Samp → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+sampD' bm  = elDynAttr' "samp" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"samp\" ... @
-eSampD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESamp -> m a -> m a
-eSampD b children = snd <$> eSampD' b children
+sampD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Samp → m a → m a
+sampD bm children = snd <$> sampD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Small-element has only the global attributes.
-data ESmall = ESmall
-  { _eSmallGlobals :: Maybe Globals
-  , _eSmallCustom  :: Maybe Attr
+-- | Small-element has only the global A.attributes.
+data Small = Small
+  { _smallGlobals ∷ Maybe A.Globals
+  , _smallCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ESmall where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSmallGlobals b
-    ] <> maybeToList (_eSmallCustom b)
+instance A.AttrMap Small where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _smallGlobals bm
+    ] <> maybeToList (_smallCustom bm)
 
 
-instance Default ESmall where
-  def = ESmall def def
+defSmall ∷ Small
+defSmall = Small Nothing Nothing
 
-instance Monoid ESmall where
-  mempty = def
-  mappend (ESmall a1 a2) (ESmall b1 b2) = ESmall (a1 <> b1) (a2 <> b2)
+instance Monoid Small where
+  mempty = defSmall
+  mappend (Small a1 a2) (Small b1 b2) = Small (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ESmall where
-   attrSetGlobals p b = b { _eSmallGlobals = Just p }
+instance A.AttrHasGlobals Small where
+   attrSetGlobals pp bm = bm { _smallGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ESmall
-  where attrSetAccessKey p g = g { _eSmallGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasAnmval ESmall
-  where attrSetAnmval p g = g { _eSmallGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasContentEditable ESmall
-  where attrSetContentEditable p g = g  { _eSmallGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasContextMenu ESmall
-  where attrSetContextMenu p g     = g { _eSmallGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasClass ESmall
-  where attrSetClassName p g           = g { _eSmallGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasDnmval ESmall
-  where attrSetDnmval p g           = g { _eSmallGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasDir ESmall
-  where attrSetDir p g             = g { _eSmallGlobals = Just (attrSetDir p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasDraggable ESmall
-  where attrSetDraggable p g       = g { _eSmallGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasHidden ESmall
-  where attrSetHidden p g          = g { _eSmallGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasId ESmall
-  where attrSetId p g              = g { _eSmallGlobals = Just (attrSetId p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasLang ESmall
-  where attrSetLang p g            = g { _eSmallGlobals = Just (attrSetLang p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasRole ESmall
-  where attrSetRole p g            = g { _eSmallGlobals = Just (attrSetRole p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasSlot ESmall
-  where attrSetSlot p g            = g { _eSmallGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasSpellCheck ESmall
-  where attrSetSpellCheck p g      = g { _eSmallGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasStyle ESmall
-  where attrSetStyle p g           = g { _eSmallGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasTabIndex ESmall
-  where attrSetTabIndex p g        = g { _eSmallGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasTitle ESmall
-  where attrSetTitle p g           = g { _eSmallGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSmallGlobals g))) }
-instance AttrHasTranslate ESmall
-  where attrSetTranslate p g       = g { _eSmallGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSmallGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Small
+  where attrSetAccessKey pp g = g { _smallGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasAnmval Small
+  where attrSetAnmval pp g = g { _smallGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasContentEditable Small
+  where attrSetContentEditable pp g = g  { _smallGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasContextMenu Small
+  where attrSetContextMenu pp g     = g { _smallGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasClass Small
+  where attrSetClassName pp g           = g { _smallGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasDnmval Small
+  where attrSetDnmval pp g           = g { _smallGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasDir Small
+  where attrSetDir pp g             = g { _smallGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasDraggable Small
+  where attrSetDraggable pp g       = g { _smallGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasHidden Small
+  where attrSetHidden pp g          = g { _smallGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasId Small
+  where attrSetId pp g              = g { _smallGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasLang Small
+  where attrSetLang pp g            = g { _smallGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasRole Small
+  where attrSetRole pp g            = g { _smallGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasSlot Small
+  where attrSetSlot pp g            = g { _smallGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasSpellCheck Small
+  where attrSetSpellCheck pp g      = g { _smallGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasStyle Small
+  where attrSetStyle pp g           = g { _smallGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasTabIndex Small
+  where attrSetTabIndex pp g        = g { _smallGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasTitle Small
+  where attrSetTitle pp g           = g { _smallGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_smallGlobals g))) }
+instance A.AttrHasTranslate Small
+  where attrSetTranslate pp g       = g { _smallGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_smallGlobals g))) }
 
-instance AttrGetClassName ESmall where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSmallGlobals g)
+instance A.AttrGetClassName Small where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_smallGlobals g)
 
-instance AttrHasCustom ESmall where attrSetCustom p g       = g { _eSmallCustom = Just p }
+instance A.AttrHasCustom Small where attrSetCustom pp g       = g { _smallCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"small\" ... @
-eSmall' :: forall t m a. DomBuilder t m => ESmall -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSmall' b  = elAttr' "small" (attrMap b)
+small' ∷ forall t m a. DomBuilder t m ⇒ Small → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+small' bm  = elAttr' "small" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"small\" ... @
-eSmall :: forall t m a. DomBuilder t m => ESmall -> m a -> m a
-eSmall b children = snd <$> eSmall' b children
+small ∷ forall t m a. DomBuilder t m ⇒ Small → m a → m a
+small bm children = snd <$> small' bm children
 
 -- | A short-hand notion for @ el\' \"small\" ... @
-eSmallN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSmallN' = el' "small"
+smallN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+smallN' = el' "small"
 
 -- | A short-hand notion for @ el \"small\" ... @
-eSmallN :: forall t m a. DomBuilder t m => m a -> m a
-eSmallN children = snd <$> eSmallN' children
+smallN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+smallN children = snd <$> smallN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"small\" ... @
-eSmallD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESmall -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSmallD' b  = elDynAttr' "small" (attrMap <$> b)
+smallD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Small → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+smallD' bm  = elDynAttr' "small" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"small\" ... @
-eSmallD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESmall -> m a -> m a
-eSmallD b children = snd <$> eSmallD' b children
+smallD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Small → m a → m a
+smallD bm children = snd <$> smallD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Span-element has only the global attributes.
-data ESpan = ESpan
-  { _eSpanGlobals :: Maybe Globals
-  , _eSpanCustom  :: Maybe Attr
+-- | Span-element has only the global A.attributes.
+data Span = Span
+  { _spanGlobals ∷ Maybe A.Globals
+  , _spanCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ESpan where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSpanGlobals b
-    ] <> maybeToList (_eSpanCustom b)
+instance A.AttrMap Span where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _spanGlobals bm
+    ] <> maybeToList (_spanCustom bm)
 
 
-instance Default ESpan where
-  def = ESpan def def
+defSpan ∷ Span
+defSpan = Span Nothing Nothing
 
-instance Monoid ESpan where
-  mempty = def
-  mappend (ESpan a1 a2) (ESpan b1 b2) = ESpan (a1 <> b1) (a2 <> b2)
+instance Monoid Span where
+  mempty = defSpan
+  mappend (Span a1 a2) (Span b1 b2) = Span (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ESpan where
-   attrSetGlobals p b = b { _eSpanGlobals = Just p }
+instance A.AttrHasGlobals Span where
+   attrSetGlobals pp bm = bm { _spanGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ESpan
-  where attrSetAccessKey p g = g { _eSpanGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasAnmval ESpan
-  where attrSetAnmval p g = g { _eSpanGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasContentEditable ESpan
-  where attrSetContentEditable p g = g  { _eSpanGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasContextMenu ESpan
-  where attrSetContextMenu p g     = g { _eSpanGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasClass ESpan
-  where attrSetClassName p g           = g { _eSpanGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasDnmval ESpan
-  where attrSetDnmval p g           = g { _eSpanGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasDir ESpan
-  where attrSetDir p g             = g { _eSpanGlobals = Just (attrSetDir p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasDraggable ESpan
-  where attrSetDraggable p g       = g { _eSpanGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasHidden ESpan
-  where attrSetHidden p g          = g { _eSpanGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasId ESpan
-  where attrSetId p g              = g { _eSpanGlobals = Just (attrSetId p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasLang ESpan
-  where attrSetLang p g            = g { _eSpanGlobals = Just (attrSetLang p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasRole ESpan
-  where attrSetRole p g            = g { _eSpanGlobals = Just (attrSetRole p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasSlot ESpan
-  where attrSetSlot p g            = g { _eSpanGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasSpellCheck ESpan
-  where attrSetSpellCheck p g      = g { _eSpanGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasStyle ESpan
-  where attrSetStyle p g           = g { _eSpanGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasTabIndex ESpan
-  where attrSetTabIndex p g        = g { _eSpanGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasTitle ESpan
-  where attrSetTitle p g           = g { _eSpanGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSpanGlobals g))) }
-instance AttrHasTranslate ESpan
-  where attrSetTranslate p g       = g { _eSpanGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSpanGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Span
+  where attrSetAccessKey pp g = g { _spanGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasAnmval Span
+  where attrSetAnmval pp g = g { _spanGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasContentEditable Span
+  where attrSetContentEditable pp g = g  { _spanGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasContextMenu Span
+  where attrSetContextMenu pp g     = g { _spanGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasClass Span
+  where attrSetClassName pp g           = g { _spanGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasDnmval Span
+  where attrSetDnmval pp g           = g { _spanGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasDir Span
+  where attrSetDir pp g             = g { _spanGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasDraggable Span
+  where attrSetDraggable pp g       = g { _spanGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasHidden Span
+  where attrSetHidden pp g          = g { _spanGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasId Span
+  where attrSetId pp g              = g { _spanGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasLang Span
+  where attrSetLang pp g            = g { _spanGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasRole Span
+  where attrSetRole pp g            = g { _spanGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasSlot Span
+  where attrSetSlot pp g            = g { _spanGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasSpellCheck Span
+  where attrSetSpellCheck pp g      = g { _spanGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasStyle Span
+  where attrSetStyle pp g           = g { _spanGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasTabIndex Span
+  where attrSetTabIndex pp g        = g { _spanGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasTitle Span
+  where attrSetTitle pp g           = g { _spanGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_spanGlobals g))) }
+instance A.AttrHasTranslate Span
+  where attrSetTranslate pp g       = g { _spanGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_spanGlobals g))) }
 
-instance AttrGetClassName ESpan where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSpanGlobals g)
+instance A.AttrGetClassName Span where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_spanGlobals g)
 
-instance AttrHasCustom ESpan where attrSetCustom p g       = g { _eSpanCustom = Just p }
+instance A.AttrHasCustom Span where attrSetCustom pp g       = g { _spanCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"span\" ... @
-eSpan' :: forall t m a. DomBuilder t m => ESpan -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSpan' b  = elAttr' "span" (attrMap b)
+span' ∷ forall t m a. DomBuilder t m ⇒ Span → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+span' bm  = elAttr' "span" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"span\" ... @
-eSpan :: forall t m a. DomBuilder t m => ESpan -> m a -> m a
-eSpan b children = snd <$> eSpan' b children
+span ∷ forall t m a. DomBuilder t m ⇒ Span → m a → m a
+span bm children = snd <$> span' bm children
 
 -- | A short-hand notion for @ el\' \"span\" ... @
-eSpanN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSpanN' = el' "span"
+spanN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+spanN' = el' "span"
 
 -- | A short-hand notion for @ el \"span\" ... @
-eSpanN :: forall t m a. DomBuilder t m => m a -> m a
-eSpanN children = snd <$> eSpanN' children
+spanN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+spanN children = snd <$> spanN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"span\" ... @
-eSpanD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESpan -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSpanD' b  = elDynAttr' "span" (attrMap <$> b)
+spanD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Span → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+spanD' bm  = elDynAttr' "span" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"span\" ... @
-eSpanD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESpan -> m a -> m a
-eSpanD b children = snd <$> eSpanD' b children
+spanD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Span → m a → m a
+spanD bm children = snd <$> spanD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Strong-element has only the global attributes.
-data EStrong = EStrong
-  { _eStrongGlobals :: Maybe Globals
-  , _eStrongCustom  :: Maybe Attr
+-- | Strong-element has only the global A.attributes.
+data Strong = Strong
+  { _strongGlobals ∷ Maybe A.Globals
+  , _strongCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EStrong where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eStrongGlobals b
-    ] <> maybeToList (_eStrongCustom b)
+instance A.AttrMap Strong where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _strongGlobals bm
+    ] <> maybeToList (_strongCustom bm)
 
 
-instance Default EStrong where
-  def = EStrong def def
+defStrong ∷ Strong
+defStrong = Strong Nothing Nothing
 
-instance Monoid EStrong where
-  mempty = def
-  mappend (EStrong a1 a2) (EStrong b1 b2) = EStrong (a1 <> b1) (a2 <> b2)
+instance Monoid Strong where
+  mempty = defStrong
+  mappend (Strong a1 a2) (Strong b1 b2) = Strong (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EStrong where
-   attrSetGlobals p b = b { _eStrongGlobals = Just p }
+instance A.AttrHasGlobals Strong where
+   attrSetGlobals pp bm = bm { _strongGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EStrong
-  where attrSetAccessKey p g = g { _eStrongGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasAnmval EStrong
-  where attrSetAnmval p g = g { _eStrongGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasContentEditable EStrong
-  where attrSetContentEditable p g = g  { _eStrongGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasContextMenu EStrong
-  where attrSetContextMenu p g     = g { _eStrongGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasClass EStrong
-  where attrSetClassName p g           = g { _eStrongGlobals = Just (attrSetClassName p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasDnmval EStrong
-  where attrSetDnmval p g           = g { _eStrongGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasDir EStrong
-  where attrSetDir p g             = g { _eStrongGlobals = Just (attrSetDir p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasDraggable EStrong
-  where attrSetDraggable p g       = g { _eStrongGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasHidden EStrong
-  where attrSetHidden p g          = g { _eStrongGlobals = Just (attrSetHidden p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasId EStrong
-  where attrSetId p g              = g { _eStrongGlobals = Just (attrSetId p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasLang EStrong
-  where attrSetLang p g            = g { _eStrongGlobals = Just (attrSetLang p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasRole EStrong
-  where attrSetRole p g            = g { _eStrongGlobals = Just (attrSetRole p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasSlot EStrong
-  where attrSetSlot p g            = g { _eStrongGlobals = Just (attrSetSlot p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasSpellCheck EStrong
-  where attrSetSpellCheck p g      = g { _eStrongGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasStyle EStrong
-  where attrSetStyle p g           = g { _eStrongGlobals = Just (attrSetStyle p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasTabIndex EStrong
-  where attrSetTabIndex p g        = g { _eStrongGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasTitle EStrong
-  where attrSetTitle p g           = g { _eStrongGlobals = Just (attrSetTitle p (fromMaybe gDef (_eStrongGlobals g))) }
-instance AttrHasTranslate EStrong
-  where attrSetTranslate p g       = g { _eStrongGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eStrongGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Strong
+  where attrSetAccessKey pp g = g { _strongGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasAnmval Strong
+  where attrSetAnmval pp g = g { _strongGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasContentEditable Strong
+  where attrSetContentEditable pp g = g  { _strongGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasContextMenu Strong
+  where attrSetContextMenu pp g     = g { _strongGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasClass Strong
+  where attrSetClassName pp g           = g { _strongGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasDnmval Strong
+  where attrSetDnmval pp g           = g { _strongGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasDir Strong
+  where attrSetDir pp g             = g { _strongGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasDraggable Strong
+  where attrSetDraggable pp g       = g { _strongGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasHidden Strong
+  where attrSetHidden pp g          = g { _strongGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasId Strong
+  where attrSetId pp g              = g { _strongGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasLang Strong
+  where attrSetLang pp g            = g { _strongGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasRole Strong
+  where attrSetRole pp g            = g { _strongGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasSlot Strong
+  where attrSetSlot pp g            = g { _strongGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasSpellCheck Strong
+  where attrSetSpellCheck pp g      = g { _strongGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasStyle Strong
+  where attrSetStyle pp g           = g { _strongGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasTabIndex Strong
+  where attrSetTabIndex pp g        = g { _strongGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasTitle Strong
+  where attrSetTitle pp g           = g { _strongGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_strongGlobals g))) }
+instance A.AttrHasTranslate Strong
+  where attrSetTranslate pp g       = g { _strongGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_strongGlobals g))) }
 
-instance AttrGetClassName EStrong where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eStrongGlobals g)
+instance A.AttrGetClassName Strong where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_strongGlobals g)
 
-instance AttrHasCustom EStrong where attrSetCustom p g       = g { _eStrongCustom = Just p }
+instance A.AttrHasCustom Strong where attrSetCustom pp g       = g { _strongCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"strong\" ... @
-eStrong' :: forall t m a. DomBuilder t m => EStrong -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eStrong' b  = elAttr' "strong" (attrMap b)
+strong' ∷ forall t m a. DomBuilder t m ⇒ Strong → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+strong' bm  = elAttr' "strong" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"strong\" ... @
-eStrong :: forall t m a. DomBuilder t m => EStrong -> m a -> m a
-eStrong b children = snd <$> eStrong' b children
+strong ∷ forall t m a. DomBuilder t m ⇒ Strong → m a → m a
+strong bm children = snd <$> strong' bm children
 
 -- | A short-hand notion for @ el\' \"strong\" ... @
-eStrongN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eStrongN' = el' "strong"
+strongN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+strongN' = el' "strong"
 
 -- | A short-hand notion for @ el \"strong\" ... @
-eStrongN :: forall t m a. DomBuilder t m => m a -> m a
-eStrongN children = snd <$> eStrongN' children
+strongN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+strongN children = snd <$> strongN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"strong\" ... @
-eStrongD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EStrong -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eStrongD' b  = elDynAttr' "strong" (attrMap <$> b)
+strongD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Strong → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+strongD' bm  = elDynAttr' "strong" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"strong\" ... @
-eStrongD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EStrong -> m a -> m a
-eStrongD b children = snd <$> eStrongD' b children
+strongD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Strong → m a → m a
+strongD bm children = snd <$> strongD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Sub-element has only the global attributes.
-data ESub = ESub
-  { _eSubGlobals :: Maybe Globals
-  , _eSubCustom  :: Maybe Attr
+-- | Sub-element has only the global A.attributes.
+data Sub = Sub
+  { _subGlobals ∷ Maybe A.Globals
+  , _subCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ESub where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSubGlobals b
-    ] <> maybeToList (_eSubCustom b)
+instance A.AttrMap Sub where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _subGlobals bm
+    ] <> maybeToList (_subCustom bm)
 
 
-instance Default ESub where
-  def = ESub def def
+defSub ∷ Sub
+defSub = Sub Nothing Nothing
 
-instance Monoid ESub where
-  mempty = def
-  mappend (ESub a1 a2) (ESub b1 b2) = ESub (a1 <> b1) (a2 <> b2)
+instance Monoid Sub where
+  mempty = defSub
+  mappend (Sub a1 a2) (Sub b1 b2) = Sub (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ESub where
-   attrSetGlobals p b = b { _eSubGlobals = Just p }
+instance A.AttrHasGlobals Sub where
+   attrSetGlobals pp bm = bm { _subGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ESub
-  where attrSetAccessKey p g = g { _eSubGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasAnmval ESub
-  where attrSetAnmval p g = g { _eSubGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasContentEditable ESub
-  where attrSetContentEditable p g = g  { _eSubGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasContextMenu ESub
-  where attrSetContextMenu p g     = g { _eSubGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasClass ESub
-  where attrSetClassName p g           = g { _eSubGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasDnmval ESub
-  where attrSetDnmval p g           = g { _eSubGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasDir ESub
-  where attrSetDir p g             = g { _eSubGlobals = Just (attrSetDir p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasDraggable ESub
-  where attrSetDraggable p g       = g { _eSubGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasHidden ESub
-  where attrSetHidden p g          = g { _eSubGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasId ESub
-  where attrSetId p g              = g { _eSubGlobals = Just (attrSetId p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasLang ESub
-  where attrSetLang p g            = g { _eSubGlobals = Just (attrSetLang p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasRole ESub
-  where attrSetRole p g            = g { _eSubGlobals = Just (attrSetRole p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasSlot ESub
-  where attrSetSlot p g            = g { _eSubGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasSpellCheck ESub
-  where attrSetSpellCheck p g      = g { _eSubGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasStyle ESub
-  where attrSetStyle p g           = g { _eSubGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasTabIndex ESub
-  where attrSetTabIndex p g        = g { _eSubGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasTitle ESub
-  where attrSetTitle p g           = g { _eSubGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSubGlobals g))) }
-instance AttrHasTranslate ESub
-  where attrSetTranslate p g       = g { _eSubGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSubGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Sub
+  where attrSetAccessKey pp g = g { _subGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasAnmval Sub
+  where attrSetAnmval pp g = g { _subGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasContentEditable Sub
+  where attrSetContentEditable pp g = g  { _subGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasContextMenu Sub
+  where attrSetContextMenu pp g     = g { _subGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasClass Sub
+  where attrSetClassName pp g           = g { _subGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasDnmval Sub
+  where attrSetDnmval pp g           = g { _subGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasDir Sub
+  where attrSetDir pp g             = g { _subGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasDraggable Sub
+  where attrSetDraggable pp g       = g { _subGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasHidden Sub
+  where attrSetHidden pp g          = g { _subGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasId Sub
+  where attrSetId pp g              = g { _subGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasLang Sub
+  where attrSetLang pp g            = g { _subGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasRole Sub
+  where attrSetRole pp g            = g { _subGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasSlot Sub
+  where attrSetSlot pp g            = g { _subGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasSpellCheck Sub
+  where attrSetSpellCheck pp g      = g { _subGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasStyle Sub
+  where attrSetStyle pp g           = g { _subGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasTabIndex Sub
+  where attrSetTabIndex pp g        = g { _subGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasTitle Sub
+  where attrSetTitle pp g           = g { _subGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_subGlobals g))) }
+instance A.AttrHasTranslate Sub
+  where attrSetTranslate pp g       = g { _subGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_subGlobals g))) }
 
-instance AttrGetClassName ESub where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSubGlobals g)
+instance A.AttrGetClassName Sub where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_subGlobals g)
 
-instance AttrHasCustom ESub where attrSetCustom p g       = g { _eSubCustom = Just p }
+instance A.AttrHasCustom Sub where attrSetCustom pp g       = g { _subCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"sub\" ... @
-eSub' :: forall t m a. DomBuilder t m => ESub -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSub' b  = elAttr' "sub" (attrMap b)
+sub' ∷ forall t m a. DomBuilder t m ⇒ Sub → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+sub' bm  = elAttr' "sub" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"sub\" ... @
-eSub :: forall t m a. DomBuilder t m => ESub -> m a -> m a
-eSub b children = snd <$> eSub' b children
+sub ∷ forall t m a. DomBuilder t m ⇒ Sub → m a → m a
+sub bm children = snd <$> sub' bm children
 
 -- | A short-hand notion for @ el\' \"sub\" ... @
-eSubN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSubN' = el' "sub"
+subN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+subN' = el' "sub"
 
 -- | A short-hand notion for @ el \"sub\" ... @
-eSubN :: forall t m a. DomBuilder t m => m a -> m a
-eSubN children = snd <$> eSubN' children
+subN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+subN children = snd <$> subN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"sub\" ... @
-eSubD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESub -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSubD' b  = elDynAttr' "sub" (attrMap <$> b)
+subD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Sub → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+subD' bm  = elDynAttr' "sub" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"sub\" ... @
-eSubD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESub -> m a -> m a
-eSubD b children = snd <$> eSubD' b children
+subD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Sub → m a → m a
+subD bm children = snd <$> subD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Summary-element has only the global attributes.
-data ESummary = ESummary
-  { _eSummaryGlobals :: Maybe Globals
-  , _eSummaryCustom  :: Maybe Attr
+-- | Summary-element has only the global A.attributes.
+data Summary = Summary
+  { _summaryGlobals ∷ Maybe A.Globals
+  , _summaryCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ESummary where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSummaryGlobals b
-    ] <> maybeToList (_eSummaryCustom b)
+instance A.AttrMap Summary where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _summaryGlobals bm
+    ] <> maybeToList (_summaryCustom bm)
 
 
-instance Default ESummary where
-  def = ESummary def def
+defSummary ∷ Summary
+defSummary = Summary Nothing Nothing
 
-instance Monoid ESummary where
-  mempty = def
-  mappend (ESummary a1 a2) (ESummary b1 b2) = ESummary (a1 <> b1) (a2 <> b2)
+instance Monoid Summary where
+  mempty = defSummary
+  mappend (Summary a1 a2) (Summary b1 b2) = Summary (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ESummary where
-   attrSetGlobals p b = b { _eSummaryGlobals = Just p }
+instance A.AttrHasGlobals Summary where
+   attrSetGlobals pp bm = bm { _summaryGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ESummary
-  where attrSetAccessKey p g = g { _eSummaryGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasAnmval ESummary
-  where attrSetAnmval p g = g { _eSummaryGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasContentEditable ESummary
-  where attrSetContentEditable p g = g  { _eSummaryGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasContextMenu ESummary
-  where attrSetContextMenu p g     = g { _eSummaryGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasClass ESummary
-  where attrSetClassName p g           = g { _eSummaryGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasDnmval ESummary
-  where attrSetDnmval p g           = g { _eSummaryGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasDir ESummary
-  where attrSetDir p g             = g { _eSummaryGlobals = Just (attrSetDir p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasDraggable ESummary
-  where attrSetDraggable p g       = g { _eSummaryGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasHidden ESummary
-  where attrSetHidden p g          = g { _eSummaryGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasId ESummary
-  where attrSetId p g              = g { _eSummaryGlobals = Just (attrSetId p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasLang ESummary
-  where attrSetLang p g            = g { _eSummaryGlobals = Just (attrSetLang p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasRole ESummary
-  where attrSetRole p g            = g { _eSummaryGlobals = Just (attrSetRole p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasSlot ESummary
-  where attrSetSlot p g            = g { _eSummaryGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasSpellCheck ESummary
-  where attrSetSpellCheck p g      = g { _eSummaryGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasStyle ESummary
-  where attrSetStyle p g           = g { _eSummaryGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasTabIndex ESummary
-  where attrSetTabIndex p g        = g { _eSummaryGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasTitle ESummary
-  where attrSetTitle p g           = g { _eSummaryGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSummaryGlobals g))) }
-instance AttrHasTranslate ESummary
-  where attrSetTranslate p g       = g { _eSummaryGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSummaryGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Summary
+  where attrSetAccessKey pp g = g { _summaryGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasAnmval Summary
+  where attrSetAnmval pp g = g { _summaryGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasContentEditable Summary
+  where attrSetContentEditable pp g = g  { _summaryGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasContextMenu Summary
+  where attrSetContextMenu pp g     = g { _summaryGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasClass Summary
+  where attrSetClassName pp g           = g { _summaryGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasDnmval Summary
+  where attrSetDnmval pp g           = g { _summaryGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasDir Summary
+  where attrSetDir pp g             = g { _summaryGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasDraggable Summary
+  where attrSetDraggable pp g       = g { _summaryGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasHidden Summary
+  where attrSetHidden pp g          = g { _summaryGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasId Summary
+  where attrSetId pp g              = g { _summaryGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasLang Summary
+  where attrSetLang pp g            = g { _summaryGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasRole Summary
+  where attrSetRole pp g            = g { _summaryGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasSlot Summary
+  where attrSetSlot pp g            = g { _summaryGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasSpellCheck Summary
+  where attrSetSpellCheck pp g      = g { _summaryGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasStyle Summary
+  where attrSetStyle pp g           = g { _summaryGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasTabIndex Summary
+  where attrSetTabIndex pp g        = g { _summaryGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasTitle Summary
+  where attrSetTitle pp g           = g { _summaryGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
+instance A.AttrHasTranslate Summary
+  where attrSetTranslate pp g       = g { _summaryGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_summaryGlobals g))) }
 
-instance AttrGetClassName ESummary where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSummaryGlobals g)
+instance A.AttrGetClassName Summary where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_summaryGlobals g)
 
-instance AttrHasCustom ESummary where attrSetCustom p g       = g { _eSummaryCustom = Just p }
+instance A.AttrHasCustom Summary where attrSetCustom pp g       = g { _summaryCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"summary\" ... @
-eSummary' :: forall t m a. DomBuilder t m => ESummary -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSummary' b  = elAttr' "summary" (attrMap b)
+summary' ∷ forall t m a. DomBuilder t m ⇒ Summary → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+summary' bm  = elAttr' "summary" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"summary\" ... @
-eSummary :: forall t m a. DomBuilder t m => ESummary -> m a -> m a
-eSummary b children = snd <$> eSummary' b children
+summary ∷ forall t m a. DomBuilder t m ⇒ Summary → m a → m a
+summary bm children = snd <$> summary' bm children
 
 -- | A short-hand notion for @ el\' \"summary\" ... @
-eSummaryN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSummaryN' = el' "summary"
+summaryN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+summaryN' = el' "summary"
 
 -- | A short-hand notion for @ el \"summary\" ... @
-eSummaryN :: forall t m a. DomBuilder t m => m a -> m a
-eSummaryN children = snd <$> eSummaryN' children
+summaryN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+summaryN children = snd <$> summaryN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"summary\" ... @
-eSummaryD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESummary -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSummaryD' b  = elDynAttr' "summary" (attrMap <$> b)
+summaryD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Summary → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+summaryD' bm  = elDynAttr' "summary" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"summary\" ... @
-eSummaryD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESummary -> m a -> m a
-eSummaryD b children = snd <$> eSummaryD' b children
+summaryD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Summary → m a → m a
+summaryD bm children = snd <$> summaryD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Sup-element has only the global attributes.
-data ESup = ESup
-  { _eSupGlobals :: Maybe Globals
-  , _eSupCustom  :: Maybe Attr
+-- | Sup-element has only the global A.attributes.
+data Sup = Sup
+  { _supGlobals ∷ Maybe A.Globals
+  , _supCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ESup where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eSupGlobals b
-    ] <> maybeToList (_eSupCustom b)
+instance A.AttrMap Sup where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _supGlobals bm
+    ] <> maybeToList (_supCustom bm)
 
 
-instance Default ESup where
-  def = ESup def def
+defSup ∷ Sup
+defSup = Sup Nothing Nothing
 
-instance Monoid ESup where
-  mempty = def
-  mappend (ESup a1 a2) (ESup b1 b2) = ESup (a1 <> b1) (a2 <> b2)
+instance Monoid Sup where
+  mempty = defSup
+  mappend (Sup a1 a2) (Sup b1 b2) = Sup (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals ESup where
-   attrSetGlobals p b = b { _eSupGlobals = Just p }
+instance A.AttrHasGlobals Sup where
+   attrSetGlobals pp bm = bm { _supGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ESup
-  where attrSetAccessKey p g = g { _eSupGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasAnmval ESup
-  where attrSetAnmval p g = g { _eSupGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasContentEditable ESup
-  where attrSetContentEditable p g = g  { _eSupGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasContextMenu ESup
-  where attrSetContextMenu p g     = g { _eSupGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasClass ESup
-  where attrSetClassName p g           = g { _eSupGlobals = Just (attrSetClassName p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasDnmval ESup
-  where attrSetDnmval p g           = g { _eSupGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasDir ESup
-  where attrSetDir p g             = g { _eSupGlobals = Just (attrSetDir p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasDraggable ESup
-  where attrSetDraggable p g       = g { _eSupGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasHidden ESup
-  where attrSetHidden p g          = g { _eSupGlobals = Just (attrSetHidden p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasId ESup
-  where attrSetId p g              = g { _eSupGlobals = Just (attrSetId p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasLang ESup
-  where attrSetLang p g            = g { _eSupGlobals = Just (attrSetLang p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasRole ESup
-  where attrSetRole p g            = g { _eSupGlobals = Just (attrSetRole p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasSlot ESup
-  where attrSetSlot p g            = g { _eSupGlobals = Just (attrSetSlot p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasSpellCheck ESup
-  where attrSetSpellCheck p g      = g { _eSupGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasStyle ESup
-  where attrSetStyle p g           = g { _eSupGlobals = Just (attrSetStyle p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasTabIndex ESup
-  where attrSetTabIndex p g        = g { _eSupGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasTitle ESup
-  where attrSetTitle p g           = g { _eSupGlobals = Just (attrSetTitle p (fromMaybe gDef (_eSupGlobals g))) }
-instance AttrHasTranslate ESup
-  where attrSetTranslate p g       = g { _eSupGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eSupGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Sup
+  where attrSetAccessKey pp g = g { _supGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasAnmval Sup
+  where attrSetAnmval pp g = g { _supGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasContentEditable Sup
+  where attrSetContentEditable pp g = g  { _supGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasContextMenu Sup
+  where attrSetContextMenu pp g     = g { _supGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasClass Sup
+  where attrSetClassName pp g           = g { _supGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasDnmval Sup
+  where attrSetDnmval pp g           = g { _supGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasDir Sup
+  where attrSetDir pp g             = g { _supGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasDraggable Sup
+  where attrSetDraggable pp g       = g { _supGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasHidden Sup
+  where attrSetHidden pp g          = g { _supGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasId Sup
+  where attrSetId pp g              = g { _supGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasLang Sup
+  where attrSetLang pp g            = g { _supGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasRole Sup
+  where attrSetRole pp g            = g { _supGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasSlot Sup
+  where attrSetSlot pp g            = g { _supGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasSpellCheck Sup
+  where attrSetSpellCheck pp g      = g { _supGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasStyle Sup
+  where attrSetStyle pp g           = g { _supGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasTabIndex Sup
+  where attrSetTabIndex pp g        = g { _supGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasTitle Sup
+  where attrSetTitle pp g           = g { _supGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_supGlobals g))) }
+instance A.AttrHasTranslate Sup
+  where attrSetTranslate pp g       = g { _supGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_supGlobals g))) }
 
-instance AttrGetClassName ESup where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eSupGlobals g)
+instance A.AttrGetClassName Sup where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_supGlobals g)
 
-instance AttrHasCustom ESup where attrSetCustom p g       = g { _eSupCustom = Just p }
+instance A.AttrHasCustom Sup where attrSetCustom pp g       = g { _supCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"sup\" ... @
-eSup' :: forall t m a. DomBuilder t m => ESup -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSup' b  = elAttr' "sup" (attrMap b)
+sup' ∷ forall t m a. DomBuilder t m ⇒ Sup → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+sup' bm  = elAttr' "sup" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"sup\" ... @
-eSup :: forall t m a. DomBuilder t m => ESup -> m a -> m a
-eSup b children = snd <$> eSup' b children
+sup ∷ forall t m a. DomBuilder t m ⇒ Sup → m a → m a
+sup bm children = snd <$> sup' bm children
 
 -- | A short-hand notion for @ el\' \"sup\" ... @
-eSupN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSupN' = el' "sup"
+supN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+supN' = el' "sup"
 
 -- | A short-hand notion for @ el \"sup\" ... @
-eSupN :: forall t m a. DomBuilder t m => m a -> m a
-eSupN children = snd <$> eSupN' children
+supN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+supN children = snd <$> supN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"sup\" ... @
-eSupD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESup -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eSupD' b  = elDynAttr' "sup" (attrMap <$> b)
+supD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Sup → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+supD' bm  = elDynAttr' "sup" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"sup\" ... @
-eSupD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ESup -> m a -> m a
-eSupD b children = snd <$> eSupD' b children
+supD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Sup → m a → m a
+supD bm children = snd <$> supD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Time-element
-data ETime = ETime
-  { _eTimeGlobals  :: Maybe Globals
-  , _eTimeDateTime :: Maybe DateTime
-  , _eTimeCustom   :: Maybe Attr
+data Time = Time
+  { _timeGlobals  ∷ Maybe A.Globals
+  , _timeDateTime ∷ Maybe A.DateTime
+  , _timeCustom   ∷ Maybe A.Attr
   }
 
 
-instance AttrMap ETime where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eTimeGlobals b
-    , attrMap <$> _eTimeDateTime b
-    ] <> maybeToList (_eTimeCustom b)
+instance A.AttrMap Time where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _timeGlobals bm
+    , A.attrMap <$> _timeDateTime bm
+    ] <> maybeToList (_timeCustom bm)
 
 
-instance Default ETime where
-  def = ETime def def def
+defTime ∷ Time
+defTime = Time Nothing Nothing Nothing
 
-instance Monoid ETime where
-  mempty = def
-  mappend (ETime a1 a2 a3) (ETime b1 b2 b3)
-    = ETime (a1 <> b1) (a2 <> b2) (a3 <> b3)
+instance Monoid Time where
+  mempty = defTime
+  mappend (Time a1 a2 a3) (Time b1 b2 b3)
+    = Time (a1 <> b1) (a2 <> b2) (a3 <> b3)
 
-instance AttrHasGlobals ETime where
-   attrSetGlobals p b = b { _eTimeGlobals = Just p }
+instance A.AttrHasGlobals Time where
+   attrSetGlobals pp bm = bm { _timeGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey ETime
-  where attrSetAccessKey p g = g { _eTimeGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasAnmval ETime
-  where attrSetAnmval p g = g { _eTimeGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasContentEditable ETime
-  where attrSetContentEditable p g = g  { _eTimeGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasContextMenu ETime
-  where attrSetContextMenu p g     = g { _eTimeGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasClass ETime
-  where attrSetClassName p g           = g { _eTimeGlobals = Just (attrSetClassName p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasDnmval ETime
-  where attrSetDnmval p g           = g { _eTimeGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasDir ETime
-  where attrSetDir p g             = g { _eTimeGlobals = Just (attrSetDir p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasDraggable ETime
-  where attrSetDraggable p g       = g { _eTimeGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasHidden ETime
-  where attrSetHidden p g          = g { _eTimeGlobals = Just (attrSetHidden p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasId ETime
-  where attrSetId p g              = g { _eTimeGlobals = Just (attrSetId p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasLang ETime
-  where attrSetLang p g            = g { _eTimeGlobals = Just (attrSetLang p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasRole ETime
-  where attrSetRole p g            = g { _eTimeGlobals = Just (attrSetRole p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasSlot ETime
-  where attrSetSlot p g            = g { _eTimeGlobals = Just (attrSetSlot p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasSpellCheck ETime
-  where attrSetSpellCheck p g      = g { _eTimeGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasStyle ETime
-  where attrSetStyle p g           = g { _eTimeGlobals = Just (attrSetStyle p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasTabIndex ETime
-  where attrSetTabIndex p g        = g { _eTimeGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasTitle ETime
-  where attrSetTitle p g           = g { _eTimeGlobals = Just (attrSetTitle p (fromMaybe gDef (_eTimeGlobals g))) }
-instance AttrHasTranslate ETime
-  where attrSetTranslate p g       = g { _eTimeGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eTimeGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Time
+  where attrSetAccessKey pp g = g { _timeGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasAnmval Time
+  where attrSetAnmval pp g = g { _timeGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasContentEditable Time
+  where attrSetContentEditable pp g = g  { _timeGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasContextMenu Time
+  where attrSetContextMenu pp g     = g { _timeGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasClass Time
+  where attrSetClassName pp g           = g { _timeGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasDnmval Time
+  where attrSetDnmval pp g           = g { _timeGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasDir Time
+  where attrSetDir pp g             = g { _timeGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasDraggable Time
+  where attrSetDraggable pp g       = g { _timeGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasHidden Time
+  where attrSetHidden pp g          = g { _timeGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasId Time
+  where attrSetId pp g              = g { _timeGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasLang Time
+  where attrSetLang pp g            = g { _timeGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasRole Time
+  where attrSetRole pp g            = g { _timeGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasSlot Time
+  where attrSetSlot pp g            = g { _timeGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasSpellCheck Time
+  where attrSetSpellCheck pp g      = g { _timeGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasStyle Time
+  where attrSetStyle pp g           = g { _timeGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasTabIndex Time
+  where attrSetTabIndex pp g        = g { _timeGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasTitle Time
+  where attrSetTitle pp g           = g { _timeGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_timeGlobals g))) }
+instance A.AttrHasTranslate Time
+  where attrSetTranslate pp g       = g { _timeGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_timeGlobals g))) }
 
-instance AttrGetClassName ETime where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eTimeGlobals g)
+instance A.AttrGetClassName Time where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_timeGlobals g)
 
-instance AttrHasDateTime ETime where attrSetDateTime p g = g {_eTimeDateTime = Just p }
+instance A.AttrHasDateTime Time where attrSetDateTime pp g = g {_timeDateTime = Just pp }
 
-instance AttrHasCustom ETime where attrSetCustom p g       = g { _eTimeCustom = Just p }
+instance A.AttrHasCustom Time where attrSetCustom pp g       = g { _timeCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"time\" ... @
-eTime' :: forall t m a. DomBuilder t m => ETime -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eTime' b  = elAttr' "time" (attrMap b)
+time' ∷ forall t m a. DomBuilder t m ⇒ Time → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+time' bm  = elAttr' "time" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"time\" ... @
-eTime :: forall t m a. DomBuilder t m => ETime -> m a -> m a
-eTime b children = snd <$> eTime' b children
+time ∷ forall t m a. DomBuilder t m ⇒ Time → m a → m a
+time bm children = snd <$> time' bm children
 
 -- | A short-hand notion for @ el\' \"time\" ... @
-eTimeN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eTimeN' = el' "time"
+timeN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+timeN' = el' "time"
 
 -- | A short-hand notion for @ el \"time\" ... @
-eTimeN :: forall t m a. DomBuilder t m => m a -> m a
-eTimeN children = snd <$> eTimeN' children
+timeN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+timeN children = snd <$> timeN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"time\" ... @
-eTimeD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ETime -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eTimeD' b  = elDynAttr' "time" (attrMap <$> b)
+timeD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Time → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+timeD' bm  = elDynAttr' "time" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"time\" ... @
-eTimeD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t ETime -> m a -> m a
-eTimeD b children = snd <$> eTimeD' b children
+timeD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Time → m a → m a
+timeD bm children = snd <$> timeD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | U-element has only the global attributes.
-data EU = EU
-  { _eUGlobals :: Maybe Globals
-  , _eUCustom  :: Maybe Attr
+-- | U-element has only the global A.attributes.
+data U = U
+  { _uGlobals ∷ Maybe A.Globals
+  , _uCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EU where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eUGlobals b
-    ] <> maybeToList (_eUCustom b)
+instance A.AttrMap U where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _uGlobals bm
+    ] <> maybeToList (_uCustom bm)
 
 
-instance Default EU where
-  def = EU def def
+defU ∷ U
+defU = U Nothing Nothing
 
-instance Monoid EU where
-  mempty = def
-  mappend (EU a1 a2) (EU b1 b2) = EU (a1 <> b1) (a2 <> b2)
+instance Monoid U where
+  mempty = defU
+  mappend (U a1 a2) (U b1 b2) = U (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EU where
-   attrSetGlobals p b = b { _eUGlobals = Just p }
+instance A.AttrHasGlobals U where
+   attrSetGlobals pp bm = bm { _uGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EU
-  where attrSetAccessKey p g = g { _eUGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasAnmval EU
-  where attrSetAnmval p g = g { _eUGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasContentEditable EU
-  where attrSetContentEditable p g = g  { _eUGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasContextMenu EU
-  where attrSetContextMenu p g     = g { _eUGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasClass EU
-  where attrSetClassName p g           = g { _eUGlobals = Just (attrSetClassName p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasDnmval EU
-  where attrSetDnmval p g           = g { _eUGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasDir EU
-  where attrSetDir p g             = g { _eUGlobals = Just (attrSetDir p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasDraggable EU
-  where attrSetDraggable p g       = g { _eUGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasHidden EU
-  where attrSetHidden p g          = g { _eUGlobals = Just (attrSetHidden p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasId EU
-  where attrSetId p g              = g { _eUGlobals = Just (attrSetId p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasLang EU
-  where attrSetLang p g            = g { _eUGlobals = Just (attrSetLang p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasRole EU
-  where attrSetRole p g            = g { _eUGlobals = Just (attrSetRole p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasSlot EU
-  where attrSetSlot p g            = g { _eUGlobals = Just (attrSetSlot p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasSpellCheck EU
-  where attrSetSpellCheck p g      = g { _eUGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasStyle EU
-  where attrSetStyle p g           = g { _eUGlobals = Just (attrSetStyle p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasTabIndex EU
-  where attrSetTabIndex p g        = g { _eUGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasTitle EU
-  where attrSetTitle p g           = g { _eUGlobals = Just (attrSetTitle p (fromMaybe gDef (_eUGlobals g))) }
-instance AttrHasTranslate EU
-  where attrSetTranslate p g       = g { _eUGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eUGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey U
+  where attrSetAccessKey pp g = g { _uGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasAnmval U
+  where attrSetAnmval pp g = g { _uGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasContentEditable U
+  where attrSetContentEditable pp g = g  { _uGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasContextMenu U
+  where attrSetContextMenu pp g     = g { _uGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasClass U
+  where attrSetClassName pp g           = g { _uGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasDnmval U
+  where attrSetDnmval pp g           = g { _uGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasDir U
+  where attrSetDir pp g             = g { _uGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasDraggable U
+  where attrSetDraggable pp g       = g { _uGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasHidden U
+  where attrSetHidden pp g          = g { _uGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasId U
+  where attrSetId pp g              = g { _uGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasLang U
+  where attrSetLang pp g            = g { _uGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasRole U
+  where attrSetRole pp g            = g { _uGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasSlot U
+  where attrSetSlot pp g            = g { _uGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasSpellCheck U
+  where attrSetSpellCheck pp g      = g { _uGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasStyle U
+  where attrSetStyle pp g           = g { _uGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasTabIndex U
+  where attrSetTabIndex pp g        = g { _uGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasTitle U
+  where attrSetTitle pp g           = g { _uGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_uGlobals g))) }
+instance A.AttrHasTranslate U
+  where attrSetTranslate pp g       = g { _uGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_uGlobals g))) }
 
-instance AttrGetClassName EU where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eUGlobals g)
+instance A.AttrGetClassName U where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_uGlobals g)
 
-instance AttrHasCustom EU where attrSetCustom p g       = g { _eUCustom = Just p }
+instance A.AttrHasCustom U where attrSetCustom pp g       = g { _uCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"u\" ... @
-eU' :: forall t m a. DomBuilder t m => EU -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eU' b  = elAttr' "u" (attrMap b)
+u' ∷ forall t m a. DomBuilder t m ⇒ U → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+u' bm  = elAttr' "u" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"u\" ... @
-eU :: forall t m a. DomBuilder t m => EU -> m a -> m a
-eU b children = snd <$> eU' b children
+u ∷ forall t m a. DomBuilder t m ⇒ U → m a → m a
+u bm children = snd <$> u' bm children
 
 -- | A short-hand notion for @ el\' \"u\" ... @
-eUN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eUN' = el' "u"
+uN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+uN' = el' "u"
 
 -- | A short-hand notion for @ el \"u\" ... @
-eUN :: forall t m a. DomBuilder t m => m a -> m a
-eUN children = snd <$> eUN' children
+uN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+uN children = snd <$> uN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"u\" ... @
-eUD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EU -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eUD' b  = elDynAttr' "u" (attrMap <$> b)
+uD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t U → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+uD' bm  = elDynAttr' "u" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"u\" ... @
-eUD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EU -> m a -> m a
-eUD b children = snd <$> eUD' b children
+uD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t U → m a → m a
+uD bm children = snd <$> uD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Ul-element has only the global attributes.
-data EUl = EUl
-  { _eUlGlobals :: Maybe Globals
-  , _eUlCustom  :: Maybe Attr
+-- | Ul-element has only the global A.attributes.
+data Ul = Ul
+  { _ulGlobals ∷ Maybe A.Globals
+  , _ulCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EUl where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eUlGlobals b
-    ] <> maybeToList (_eUlCustom b)
+instance A.AttrMap Ul where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _ulGlobals bm
+    ] <> maybeToList (_ulCustom bm)
 
 
-instance Default EUl where
-  def = EUl def def
+defUl ∷ Ul
+defUl = Ul Nothing Nothing
 
-instance Monoid EUl where
-  mempty = def
-  mappend (EUl a1 a2) (EUl b1 b2) = EUl (a1 <> b1) (a2 <> b2)
+instance Monoid Ul where
+  mempty = defUl
+  mappend (Ul a1 a2) (Ul b1 b2) = Ul (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EUl where
-   attrSetGlobals p b = b { _eUlGlobals = Just p }
+instance A.AttrHasGlobals Ul where
+   attrSetGlobals pp bm = bm { _ulGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EUl
-  where attrSetAccessKey p g = g { _eUlGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasAnmval EUl
-  where attrSetAnmval p g = g { _eUlGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasContentEditable EUl
-  where attrSetContentEditable p g = g  { _eUlGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasContextMenu EUl
-  where attrSetContextMenu p g     = g { _eUlGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasClass EUl
-  where attrSetClassName p g           = g { _eUlGlobals = Just (attrSetClassName p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasDnmval EUl
-  where attrSetDnmval p g           = g { _eUlGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasDir EUl
-  where attrSetDir p g             = g { _eUlGlobals = Just (attrSetDir p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasDraggable EUl
-  where attrSetDraggable p g       = g { _eUlGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasHidden EUl
-  where attrSetHidden p g          = g { _eUlGlobals = Just (attrSetHidden p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasId EUl
-  where attrSetId p g              = g { _eUlGlobals = Just (attrSetId p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasLang EUl
-  where attrSetLang p g            = g { _eUlGlobals = Just (attrSetLang p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasRole EUl
-  where attrSetRole p g            = g { _eUlGlobals = Just (attrSetRole p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasSlot EUl
-  where attrSetSlot p g            = g { _eUlGlobals = Just (attrSetSlot p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasSpellCheck EUl
-  where attrSetSpellCheck p g      = g { _eUlGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasStyle EUl
-  where attrSetStyle p g           = g { _eUlGlobals = Just (attrSetStyle p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasTabIndex EUl
-  where attrSetTabIndex p g        = g { _eUlGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasTitle EUl
-  where attrSetTitle p g           = g { _eUlGlobals = Just (attrSetTitle p (fromMaybe gDef (_eUlGlobals g))) }
-instance AttrHasTranslate EUl
-  where attrSetTranslate p g       = g { _eUlGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eUlGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Ul
+  where attrSetAccessKey pp g = g { _ulGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasAnmval Ul
+  where attrSetAnmval pp g = g { _ulGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasContentEditable Ul
+  where attrSetContentEditable pp g = g  { _ulGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasContextMenu Ul
+  where attrSetContextMenu pp g     = g { _ulGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasClass Ul
+  where attrSetClassName pp g           = g { _ulGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasDnmval Ul
+  where attrSetDnmval pp g           = g { _ulGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasDir Ul
+  where attrSetDir pp g             = g { _ulGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasDraggable Ul
+  where attrSetDraggable pp g       = g { _ulGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasHidden Ul
+  where attrSetHidden pp g          = g { _ulGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasId Ul
+  where attrSetId pp g              = g { _ulGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasLang Ul
+  where attrSetLang pp g            = g { _ulGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasRole Ul
+  where attrSetRole pp g            = g { _ulGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasSlot Ul
+  where attrSetSlot pp g            = g { _ulGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasSpellCheck Ul
+  where attrSetSpellCheck pp g      = g { _ulGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasStyle Ul
+  where attrSetStyle pp g           = g { _ulGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasTabIndex Ul
+  where attrSetTabIndex pp g        = g { _ulGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasTitle Ul
+  where attrSetTitle pp g           = g { _ulGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_ulGlobals g))) }
+instance A.AttrHasTranslate Ul
+  where attrSetTranslate pp g       = g { _ulGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_ulGlobals g))) }
 
-instance AttrGetClassName EUl where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eUlGlobals g)
+instance A.AttrGetClassName Ul where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_ulGlobals g)
 
-instance AttrHasCustom EUl where attrSetCustom p g       = g { _eUlCustom = Just p }
+instance A.AttrHasCustom Ul where attrSetCustom pp g       = g { _ulCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"ul\" ... @
-eUl' :: forall t m a. DomBuilder t m => EUl -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eUl' b  = elAttr' "ul" (attrMap b)
+ul' ∷ forall t m a. DomBuilder t m ⇒ Ul → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ul' bm  = elAttr' "ul" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"ul\" ... @
-eUl :: forall t m a. DomBuilder t m => EUl -> m a -> m a
-eUl b children = snd <$> eUl' b children
+ul ∷ forall t m a. DomBuilder t m ⇒ Ul → m a → m a
+ul bm children = snd <$> ul' bm children
 
 -- | A short-hand notion for @ el\' \"ul\" ... @
-eUlN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eUlN' = el' "ul"
+ulN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ulN' = el' "ul"
 
 -- | A short-hand notion for @ el \"ul\" ... @
-eUlN :: forall t m a. DomBuilder t m => m a -> m a
-eUlN children = snd <$> eUlN' children
+ulN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+ulN children = snd <$> ulN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"ul\" ... @
-eUlD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EUl -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eUlD' b  = elDynAttr' "ul" (attrMap <$> b)
+ulD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ul → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+ulD' bm  = elDynAttr' "ul" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"ul\" ... @
-eUlD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EUl -> m a -> m a
-eUlD b children = snd <$> eUlD' b children
+ulD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Ul → m a → m a
+ulD bm children = snd <$> ulD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Var-element has only the global attributes.
-data EVar = EVar
-  { _eVarGlobals :: Maybe Globals
-  , _eVarCustom  :: Maybe Attr
+-- | Var-element has only the global A.attributes.
+data Var = Var
+  { _varGlobals ∷ Maybe A.Globals
+  , _varCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EVar where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eVarGlobals b
-    ] <> maybeToList (_eVarCustom b)
+instance A.AttrMap Var where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _varGlobals bm
+    ] <> maybeToList (_varCustom bm)
 
 
-instance Default EVar where
-  def = EVar def def
+defVar ∷ Var
+defVar = Var Nothing Nothing
 
-instance Monoid EVar where
-  mempty = def
-  mappend (EVar a1 a2) (EVar b1 b2) = EVar (a1 <> b1) (a2 <> b2)
+instance Monoid Var where
+  mempty = defVar
+  mappend (Var a1 a2) (Var b1 b2) = Var (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EVar where
-   attrSetGlobals p b = b { _eVarGlobals = Just p }
+instance A.AttrHasGlobals Var where
+   attrSetGlobals pp bm = bm { _varGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EVar
-  where attrSetAccessKey p g = g { _eVarGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasAnmval EVar
-  where attrSetAnmval p g = g { _eVarGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasContentEditable EVar
-  where attrSetContentEditable p g = g  { _eVarGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasContextMenu EVar
-  where attrSetContextMenu p g     = g { _eVarGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasClass EVar
-  where attrSetClassName p g           = g { _eVarGlobals = Just (attrSetClassName p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasDnmval EVar
-  where attrSetDnmval p g           = g { _eVarGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasDir EVar
-  where attrSetDir p g             = g { _eVarGlobals = Just (attrSetDir p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasDraggable EVar
-  where attrSetDraggable p g       = g { _eVarGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasHidden EVar
-  where attrSetHidden p g          = g { _eVarGlobals = Just (attrSetHidden p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasId EVar
-  where attrSetId p g              = g { _eVarGlobals = Just (attrSetId p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasLang EVar
-  where attrSetLang p g            = g { _eVarGlobals = Just (attrSetLang p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasRole EVar
-  where attrSetRole p g            = g { _eVarGlobals = Just (attrSetRole p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasSlot EVar
-  where attrSetSlot p g            = g { _eVarGlobals = Just (attrSetSlot p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasSpellCheck EVar
-  where attrSetSpellCheck p g      = g { _eVarGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasStyle EVar
-  where attrSetStyle p g           = g { _eVarGlobals = Just (attrSetStyle p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasTabIndex EVar
-  where attrSetTabIndex p g        = g { _eVarGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasTitle EVar
-  where attrSetTitle p g           = g { _eVarGlobals = Just (attrSetTitle p (fromMaybe gDef (_eVarGlobals g))) }
-instance AttrHasTranslate EVar
-  where attrSetTranslate p g       = g { _eVarGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eVarGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Var
+  where attrSetAccessKey pp g = g { _varGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasAnmval Var
+  where attrSetAnmval pp g = g { _varGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasContentEditable Var
+  where attrSetContentEditable pp g = g  { _varGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasContextMenu Var
+  where attrSetContextMenu pp g     = g { _varGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasClass Var
+  where attrSetClassName pp g           = g { _varGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasDnmval Var
+  where attrSetDnmval pp g           = g { _varGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasDir Var
+  where attrSetDir pp g             = g { _varGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasDraggable Var
+  where attrSetDraggable pp g       = g { _varGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasHidden Var
+  where attrSetHidden pp g          = g { _varGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasId Var
+  where attrSetId pp g              = g { _varGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasLang Var
+  where attrSetLang pp g            = g { _varGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasRole Var
+  where attrSetRole pp g            = g { _varGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasSlot Var
+  where attrSetSlot pp g            = g { _varGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasSpellCheck Var
+  where attrSetSpellCheck pp g      = g { _varGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasStyle Var
+  where attrSetStyle pp g           = g { _varGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasTabIndex Var
+  where attrSetTabIndex pp g        = g { _varGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasTitle Var
+  where attrSetTitle pp g           = g { _varGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_varGlobals g))) }
+instance A.AttrHasTranslate Var
+  where attrSetTranslate pp g       = g { _varGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_varGlobals g))) }
 
-instance AttrGetClassName EVar where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eVarGlobals g)
+instance A.AttrGetClassName Var where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_varGlobals g)
 
-instance AttrHasCustom EVar where attrSetCustom p g       = g { _eVarCustom = Just p }
+instance A.AttrHasCustom Var where attrSetCustom pp g       = g { _varCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"var\" ... @
-eVar' :: forall t m a. DomBuilder t m => EVar -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eVar' b  = elAttr' "var" (attrMap b)
+var' ∷ forall t m a. DomBuilder t m ⇒ Var → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+var' bm  = elAttr' "var" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"var\" ... @
-eVar :: forall t m a. DomBuilder t m => EVar -> m a -> m a
-eVar b children = snd <$> eVar' b children
+var ∷ forall t m a. DomBuilder t m ⇒ Var → m a → m a
+var bm children = snd <$> var' bm children
 
 -- | A short-hand notion for @ el\' \"var\" ... @
-eVarN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eVarN' = el' "var"
+varN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+varN' = el' "var"
 
 -- | A short-hand notion for @ el \"var\" ... @
-eVarN :: forall t m a. DomBuilder t m => m a -> m a
-eVarN children = snd <$> eVarN' children
+varN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+varN children = snd <$> varN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"var\" ... @
-eVarD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EVar -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eVarD' b  = elDynAttr' "var" (attrMap <$> b)
+varD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Var → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+varD' bm  = elDynAttr' "var" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"var\" ... @
-eVarD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EVar -> m a -> m a
-eVarD b children = snd <$> eVarD' b children
+varD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Var → m a → m a
+varD bm children = snd <$> varD' bm children
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
--- | Wbr-element has only the global attributes.
-data EWbr = EWbr
-  { _eWbrGlobals :: Maybe Globals
-  , _eWbrCustom  :: Maybe Attr
+-- | Wbr-element has only the global A.attributes.
+data Wbr = Wbr
+  { _wbrGlobals ∷ Maybe A.Globals
+  , _wbrCustom  ∷ Maybe A.Attr
   }
 
 
-instance AttrMap EWbr where
-  attrMap b = fold $ catMaybes
-    [ attrMap <$> _eWbrGlobals b
-    ] <> maybeToList (_eWbrCustom b)
+instance A.AttrMap Wbr where
+  attrMap bm = fold $ catMaybes
+    [ A.attrMap <$> _wbrGlobals bm
+    ] <> maybeToList (_wbrCustom bm)
 
 
-instance Default EWbr where
-  def = EWbr def def
+defWbr ∷ Wbr
+defWbr = Wbr Nothing Nothing
 
-instance Monoid EWbr where
-  mempty = def
-  mappend (EWbr a1 a2) (EWbr b1 b2) = EWbr (a1 <> b1) (a2 <> b2)
+instance Monoid Wbr where
+  mempty = defWbr
+  mappend (Wbr a1 a2) (Wbr b1 b2) = Wbr (a1 <> b1) (a2 <> b2)
 
-instance AttrHasGlobals EWbr where
-   attrSetGlobals p b = b { _eWbrGlobals = Just p }
+instance A.AttrHasGlobals Wbr where
+   attrSetGlobals pp bm = bm { _wbrGlobals = Just pp }
 
--- Global attributes require the following instances.
-instance AttrHasAccessKey EWbr
-  where attrSetAccessKey p g = g { _eWbrGlobals = Just (attrSetAccessKey p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasAnmval EWbr
-  where attrSetAnmval p g = g { _eWbrGlobals = Just (attrSetAnmval p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasContentEditable EWbr
-  where attrSetContentEditable p g = g  { _eWbrGlobals = Just (attrSetContentEditable p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasContextMenu EWbr
-  where attrSetContextMenu p g     = g { _eWbrGlobals = Just (attrSetContextMenu p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasClass EWbr
-  where attrSetClassName p g           = g { _eWbrGlobals = Just (attrSetClassName p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasDnmval EWbr
-  where attrSetDnmval p g           = g { _eWbrGlobals = Just (attrSetDnmval p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasDir EWbr
-  where attrSetDir p g             = g { _eWbrGlobals = Just (attrSetDir p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasDraggable EWbr
-  where attrSetDraggable p g       = g { _eWbrGlobals = Just (attrSetDraggable p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasHidden EWbr
-  where attrSetHidden p g          = g { _eWbrGlobals = Just (attrSetHidden p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasId EWbr
-  where attrSetId p g              = g { _eWbrGlobals = Just (attrSetId p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasLang EWbr
-  where attrSetLang p g            = g { _eWbrGlobals = Just (attrSetLang p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasRole EWbr
-  where attrSetRole p g            = g { _eWbrGlobals = Just (attrSetRole p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasSlot EWbr
-  where attrSetSlot p g            = g { _eWbrGlobals = Just (attrSetSlot p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasSpellCheck EWbr
-  where attrSetSpellCheck p g      = g { _eWbrGlobals = Just (attrSetSpellCheck p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasStyle EWbr
-  where attrSetStyle p g           = g { _eWbrGlobals = Just (attrSetStyle p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasTabIndex EWbr
-  where attrSetTabIndex p g        = g { _eWbrGlobals = Just (attrSetTabIndex p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasTitle EWbr
-  where attrSetTitle p g           = g { _eWbrGlobals = Just (attrSetTitle p (fromMaybe gDef (_eWbrGlobals g))) }
-instance AttrHasTranslate EWbr
-  where attrSetTranslate p g       = g { _eWbrGlobals = Just (attrSetTranslate p (fromMaybe gDef (_eWbrGlobals g))) }
+-- Global A.attributes require the following instances.
+instance A.AttrHasAccessKey Wbr
+  where attrSetAccessKey pp g = g { _wbrGlobals = Just (A.attrSetAccessKey pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasAnmval Wbr
+  where attrSetAnmval pp g = g { _wbrGlobals = Just (A.attrSetAnmval pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasContentEditable Wbr
+  where attrSetContentEditable pp g = g  { _wbrGlobals = Just (A.attrSetContentEditable pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasContextMenu Wbr
+  where attrSetContextMenu pp g     = g { _wbrGlobals = Just (A.attrSetContextMenu pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasClass Wbr
+  where attrSetClassName pp g           = g { _wbrGlobals = Just (A.attrSetClassName pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasDnmval Wbr
+  where attrSetDnmval pp g           = g { _wbrGlobals = Just (A.attrSetDnmval pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasDir Wbr
+  where attrSetDir pp g             = g { _wbrGlobals = Just (A.attrSetDir pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasDraggable Wbr
+  where attrSetDraggable pp g       = g { _wbrGlobals = Just (A.attrSetDraggable pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasHidden Wbr
+  where attrSetHidden pp g          = g { _wbrGlobals = Just (A.attrSetHidden pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasId Wbr
+  where attrSetId pp g              = g { _wbrGlobals = Just (A.attrSetId pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasLang Wbr
+  where attrSetLang pp g            = g { _wbrGlobals = Just (A.attrSetLang pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasRole Wbr
+  where attrSetRole pp g            = g { _wbrGlobals = Just (A.attrSetRole pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasSlot Wbr
+  where attrSetSlot pp g            = g { _wbrGlobals = Just (A.attrSetSlot pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasSpellCheck Wbr
+  where attrSetSpellCheck pp g      = g { _wbrGlobals = Just (A.attrSetSpellCheck pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasStyle Wbr
+  where attrSetStyle pp g           = g { _wbrGlobals = Just (A.attrSetStyle pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasTabIndex Wbr
+  where attrSetTabIndex pp g        = g { _wbrGlobals = Just (A.attrSetTabIndex pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasTitle Wbr
+  where attrSetTitle pp g           = g { _wbrGlobals = Just (A.attrSetTitle pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
+instance A.AttrHasTranslate Wbr
+  where attrSetTranslate pp g       = g { _wbrGlobals = Just (A.attrSetTranslate pp (fromMaybe A.defGlobals (_wbrGlobals g))) }
 
-instance AttrGetClassName EWbr where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_eWbrGlobals g)
+instance A.AttrGetClassName Wbr where attrGetClassName g = maybe (A.ClassName T.empty) A.attrGetClassName (_wbrGlobals g)
 
-instance AttrHasCustom EWbr where attrSetCustom p g       = g { _eWbrCustom = Just p }
+instance A.AttrHasCustom Wbr where attrSetCustom pp g       = g { _wbrCustom = Just pp }
 
 -- | A short-hand notion for @ elAttr\' \"wbr\" ... @
-eWbr' :: forall t m a. DomBuilder t m => EWbr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eWbr' b  = elAttr' "wbr" (attrMap b)
+wbr' ∷ forall t m a. DomBuilder t m ⇒ Wbr → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+wbr' bm  = elAttr' "wbr" (A.attrMap bm)
 
 -- | A short-hand notion for @ elAttr \"wbr\" ... @
-eWbr :: forall t m a. DomBuilder t m => EWbr -> m a -> m a
-eWbr b children = snd <$> eWbr' b children
+wbr ∷ forall t m a. DomBuilder t m ⇒ Wbr → m a → m a
+wbr bm children = snd <$> wbr' bm children
 
 -- | A short-hand notion for @ el\' \"wbr\" ... @
-eWbrN' :: forall t m a. DomBuilder t m => m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eWbrN' = el' "wbr"
+wbrN' ∷ forall t m a. DomBuilder t m ⇒ m a → m (Element EventResult (DomBuilderSpace m) t, a)
+wbrN' = el' "wbr"
 
 -- | A short-hand notion for @ el \"wbr\" ... @
-eWbrN :: forall t m a. DomBuilder t m => m a -> m a
-eWbrN children = snd <$> eWbrN' children
+wbrN ∷ forall t m a. DomBuilder t m ⇒ m a → m a
+wbrN children = snd <$> wbrN' children
 
 -- | A short-hand notion for @ elDynAttr\' \"wbr\" ... @
-eWbrD' :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EWbr -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-eWbrD' b  = elDynAttr' "wbr" (attrMap <$> b)
+wbrD' ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Wbr → m a → m (Element EventResult (DomBuilderSpace m) t, a)
+wbrD' bm  = elDynAttr' "wbr" (A.attrMap <$> bm)
 
 -- | A short-hand notion for @ elDynAttr \"wbr\" ... @
-eWbrD :: forall t m a. (DomBuilder t m, PostBuild t m) => Dynamic t EWbr -> m a -> m a
-eWbrD b children = snd <$> eWbrD' b children
+wbrD ∷ forall t m a. (DomBuilder t m, PostBuild t m) ⇒ Dynamic t Wbr → m a → m a
+wbrD bm children = snd <$> wbrD' bm children
 
-eWbr_ :: forall t m. DomBuilder t m => m ()
-eWbr_ = eWbr def blank
+wbr_ ∷ forall t m. DomBuilder t m ⇒ m ()
+wbr_ = wbr defWbr blank
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------

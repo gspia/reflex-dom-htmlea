@@ -6,11 +6,11 @@
     exampleTbl = ./exampleTbl;
   };
 
-  android.exampleTbl = {
-    executableName = "exampleTbl";
-    applicationId = "org.example.exampleTbl";
-    displayName = "Example Tables App";
-  };
+  # android.exampleTbl = {
+  #   executableName = "exampleTbl";
+  #   applicationId = "org.example.exampleTbl";
+  #   displayName = "Example Tables App";
+  # };
   /* ios.keyboard = { */
   /*   executableName = "keyboard"; */
   /*   bundleIdentifier = "org.example.keyboard"; */
@@ -22,15 +22,14 @@
     ghcjs = [ "reflex-dom-htmlea" "example1" "exampleTbl" ];
   };
   tools = ghc: with ghc; [
-    /* pkgs.haskellPackages.ghc-mod */
-    pkgs.haskellPackages.hasktags
-    pkgs.haskellPackages.haskdogs
-    /* pkgs.haskellPackages.hdevtools */
-    pkgs.haskellPackages.hindent
-    pkgs.haskellPackages.hsimport
+    # pkgs.haskellPackages.hasktags
+    # pkgs.haskellPackages.haskdogs
+    # pkgs.haskellPackages.hdevtools 
+    # pkgs.haskellPackages.hindent
+    # pkgs.haskellPackages.hsimport
     pkgs.haskellPackages.hlint
-    pkgs.haskellPackages.pointfree
-    pkgs.haskellPackages.pointful
-    pkgs.haskellPackages.stylish-haskell
+    # pkgs.haskellPackages.pointfree
+    # pkgs.haskellPackages.pointful
+    # pkgs.haskellPackages.stylish-haskell
   ];
 })

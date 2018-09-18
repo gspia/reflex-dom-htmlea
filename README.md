@@ -5,13 +5,13 @@
 
 The aim of the lib is to provide a set of functions that allow 
 ```
- eDiv (className "myWarning" $ id_ "mydiv" $ def) $ do
+ div (className "myWarning" $ id_ "mydiv" $ defGlobals) $ do
 ```
 in place of 
 ```
  elAttr "div" ("class" =: "myWarning" <> "id" =: "mydiv") $ do
 ```
-and prevents writing e.g. `eP ( href (URL "..") $ def) $ do ..`
+and prevents writing e.g. `p ( href (URL "..") $ def) $ do ..`
 as p-tag doesn't have href-attribute.
 
 Another aim is to have components with pre-defined functionality. The components
@@ -27,12 +27,11 @@ As of the beginning of 2018, lib started to use new
 There are examples:
 - example1: basic use
 - exampleTbl: table-component
+- exampleTree: tree-component
 
 
 ### About the naming conventions
 
-- e in front of tags is for "element"
-- attributes don't have that kind of prefix
 - \' at the end of a tag name is similar as in elAttr' (it calls elAttr' internally)
 - D at the end of a tag name means dynamic (it uses elDynAttr internally)
 - D\' at the end of a tag name is similar as in elDynAttr'
@@ -69,6 +68,9 @@ To build with GHC, use the nix-shell command to enter the sandbox shell and use 
 nix-shell -A shells.ghc
 cabal new-build all
 ```
+Or in ghc-shell with ghci `:l exampleTbl/app-wai/Main.hs`
+after which `:rel` and then point the browser to the localhost with appropriate
+port number.
 
 To build with GHCJS:
 

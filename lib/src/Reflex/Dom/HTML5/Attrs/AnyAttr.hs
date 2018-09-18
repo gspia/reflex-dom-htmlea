@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, UnicodeSyntax #-}
 {-# OPTIONS_GHC -fno-warn-missing-import-lists #-}
 
 {-|
@@ -18,7 +18,6 @@ can always be used if there is a need to mix things.)
 
 module Reflex.Dom.HTML5.Attrs.AnyAttr where
 
-import Data.Default (Default, def)
 import Data.Foldable (fold)
 import Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text as T
@@ -33,104 +32,104 @@ import Reflex.Dom.HTML5.Attrs.Attrs
 
 -- | This is not up-to-date. TODO
 data AnyAttr = AnyAttr
-  { _anyGlobal          :: Maybe Globals         --  0.
-  , _anyAbbr            :: Maybe Abbr            --  1.
-  , _anyAccept          :: Maybe Accept          --  2.
-  , _anyAcceptCharSet   :: Maybe AcceptCharSet   --  3.
-  , _anyAction          :: Maybe Action          --  4.
-  , _anyAllowFullScreen :: Maybe AllowFullScreen --  5.
-  , _anyAlt             :: Maybe Alt_            --  6.
-  , _anyAsync           :: Maybe Async           --  7.
-  , _anyAutoComplete    :: Maybe AutoComplete    --  8.
-  , _anyAutoFocus       :: Maybe AutoFocus       --  9.
-  , _anyAutoplay        :: Maybe Autoplay        -- 10.
-  , _anyButtonType      :: Maybe ButtonType      -- 92.
-  , _anyCharSet         :: Maybe CharSet         -- 11.
-  , _anyChecked         :: Maybe Checked         -- 12.
-  , _anyCite            :: Maybe Cite            -- 13.
-  , _anyCols            :: Maybe Cols            -- 14.
-  , _anyColSpan         :: Maybe ColSpan         -- 15.
-  , _anyContent         :: Maybe Content         -- 16.
-  , _anyControls        :: Maybe Controls        -- 17.
-  , _anyCoords          :: Maybe Coords          -- 18.
-  , _anyCrossOrigin     :: Maybe CrossOrigin     -- 19.
-  , _anyDataValue       :: Maybe DataValue       -- 20.
-  , _anyDateTime        :: Maybe DateTime        -- 21.
-  , _anyDefault         :: Maybe Default_        -- 22.
-  , _anyDefer           :: Maybe Defer           -- 23.
-  , _anyDirName         :: Maybe DirName         -- 24.
-  , _anyDisabled        :: Maybe Disabled        -- 25.
-  , _anyDownload        :: Maybe Download        -- 26.
-  , _anyEncType         :: Maybe EncType         -- 27.
-  , _anyForId           :: Maybe ForId           -- 28.
-  , _anyForm            :: Maybe Form            -- 29.
-  , _anyFormAction      :: Maybe FormAction      -- 30.
-  , _anyFormEncType     :: Maybe FormEncType     -- 31.
-  , _anyFormMethod      :: Maybe FormMethod      -- 32.
-  , _anyFormNoValidate  :: Maybe FormNoValidate  -- 33.
-  , _anyFormTarget      :: Maybe FormTarget      -- 34.
-  , _anyHeaders         :: Maybe Headers         -- 35.
-  , _anyHeight          :: Maybe Height          -- 36.
-  , _anyHigh            :: Maybe High            -- 37.
-  , _anyHref            :: Maybe Href            -- 38.
-  , _anyHrefLang        :: Maybe HrefLang        -- 39.
-  , _anyHttpEquiv       :: Maybe HttpEquiv       -- 40.
-  , _anyIcon            :: Maybe Icon            -- 41.
-  , _anyInputMode       :: Maybe InputMode       -- 42.
-  , _anyIsMap           :: Maybe IsMap           -- 43.
-  , _anyKind            :: Maybe Kind            -- 44.
-  , _anyLabel           :: Maybe Label           -- 45.
-  , _anyList            :: Maybe List            -- 46.
-  , _anyLongDesc        :: Maybe LongDesc        -- 47.
-  , _anyLoop            :: Maybe Loop            -- 48.
-  , _anyLow             :: Maybe Low             -- 49.
-  , _anyMax             :: Maybe Max             -- 50.
-  , _anyMaxLength       :: Maybe MaxLength       -- 51.
-  , _anyMedia           :: Maybe Media           -- 52.
-  , _anyMediaType       :: Maybe MediaType       -- 53.
-  , _anyMenu            :: Maybe Menu            -- 54.
-  , _anyMethod          :: Maybe Method          -- 55.
-  , _anyMin             :: Maybe Min             -- 56.
-  , _anyMinLength       :: Maybe MinLength       -- 57. --
-  , _anyMuted           :: Maybe Muted           -- 59.
-  , _anyName            :: Maybe Name            -- 60.
-  , _anyNonce           :: Maybe Nonce           -- 61.
-  , _anyNoValidate      :: Maybe NoValidate      -- 62.
-  , _anyOpen            :: Maybe Open            -- 63.
-  , _anyOptimum         :: Maybe Optimum         -- 64.
-  , _anyPattern         :: Maybe Pattern         -- 65. --
-  , _anyPoster          :: Maybe Poster          -- 67.
-  , _anyPreload         :: Maybe Preload         -- 68.
-  , _anyReadOnly        :: Maybe ReadOnly        -- 69.
-  , _anyRel             :: Maybe Rel             -- 70.
-  , _anyReferrerPolicy  :: Maybe ReferrerPolicy  -- 71.
-  , _anyRequired        :: Maybe Required        -- 72.
-  , _anyReversed        :: Maybe Reversed        -- 73.
-  , _anyRows            :: Maybe Rows            -- 74.
-  , _anyRowSpan         :: Maybe RowSpan         -- 75.
-  , _anySandbox         :: Maybe Sandbox         -- 76.
-  , _anyScope           :: Maybe Scope           -- 77.
-  , _anySelected        :: Maybe Selected        -- 78.
-  , _anyShape           :: Maybe Shape           -- 79.
-  , _anySize            :: Maybe Size            -- 80.
-  , _anySizes           :: Maybe Sizes           -- 81.
-  , _anySpan            :: Maybe Span            -- 82.
-  , _anySrc             :: Maybe Src             -- 83.
-  , _anySrcDoc          :: Maybe SrcDoc          -- 84.
-  , _anySrcLang         :: Maybe SrcLang         -- 85.
-  , _anySrcSet          :: Maybe SrcSet          -- 86.
-  , _anySrcSetW         :: Maybe SrcSetW         -- 87.
-  , _anySrcSetP         :: Maybe SrcSetP         -- 88.
-  , _anyStart           :: Maybe Start           -- 89.
-  , _anyStep            :: Maybe Step            -- 90.
-  , _anyTarget          :: Maybe Target          -- 91.
-  , _anyTypeMustMatch   :: Maybe TypeMustMatch   -- 93.
-  , _anyUseMap          :: Maybe UseMap          -- 94.
-  , _anyValueText       :: Maybe ValueText       -- 95.
-  , _anyValueNumber     :: Maybe ValueNumber     -- 96.
-  , _anyValueOlLi       :: Maybe ValueOlLi       -- 97.
-  , _anyWidth           :: Maybe Width           -- 98.
-  , _anyWrap            :: Maybe Wrap            -- 99.
+  { _anyGlobal          ∷ Maybe Globals         --  0.
+  , _anyAbbr            ∷ Maybe Abbr            --  1.
+  , _anyAccept          ∷ Maybe Accept          --  2.
+  , _anyAcceptCharSet   ∷ Maybe AcceptCharSet   --  3.
+  , _anyAction          ∷ Maybe Action          --  4.
+  , _anyAllowFullScreen ∷ Maybe AllowFullScreen --  5.
+  , _anyAlt             ∷ Maybe Alt_            --  6.
+  , _anyAsync           ∷ Maybe Async           --  7.
+  , _anyAutoComplete    ∷ Maybe AutoComplete    --  8.
+  , _anyAutoFocus       ∷ Maybe AutoFocus       --  9.
+  , _anyAutoplay        ∷ Maybe Autoplay        -- 10.
+  , _anyButtonType      ∷ Maybe ButtonType      -- 92.
+  , _anyCharSet         ∷ Maybe CharSet         -- 11.
+  , _anyChecked         ∷ Maybe Checked         -- 12.
+  , _anyCite            ∷ Maybe Cite            -- 13.
+  , _anyCols            ∷ Maybe Cols            -- 14.
+  , _anyColSpan         ∷ Maybe ColSpan         -- 15.
+  , _anyContent         ∷ Maybe Content         -- 16.
+  , _anyControls        ∷ Maybe Controls        -- 17.
+  , _anyCoords          ∷ Maybe Coords          -- 18.
+  , _anyCrossOrigin     ∷ Maybe CrossOrigin     -- 19.
+  , _anyDataValue       ∷ Maybe DataValue       -- 20.
+  , _anyDateTime        ∷ Maybe DateTime        -- 21.
+  , _anyDefault         ∷ Maybe Default_        -- 22.
+  , _anyDefer           ∷ Maybe Defer           -- 23.
+  , _anyDirName         ∷ Maybe DirName         -- 24.
+  , _anyDisabled        ∷ Maybe Disabled        -- 25.
+  , _anyDownload        ∷ Maybe Download        -- 26.
+  , _anyEncType         ∷ Maybe EncType         -- 27.
+  , _anyForId           ∷ Maybe ForId           -- 28.
+  , _anyForm            ∷ Maybe Form            -- 29.
+  , _anyFormAction      ∷ Maybe FormAction      -- 30.
+  , _anyFormEncType     ∷ Maybe FormEncType     -- 31.
+  , _anyFormMethod      ∷ Maybe FormMethod      -- 32.
+  , _anyFormNoValidate  ∷ Maybe FormNoValidate  -- 33.
+  , _anyFormTarget      ∷ Maybe FormTarget      -- 34.
+  , _anyHeaders         ∷ Maybe Headers         -- 35.
+  , _anyHeight          ∷ Maybe Height          -- 36.
+  , _anyHigh            ∷ Maybe High            -- 37.
+  , _anyHref            ∷ Maybe Href            -- 38.
+  , _anyHrefLang        ∷ Maybe HrefLang        -- 39.
+  , _anyHttpEquiv       ∷ Maybe HttpEquiv       -- 40.
+  , _anyIcon            ∷ Maybe Icon            -- 41.
+  , _anyInputMode       ∷ Maybe InputMode       -- 42.
+  , _anyIsMap           ∷ Maybe IsMap           -- 43.
+  , _anyKind            ∷ Maybe Kind            -- 44.
+  , _anyLabel           ∷ Maybe Label           -- 45.
+  , _anyList            ∷ Maybe List            -- 46.
+  , _anyLongDesc        ∷ Maybe LongDesc        -- 47.
+  , _anyLoop            ∷ Maybe Loop            -- 48.
+  , _anyLow             ∷ Maybe Low             -- 49.
+  , _anyMax             ∷ Maybe Max             -- 50.
+  , _anyMaxLength       ∷ Maybe MaxLength       -- 51.
+  , _anyMedia           ∷ Maybe Media           -- 52.
+  , _anyMediaType       ∷ Maybe MediaType       -- 53.
+  , _anyMenu            ∷ Maybe Menu            -- 54.
+  , _anyMethod          ∷ Maybe Method          -- 55.
+  , _anyMin             ∷ Maybe Min             -- 56.
+  , _anyMinLength       ∷ Maybe MinLength       -- 57. --
+  , _anyMuted           ∷ Maybe Muted           -- 59.
+  , _anyName            ∷ Maybe Name            -- 60.
+  , _anyNonce           ∷ Maybe Nonce           -- 61.
+  , _anyNoValidate      ∷ Maybe NoValidate      -- 62.
+  , _anyOpen            ∷ Maybe Open            -- 63.
+  , _anyOptimum         ∷ Maybe Optimum         -- 64.
+  , _anyPattern         ∷ Maybe Pattern         -- 65. --
+  , _anyPoster          ∷ Maybe Poster          -- 67.
+  , _anyPreload         ∷ Maybe Preload         -- 68.
+  , _anyReadOnly        ∷ Maybe ReadOnly        -- 69.
+  , _anyRel             ∷ Maybe Rel             -- 70.
+  , _anyReferrerPolicy  ∷ Maybe ReferrerPolicy  -- 71.
+  , _anyRequired        ∷ Maybe Required        -- 72.
+  , _anyReversed        ∷ Maybe Reversed        -- 73.
+  , _anyRows            ∷ Maybe Rows            -- 74.
+  , _anyRowSpan         ∷ Maybe RowSpan         -- 75.
+  , _anySandbox         ∷ Maybe Sandbox         -- 76.
+  , _anyScope           ∷ Maybe Scope           -- 77.
+  , _anySelected        ∷ Maybe Selected        -- 78.
+  , _anyShape           ∷ Maybe Shape           -- 79.
+  , _anySize            ∷ Maybe Size            -- 80.
+  , _anySizes           ∷ Maybe Sizes           -- 81.
+  , _anySpan            ∷ Maybe Span            -- 82.
+  , _anySrc             ∷ Maybe Src             -- 83.
+  , _anySrcDoc          ∷ Maybe SrcDoc          -- 84.
+  , _anySrcLang         ∷ Maybe SrcLang         -- 85.
+  , _anySrcSet          ∷ Maybe SrcSet          -- 86.
+  , _anySrcSetW         ∷ Maybe SrcSetW         -- 87.
+  , _anySrcSetP         ∷ Maybe SrcSetP         -- 88.
+  , _anyStart           ∷ Maybe Start           -- 89.
+  , _anyStep            ∷ Maybe Step            -- 90.
+  , _anyTarget          ∷ Maybe Target          -- 91.
+  , _anyTypeMustMatch   ∷ Maybe TypeMustMatch   -- 93.
+  , _anyUseMap          ∷ Maybe UseMap          -- 94.
+  , _anyValueText       ∷ Maybe ValueText       -- 95.
+  , _anyValueNumber     ∷ Maybe ValueNumber     -- 96.
+  , _anyValueOlLi       ∷ Maybe ValueOlLi       -- 97.
+  , _anyWidth           ∷ Maybe Width           -- 98.
+  , _anyWrap            ∷ Maybe Wrap            -- 99.
   }
 
 instance AttrMap AnyAttr where
@@ -235,58 +234,51 @@ instance AttrMap AnyAttr where
     , attrMap <$> _anyWrap            g -- 99.
     ]
 
-instance Default AnyAttr where
-  def = AnyAttr def def def def def def def def def def def def def def def def
-    def def def def def def def def def def def def def def def def def def def
-    def def def def def def def def def def def def def def def def def def def
-    def def def def def def def def def def def def def def def def def def def
-    def def def def def def def def def def def def def def def def def def def
-    def def def def def def
 
 
 -- Global attributes require the following instances.
 instance AttrHasAccessKey AnyAttr
-  -- where attrSetAccessKey p g = g { _anyGlobal = Just (attrSetAccessKey p (maybe gDef id (_anyGlobal g))) }
-  where attrSetAccessKey p g = g { _anyGlobal = Just (attrSetAccessKey p (fromMaybe gDef (_anyGlobal g))) }
+  -- where attrSetAccessKey p g = g { _anyGlobal = Just (attrSetAccessKey p (maybe defGlobals id (_anyGlobal g))) }
+  where attrSetAccessKey p g = g { _anyGlobal = Just (attrSetAccessKey p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasAnmval AnyAttr
-  where attrSetAnmval p g = g { _anyGlobal = Just (attrSetAnmval p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetAnmval p g = g { _anyGlobal = Just (attrSetAnmval p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasContentEditable AnyAttr
-  where attrSetContentEditable p g = g  { _anyGlobal = Just (attrSetContentEditable p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetContentEditable p g = g  { _anyGlobal = Just (attrSetContentEditable p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasContextMenu AnyAttr
-  where attrSetContextMenu p g     = g { _anyGlobal = Just (attrSetContextMenu p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetContextMenu p g     = g { _anyGlobal = Just (attrSetContextMenu p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasClass AnyAttr
-  where attrSetClassName p g           = g { _anyGlobal = Just (attrSetClassName p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetClassName p g           = g { _anyGlobal = Just (attrSetClassName p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasDnmval AnyAttr
-  where attrSetDnmval p g           = g { _anyGlobal = Just (attrSetDnmval p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetDnmval p g           = g { _anyGlobal = Just (attrSetDnmval p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasDir AnyAttr
-  where attrSetDir p g             = g { _anyGlobal = Just (attrSetDir p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetDir p g             = g { _anyGlobal = Just (attrSetDir p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasDraggable AnyAttr
-  where attrSetDraggable p g       = g { _anyGlobal = Just (attrSetDraggable p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetDraggable p g       = g { _anyGlobal = Just (attrSetDraggable p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasHidden AnyAttr
-  where attrSetHidden p g          = g { _anyGlobal = Just (attrSetHidden p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetHidden p g          = g { _anyGlobal = Just (attrSetHidden p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasId AnyAttr
-  where attrSetId p g              = g { _anyGlobal = Just (attrSetId p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetId p g              = g { _anyGlobal = Just (attrSetId p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasLang AnyAttr
-  where attrSetLang p g            = g { _anyGlobal = Just (attrSetLang p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetLang p g            = g { _anyGlobal = Just (attrSetLang p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasRole AnyAttr
-  where attrSetRole p g            = g { _anyGlobal = Just (attrSetRole p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetRole p g            = g { _anyGlobal = Just (attrSetRole p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasSlot AnyAttr
-  where attrSetSlot p g            = g { _anyGlobal = Just (attrSetSlot p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetSlot p g            = g { _anyGlobal = Just (attrSetSlot p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasSpellCheck AnyAttr
-  where attrSetSpellCheck p g      = g { _anyGlobal = Just (attrSetSpellCheck p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetSpellCheck p g      = g { _anyGlobal = Just (attrSetSpellCheck p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasStyle AnyAttr
-  where attrSetStyle p g           = g { _anyGlobal = Just (attrSetStyle p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetStyle p g           = g { _anyGlobal = Just (attrSetStyle p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasTabIndex AnyAttr
-  where attrSetTabIndex p g        = g { _anyGlobal = Just (attrSetTabIndex p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetTabIndex p g        = g { _anyGlobal = Just (attrSetTabIndex p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasTitle AnyAttr
-  where attrSetTitle p g           = g { _anyGlobal = Just (attrSetTitle p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetTitle p g           = g { _anyGlobal = Just (attrSetTitle p (fromMaybe defGlobals (_anyGlobal g))) }
 instance AttrHasTranslate AnyAttr
-  where attrSetTranslate p g       = g { _anyGlobal = Just (attrSetTranslate p (fromMaybe gDef (_anyGlobal g))) }
+  where attrSetTranslate p g       = g { _anyGlobal = Just (attrSetTranslate p (fromMaybe defGlobals (_anyGlobal g))) }
 
 instance AttrGetClassName AnyAttr where attrGetClassName g = maybe (ClassName T.empty) attrGetClassName (_anyGlobal g)
       -- case _globalsClass g of
-      --                  Nothing -> ClassName T.empty
-      --                  Just g' -> g'
+      --                  Nothing → ClassName T.empty
+      --                  Just g' → g'
 
 
 
@@ -390,7 +382,19 @@ instance AttrHasWidth           AnyAttr where attrSetWidth p g           = g { _
 instance AttrHasWrap            AnyAttr where attrSetWrap p g            = g { _anyWrap            = Just p } -- 99.
 
 
--- | A shorthand for def :: AnyAttr
-aDef :: AnyAttr
-aDef = def
+-- | A default value for 'AnyAttr'.
+defAnyAttr ∷ AnyAttr
+defAnyAttr = AnyAttr
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
 

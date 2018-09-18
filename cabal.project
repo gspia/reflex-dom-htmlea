@@ -2,3 +2,4 @@ packages:
   reflex-dom-htmlea.cabal
   example1/
   exampleTbl/
+  exampleTree/

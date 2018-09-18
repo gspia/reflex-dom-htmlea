@@ -17,7 +17,6 @@ library
   default-language:    Haskell2010
   build-depends:        base
                       , containers
-                      , data-default
                       , ghcjs-dom
                       , reflex
                       , reflex-dom
@@ -35,7 +34,8 @@ executable example1
                      , reflex-dom-core
   ghc-options: -Wall -Wincomplete-uni-patterns 
                -O2 -threaded -rtsopts -with-rtsopts=-N
-               -Wincomplete-record-updates -Wmissing-import-lists 
+               -Wincomplete-record-updates -Wmissing-import-lists
+
 
 
 -- To use ghcid and dev-server.sh, uncomment the following before

@@ -18,7 +18,6 @@ library
   default-language:    Haskell2010
   build-depends:        base
                       , containers
-                      , data-default
                       , lens
                       , text
                       , vector
@@ -42,8 +41,8 @@ executable exampleTbl
 
 -- To use ghcid and dev-server.sh, uncomment the following before 
 -- entering into the nix-shell.
--- executable exampleTbl-wai
---   if impl(ghcjs)
+-- Executable exampleTbl-wai
+--   if    impl  (  ghcjs   )
 --     buildable:       False
 --   main-is:           Main.hs
 --   hs-source-dirs:    app-wai

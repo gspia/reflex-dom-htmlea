@@ -18,13 +18,13 @@ typos that were otherwise to be found on runtime.
 
 To make an element with attributes, write e.g.
 @
-   eDiv (className "myClass" $ id_ "myId" def) $ do
+   div (className "myClass" $ id_ "myId" defGlobals) $ do
      text "my div etc"
      ...
 @
 To make an element without attributes:
 @
-   eDivN $ do
+   divN $ do
      text "my div etc"
      ...
 @
@@ -33,17 +33,17 @@ An example can be found in example-directory.
 
 Naming convention:
 
-    * eAbbr'  - takes attributes and returns 'm (El, a)'
-    * eAbbr   - takes attributes and returns 'm a'
-    * eAbbrN' - no attributes and returns 'm (El, a)'
-    * eAbbrN  - no attributes and returns 'm a'
-    * eAbbrD' - dynamic attributes and returns 'm (El, a)'
-    * eAbbrD  - dynamic attributes and returns 'm a'
+    * abbr'  - takes attributes and returns 'm (El, a)'
+    * abbr   - takes attributes and returns 'm a'
+    * abbrN' - no attributes and returns 'm (El, a)'
+    * abbrN  - no attributes and returns 'm a'
+    * abbrD' - dynamic attributes and returns 'm (El, a)'
+    * abbrD  - dynamic attributes and returns 'm a'
 
 The interactive elements add C and CD -ending tags:
 
-    * eAC - takes attributes and 'm ()', give 'm (Event t ())'
-    * eACD - takes dynamic attributes and 'm ()', give 'm (Event t ())'
+    * aC - takes attributes and 'm ()', give 'm (Event t ())'
+    * aCD - takes dynamic attributes and 'm ()', give 'm (Event t ())'
 
 
 == Notes

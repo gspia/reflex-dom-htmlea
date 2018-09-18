@@ -18,7 +18,7 @@ typos that were otherwise to be found on runtime.
 
 To make an attribute map, write e.g.
 @
-  let a = href (URL "localhost:8000") $ className "myClass" $ id_ "myId" def
+  let a = href (URL "localhost:8000") $ className "myClass" $ id_ "myId" defHref
 @
 
 An example can be found in example-directory.

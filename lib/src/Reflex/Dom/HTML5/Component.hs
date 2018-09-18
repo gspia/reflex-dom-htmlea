@@ -16,7 +16,9 @@ of user interfaces.
 
 module Reflex.Dom.HTML5.Component
     ( module Reflex.Dom.HTML5.Component.Table
+    , module Reflex.Dom.HTML5.Component.Tree
     ) where
 
 import Reflex.Dom.HTML5.Component.Table
+import Reflex.Dom.HTML5.Component.Tree
 

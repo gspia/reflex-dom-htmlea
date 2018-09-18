@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UnicodeSyntax #-}
 
 {-|
 Module      : Reflex.Dom.HTML5.Attrs.Globals
@@ -18,7 +19,7 @@ typos that were otherwise to be found on runtime.
 
 To make an attribute map, write e.g.
 @
-  let a = title "My Title" $ className "myClass" $ id_ "myId" def
+  let a = title "My Title" $ className "myClass" $ id_ "myId" defGlobals
 @
 
 An example can be found in example-directory.
@@ -42,16 +43,16 @@ This file contains the global attributes that all elements have.
      * AccessKey       -- 1.
      * ContentEditable -- 3.
      * ContextMenu     -- 4.
-     * ClassName       -- 5. Monoid
+     * ClassName       -- 5. Monoid on Text where empty is ""
      * Dir             -- 7.
      * Draggable       -- 8.
      * Hidden          -- 9.
      * Id_             -- 10.
      * Lang            -- 11.
      * SpellCheck      -- 14.
-     * Style           -- 15. Monoid
+     * Style           -- 15. Monoid on Text where empty is ""
      * TabIndex        -- 16.
-     * Title           -- 17. Monoid
+     * Title           -- 17. Monoid on Text where empty is ""
      * Translate       -- 18.
 
 
@@ -66,11 +67,9 @@ Further, the global attributes include
 
 module Reflex.Dom.HTML5.Attrs.Globals where
 
-import Data.Default (Default, def)
 import Data.Foldable (fold)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Semigroup (Semigroup, (<>))
--- import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Reflex.Dom.Core (Reflex, Dynamic, (=:))
@@ -83,7 +82,7 @@ import Reflex.Dom.HTML5.Attrs.Common (AttrMap, attrMap)
 
 -- | 'AccessKey' belongs to Globals.
 -- @
--- accessKey 'c' $ def
+-- accessKey 'c' $ defGlobals
 -- @
 -- Wish list: Change to allow a string (text) of one UTF code point length.
 -- Wish list: For a Document, allow only unique case-insensitive values.
@@ -93,7 +92,6 @@ newtype AccessKey = AccessKey Char
 instance AttrMap AccessKey where
   attrMap (AccessKey c) = "accesskey" =: T.singleton c
 
--- No default.
 
 class AttrHasAccessKey a where
   attrSetAccessKey :: AccessKey -> a -> a
@@ -116,7 +114,6 @@ data Anmval = Anmval
   , _aval :: Text
   } deriving (Show, Read, Eq, Ord)
 
-instance Default Anmval where def = Anmval T.empty T.empty
 
 instance AttrMap Anmval where
   attrMap (Anmval n v) = ("aria-" <> n) =: v
@@ -136,6 +133,8 @@ aNmVal n v = attrSetAnmval (Anmval n v)
 instance (Reflex t, AttrHasAnmval a) => AttrHasAnmval (Dynamic t a) where
   attrSetAnmval c = fmap (attrSetAnmval c)
 
+defAnmval ∷ Anmval
+defAnmval = Anmval T.empty T.empty
 
 ------------------------------------------------------------------------------
 
@@ -148,8 +147,6 @@ instance AttrMap ContentEditable where
   attrMap CEfalse   = "contentEditable" =: "false"
   attrMap CEinherit = "contentEditable" =: "inherit"
 
-instance Default ContentEditable where
-  def = CEinherit
 
 class AttrHasContentEditable a where
   attrSetContentEditable :: ContentEditable -> a -> a
@@ -158,9 +155,9 @@ class AttrHasContentEditable a where
 -- and 'contentInheritEditable' can be used to set
 -- corresponding attributes.
 -- @
--- contentEditable def
--- contentNotEditable def
--- contentInheritEditable def
+-- contentEditable defXXX
+-- contentNotEditable defXXX
+-- contentInheritEditable defXXX
 -- @
 contentEditable, contentNotEditable, contentInheritEditable
   :: AttrHasContentEditable a => a -> a
@@ -171,6 +168,10 @@ contentInheritEditable = attrSetContentEditable CEinherit
 
 instance (Reflex t, AttrHasContentEditable a) => AttrHasContentEditable (Dynamic t a) where
   attrSetContentEditable c = fmap (attrSetContentEditable c)
+
+
+defContentEditable ∷ ContentEditable
+defContentEditable = CEinherit
 
 ------------------------------------------------------------------------------
 
@@ -191,7 +192,7 @@ class AttrHasContextMenu a where
 -- value must be the id of a menu element in the same tree whose
 -- type attribute is in the context menu state.
 -- @
--- contextMenu "myId" $ def
+-- contextMenu "myId" $ defGlobals
 -- @
 contextMenu :: AttrHasContextMenu a => Text -> a -> a
 contextMenu t = attrSetContextMenu (ContextMenu t)
@@ -220,7 +221,7 @@ class AttrGetClassName a where
 -- | Function 'className t' can be used to set class
 -- or classes for an element.
 -- @
--- className "blue big myHover" $ def
+-- className "blue big myHover" $ defGlobals
 -- @
 -- See reflex-dom-themes -package for a set of
 -- pre-defined ClassNames.
@@ -230,7 +231,7 @@ className t = attrSetClassName (ClassName t)
 -- | Function 'addClass t' adds t the class-attributes
 -- of an element. It doesn't check if the t was already there.
 -- @
--- addClass "myHover" $ setClass "blue big" $ def
+-- addClass "myHover" $ setClass "blue big" $ defGlobals
 -- @
 addClass :: (AttrHasClass a, AttrGetClassName a) => Text -> a -> a
 addClass t a = attrSetClassName tt a
@@ -240,7 +241,7 @@ addClass t a = attrSetClassName tt a
 -- | Function 'setClasses t' takes a foldable structure
 -- containing class-names and sets them for an element.
 -- @
--- setClasses [cDef1, cDef2, cDef3] $ def
+-- setClasses [cDef1, cDef2, cDef3] $ defGlobals
 -- @
 -- where cDefs are pre-defined ClassNames.
 -- See reflex-dom-themes -package for a set of
@@ -271,7 +272,6 @@ data Dnmval = Dnmval
   , _dval :: Text
   } deriving (Show, Read, Eq, Ord)
 
-instance Default Dnmval where def = Dnmval T.empty T.empty
 
 instance AttrMap Dnmval where
   attrMap (Dnmval n v) = ("data-" <> n) =: v
@@ -281,7 +281,7 @@ class AttrHasDnmval a where
 
 -- | Function 'dNmVal nm val' can be used to set "data-name" = "value"
 -- @
--- dNmVal "target" "xyz" $ def
+-- dNmVal "target" "xyz" $ defXXX
 -- @
 dNmVal :: AttrHasDnmval a => Text -> Text -> a -> a
 dNmVal n v = attrSetDnmval (Dnmval n v)
@@ -289,6 +289,8 @@ dNmVal n v = attrSetDnmval (Dnmval n v)
 instance (Reflex t, AttrHasDnmval a) => AttrHasDnmval (Dynamic t a) where
   attrSetDnmval c = fmap (attrSetDnmval c)
 
+defDnmval ∷ Dnmval
+defDnmval = Dnmval T.empty T.empty
 
 ------------------------------------------------------------------------------
 
@@ -311,9 +313,9 @@ class AttrHasDir a where
 -- | Functions 'ltr', 'rtl' and 'dirAuto' can be used to
 -- set corresponding attributes.
 -- @
--- ltr $ def
--- rtl $ def
--- dirAuto $ def
+-- ltr $ defGlobals
+-- rtl $ defGlobals
+-- dirAuto $ defGlobals
 -- @
 ltr, rtl, dirAuto :: AttrHasDir a => a -> a
 ltr     = attrSetDir DirLTR
@@ -335,8 +337,6 @@ instance AttrMap Draggable where
   attrMap Dfalse = "draggable" =: "false"
   attrMap Dauto  = "draggable" =: T.empty -- Does this work? TODO!
 
-instance Default Draggable where
-  def = Dauto
 
 class AttrHasDraggable a where
   attrSetDraggable :: Draggable -> a -> a
@@ -350,6 +350,9 @@ notDraggable = attrSetDraggable Dfalse
 instance (Reflex t, AttrHasDraggable a) => AttrHasDraggable (Dynamic t a) where
   attrSetDraggable c = fmap (attrSetDraggable c)
 
+defDraggable ∷ Draggable
+defDraggable = Dauto
+
 ------------------------------------------------------------------------------
 
 -- |
@@ -361,21 +364,22 @@ data Hidden = Hidden
 instance AttrMap Hidden where
   attrMap Hidden = "hidden" =: T.empty -- Does this work? TODO!
 
-instance Default Hidden where
-  def = Hidden
 
 class AttrHasHidden a where
   attrSetHidden :: Hidden -> a -> a
 
 -- | Function 'hidden' can be used to set the corresponding attribute.
 -- @
--- hidden def
+-- hidden defGlobals
 -- @
 hidden :: AttrHasHidden a => a -> a
 hidden = attrSetHidden Hidden
 
 instance (Reflex t, AttrHasHidden a) => AttrHasHidden (Dynamic t a) where
   attrSetHidden c = fmap (attrSetHidden c)
+
+defHidden ∷ Hidden
+defHidden = Hidden
 
 ------------------------------------------------------------------------------
 
@@ -396,7 +400,7 @@ class AttrHasId a where
 
 -- | Function 'id_ t' can be used to set id-attribute.
 -- @
--- id_ "myId" $ def
+-- id_ "myId" $ defGlobals
 -- @
 id_ :: AttrHasId a => Text -> a -> a
 id_ t = attrSetId (Id_ t)
@@ -417,9 +421,6 @@ newtype Lang = Lang Text
 instance AttrMap Lang where
   attrMap (Lang t) = "lang" =: t
 
-instance Default Lang where
-  def = Lang T.empty
-
 -- No monoid.
 
 class AttrHasLang a where
@@ -433,6 +434,9 @@ lang t = attrSetLang (Lang t)
 
 instance (Reflex t, AttrHasLang a) => AttrHasLang (Dynamic t a) where
   attrSetLang c = fmap (attrSetLang c)
+
+defLang ∷ Lang
+defLang = Lang T.empty
 
 ------------------------------------------------------------------------------
 
@@ -538,8 +542,9 @@ instance AttrMap Role where
   attrMap (RoleA Rtreeitem)          = "role" =: "treeitem"
 
 
-instance Default Role where
-  def = RoleT T.empty
+defDefault ∷ Role
+defDefault = RoleT T.empty
+
 
 class AttrHasRole a where
   attrSetRole :: Role -> a -> a
@@ -551,7 +556,7 @@ role t = attrSetRole (RoleT t)
 
 -- | Pre-defined role-definitions.
 -- @
--- rAlert def
+-- rAlert defXXX
 -- @
 rAlert, rAlertdialog, rApplication, rArticle, rBanner, rButton, rCell, rCheckbox,
   rColumnheader, rCombobox, rComplementary, rContentinfo, rDefinition, rDialog,
@@ -646,9 +651,6 @@ newtype Slot = Slot Text
 instance AttrMap Slot where
   attrMap (Slot t) = "slot" =: t
 
-instance Default Slot where
-  def = Slot T.empty
-
 -- No monoid.
 
 class AttrHasSlot a where
@@ -662,6 +664,10 @@ slot t = attrSetSlot (Slot t)
 instance (Reflex t, AttrHasSlot a) => AttrHasSlot (Dynamic t a) where
   attrSetSlot c = fmap (attrSetSlot c)
 
+defSlot ∷ Slot
+defSlot = Slot T.empty
+
+
 ------------------------------------------------------------------------------
 
 -- |
@@ -673,8 +679,6 @@ instance AttrMap SpellCheck where
   attrMap SCtrue = "spellcheck" =: "true"
   attrMap SCfalse = "spellcheck" =: "false"
 
-instance Default SpellCheck where
-  def = SCtrue
 
 class AttrHasSpellCheck a where
   attrSetSpellCheck :: SpellCheck -> a -> a
@@ -688,6 +692,9 @@ noSpellCheck = attrSetSpellCheck SCfalse
 instance (Reflex t, AttrHasSpellCheck a) => AttrHasSpellCheck (Dynamic t a) where
   attrSetSpellCheck c = fmap (attrSetSpellCheck c)
 
+defSpellCheck ∷ SpellCheck
+defSpellCheck = SCtrue
+
 ------------------------------------------------------------------------------
 
 -- |
@@ -700,15 +707,12 @@ newtype Style = Style Text
 instance AttrMap Style where
   attrMap (Style t) = "style" =: t
 
-instance Default Style where
-  def = Style T.empty
-
 class AttrHasStyle a where
   attrSetStyle :: Style -> a -> a
 
 -- | Function 'style t' can be used to set style-attribute.
 -- @
--- style "color:blue;text-align:center" def
+-- style "color:blue;text-align:center" defGlobals
 -- @
 style :: AttrHasStyle a => Text -> a -> a
 style t = attrSetStyle (Style t)
@@ -724,6 +728,9 @@ instance Monoid Style where
 instance (Reflex t, AttrHasStyle a) => AttrHasStyle (Dynamic t a) where
   attrSetStyle c = fmap (attrSetStyle c)
 
+defStyle ∷ Style
+defStyle = Style T.empty
+
 ------------------------------------------------------------------------------
 
 -- |
@@ -734,8 +741,6 @@ newtype TabIndex = TabIndex Int
 instance AttrMap TabIndex where
   attrMap (TabIndex i) = "tabindex" =: T.pack (show i)
 
-instance Default TabIndex where
-  def = TabIndex 0
 
 class AttrHasTabIndex a where
   attrSetTabIndex :: TabIndex -> a -> a
@@ -746,6 +751,9 @@ tabIndex t = attrSetTabIndex (TabIndex t)
 
 instance (Reflex t, AttrHasTabIndex a) => AttrHasTabIndex (Dynamic t a) where
   attrSetTabIndex c = fmap (attrSetTabIndex c)
+
+defTabIndex ∷ TabIndex
+defTabIndex = TabIndex 0
 
 ------------------------------------------------------------------------------
 
@@ -788,8 +796,6 @@ instance AttrMap Translate where
   attrMap TRno      = "translate" =: "no"
   attrMap TRinherit = "translate" =: "inherit"
 
-instance Default Translate where
-  def = TRinherit
 
 class AttrHasTranslate a where
   attrSetTranslate :: Translate -> a -> a
@@ -804,6 +810,8 @@ inheritTranslate = attrSetTranslate TRinherit
 instance (Reflex t, AttrHasTranslate a) => AttrHasTranslate (Dynamic t a) where
   attrSetTranslate c = fmap (attrSetTranslate c)
 
+defTranslate ∷ Translate
+defTranslate = TRinherit
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
@@ -852,9 +860,6 @@ instance AttrMap Globals where
     ] ++ (attrMap <$> _globalsAnmval g)
       ++ (attrMap <$> _globalsDnmval g)
 
-instance Default Globals where
-  def = Globals def def def def def def def def def def
-                def def def def def def def def
 
 instance AttrHasAccessKey Globals       where attrSetAccessKey p g       = g { _globalsAccessKey       = Just p }
 instance AttrHasContentEditable Globals where attrSetContentEditable p g = g { _globalsContentEditable = Just p }
@@ -930,42 +935,16 @@ instance Semigroup Globals where
 -- ClassName, Style and Title attributes have monoid instances.
 -- Or should this be provided at all?
 instance Monoid Globals where
-  mempty = def
+  mempty = defGlobals
   mappend = (<>)
-    -- (Globals
-    --   _a1 a2 _a3 _a4 a5 a6 _a7 _a8 _a9 _a10 _a11 _a12 _a13 _a14 a15 _a16 a17 _a18)
-    -- (Globals
-    --    b1 b2  b3  b4 b5 b6  b7  b8  b9  b10  b11  b12  b13  b14 b15  b16 b17  b18)
-    --   = Globals c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 c18
-    -- where
-    --   c1 = b1
-    --   c2 = a2 <> b2
-    --   c3 = b3
-    --   c4 = b4
-    --   c5 = a5 <> b5
-    --   c6 = a6 <> b6
-    --   c7 = b7
-    --   c8 = b8
-    --   c9 = b9
-    --   c10 = b10
-    --   c11 = b11
-    --   c12 = b12
-    --   c13 = b13
-    --   c14 = b14
-    --   c15 = a15 <> b15
-    --   c16 = b16
-    --   c17 = a17 <> b17
-    --   c18 = b18
-  -- mappend (Globals a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14)
-  --         (Globals b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14)
-  --   = Globals (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5) (a6 <> b6)
-  --       (a7 <> b7) (a8 <> b8) (a9 <> b9) (a10 <> b10) (a11 <> b11) (a12 <> b12)
-  --       (a13 <> b13) (a14 <> b14)
 
 
--- | 'gDef' is a shorthand for 'def :: Globals'.
-gDef :: Globals
-gDef = def
+-- | A default-value for Globals.
+defGlobals ∷ Globals
+defGlobals = Globals
+   Nothing [] Nothing Nothing Nothing [] Nothing Nothing Nothing Nothing
+   Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
