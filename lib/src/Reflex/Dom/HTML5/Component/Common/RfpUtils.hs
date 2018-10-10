@@ -20,12 +20,11 @@ This module defines random helpers.
 
 module Reflex.Dom.HTML5.Component.Common.RfpUtils
     ( switcherDyn
-    -- , switchDyn
     ) where
 
 
 import           Control.Monad (join)
-import           Reflex        (Reflex, MonadHold, Dynamic, Event, holdDyn, switch, current)
+import           Reflex        (Reflex, MonadHold, Dynamic, Event, holdDyn)
 
 --------------------------------------------------------------------------------
 
@@ -33,7 +32,6 @@ import           Reflex        (Reflex, MonadHold, Dynamic, Event, holdDyn, swit
 switcherDyn ∷ forall a t m. (Reflex t, MonadHold t m)
            ⇒ Dynamic t a → Event t (Dynamic t a) → m (Dynamic t a)
 switcherDyn d ed = pure . join =<< holdDyn d ed
-
 
 
 --------------------------------------------------------------------------------

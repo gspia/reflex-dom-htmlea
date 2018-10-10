@@ -57,10 +57,14 @@ instance A.AttrMap Caption where
 defCaption ∷ Caption
 defCaption = Caption Nothing Nothing
 
+-- | An instance..
+instance Semigroup Caption where
+  (<>) (Caption a1 a2) (Caption b1 b2) = Caption (a1 <> b1) (a2 <> b2)
+
 -- | Caption is a monoid (attributes can be appended).
 instance Monoid Caption where
   mempty = defCaption
-  mappend (Caption a1 a2) (Caption b1 b2) = Caption (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Caption where
@@ -180,9 +184,13 @@ defCol ∷ Col
 defCol = Col Nothing Nothing Nothing
 
 -- | An instance.
+instance Semigroup Col where
+  (<>) (Col a1 a2 a3) (Col b1 b2 b3) = Col (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
+-- | An instance.
 instance Monoid Col where
   mempty = defCol
-  mappend (Col a1 a2 a3) (Col b1 b2 b3) = Col (a1 <> b1) (a2 <> b2) (a3 <> b3)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Col where
@@ -303,10 +311,14 @@ defColGroup ∷ ColGroup
 defColGroup = ColGroup Nothing Nothing Nothing
 
 -- | An instance.
+instance Semigroup ColGroup where
+  (<>) (ColGroup a1 a2 a3) (ColGroup b1 b2 b3)
+    = ColGroup (a1 <> b1) (a2 <> b2) (a3 <> b3)
+
+-- | An instance.
 instance Monoid ColGroup where
   mempty = defColGroup
-  mappend (ColGroup a1 a2 a3) (ColGroup b1 b2 b3)
-    = ColGroup (a1 <> b1) (a2 <> b2) (a3 <> b3)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals ColGroup where
@@ -429,9 +441,13 @@ defTable ∷ Table
 defTable = Table Nothing Nothing
 
 -- | An instance.
+instance Semigroup Table where
+  (<>) (Table a1 a2) (Table b1 b2) = Table (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Table where
   mempty = defTable
-  mappend (Table a1 a2) (Table b1 b2) = Table (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Table where
@@ -548,9 +564,13 @@ defThead ∷ Thead
 defThead = Thead Nothing Nothing
 
 -- | An instance.
+instance Semigroup Thead where
+  (<>) (Thead a1 a2) (Thead b1 b2) = Thead (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Thead where
   mempty = defThead
-  mappend (Thead a1 a2) (Thead b1 b2) = Thead (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Thead where
@@ -665,9 +685,13 @@ defTbody ∷ Tbody
 defTbody = Tbody Nothing Nothing
 
 -- | An instance.
+instance Semigroup Tbody where
+  (<>) (Tbody a1 a2) (Tbody b1 b2) = Tbody (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Tbody where
   mempty = defTbody
-  mappend (Tbody a1 a2) (Tbody b1 b2) = Tbody (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Tbody where
@@ -784,9 +808,13 @@ defTfoot ∷ Tfoot
 defTfoot = Tfoot Nothing Nothing
 
 -- | An instance.
+instance Semigroup Tfoot where
+  (<>) (Tfoot a1 a2) (Tfoot b1 b2) = Tfoot (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Tfoot where
   mempty = defTfoot
-  mappend (Tfoot a1 a2) (Tfoot b1 b2) = Tfoot (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Tfoot where
@@ -912,11 +940,15 @@ defTh ∷ Th
 defTh = Th Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 -- | An instance.
-instance Monoid Th where
-  mempty = defTh
-  mappend (Th a1 a2 a3 a4 a5 a6 a7) (Th b1 b2 b3 b4 b5 b6 b7)
+instance Semigroup Th where
+  (<>) (Th a1 a2 a3 a4 a5 a6 a7) (Th b1 b2 b3 b4 b5 b6 b7)
     = Th (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
         (a6 <> b6) (a7 <> b7)
+
+-- | An instance.
+instance Monoid Th where
+  mempty = defTh
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Th where
@@ -1048,10 +1080,14 @@ defTd ∷ Td
 defTd = Td Nothing Nothing Nothing Nothing Nothing
 
 -- | An instance.
+instance Semigroup Td where
+  (<>) (Td a1 a2 a3 a4 a5) (Td b1 b2 b3 b4 b5)
+    = Td (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+
+-- | An instance.
 instance Monoid Td where
   mempty = defTd
-  mappend (Td a1 a2 a3 a4 a5) (Td b1 b2 b3 b4 b5)
-    = Td (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Td where
@@ -1172,9 +1208,13 @@ defTr ∷ Tr
 defTr = Tr Nothing Nothing
 
 -- | An instance.
+instance Semigroup Tr where
+  (<>) (Tr a1 a2) (Tr b1 b2) = Tr (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Tr where
   mempty = defTr
-  mappend (Tr a1 a2) (Tr b1 b2) = Tr (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Tr where

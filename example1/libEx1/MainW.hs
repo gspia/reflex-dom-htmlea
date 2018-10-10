@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings, UnicodeSyntax, RecursiveDo   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
 module MainW where
 
@@ -183,7 +184,7 @@ embedEx = do
         <> "the Interactive-module of this lib.")
     E.br_
 
-listEx ∷ MonadWidget t m ⇒  m()
+listEx ∷ forall t m. MonadWidget t m ⇒  m()
 listEx = do
   E.h2N $ text "List examples"
   E.ulN $ do

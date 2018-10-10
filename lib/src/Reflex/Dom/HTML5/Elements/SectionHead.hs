@@ -56,9 +56,13 @@ defArticle ∷ Article
 defArticle = Article Nothing Nothing
 
 -- | An instance.
+instance Semigroup Article where
+  (<>) (Article a1 a2) (Article b1 b2) = Article (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Article where
   mempty = defArticle
-  mappend (Article a1 a2) (Article b1 b2) = Article (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Article where
@@ -172,9 +176,13 @@ defAside ∷ Aside
 defAside = Aside Nothing Nothing
 
 -- | An instance.
+instance Semigroup Aside where
+  (<>) (Aside a1 a2) (Aside b1 b2) = Aside (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Aside where
   mempty = defAside
-  mappend (Aside a1 a2) (Aside b1 b2) = Aside (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Aside where
@@ -288,9 +296,13 @@ defNav ∷ Nav
 defNav = Nav  Nothing Nothing
 
 -- | An instance.
+instance Semigroup Nav where
+  (<>) (Nav a1 a2) (Nav b1 b2) = Nav (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Nav where
   mempty = defNav
-  mappend (Nav a1 a2) (Nav b1 b2) = Nav (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Nav where
@@ -403,9 +415,13 @@ defSection ∷ Section
 defSection = Section  Nothing Nothing
 
 -- | An instance.
+instance Semigroup Section where
+  (<>) (Section a1 a2) (Section b1 b2) = Section (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid Section where
   mempty = defSection
-  mappend (Section a1 a2) (Section b1 b2) = Section (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals Section where
@@ -520,9 +536,13 @@ defH1 ∷ H1
 defH1 = H1  Nothing Nothing
 
 -- | An instance.
+instance Semigroup H1 where
+  (<>) (H1 a1 a2) (H1 b1 b2) = H1 (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid H1 where
   mempty = defH1
-  mappend (H1 a1 a2) (H1 b1 b2) = H1 (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals H1 where
@@ -635,9 +655,13 @@ defH2 ∷ H2
 defH2 = H2  Nothing Nothing
 
 -- | An instance.
+instance Semigroup H2 where
+  (<>) (H2 a1 a2) (H2 b1 b2) = H2 (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid H2 where
   mempty = defH2
-  mappend (H2 a1 a2) (H2 b1 b2) = H2 (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals H2 where
@@ -750,9 +774,13 @@ defH3 ∷ H3
 defH3 = H3  Nothing Nothing
 
 -- | An instance.
+instance Semigroup H3 where
+  (<>) (H3 a1 a2) (H3 b1 b2) = H3 (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid H3 where
   mempty = defH3
-  mappend (H3 a1 a2) (H3 b1 b2) = H3 (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals H3 where
@@ -865,9 +893,13 @@ defH4 ∷ H4
 defH4 = H4  Nothing Nothing
 
 -- | An instance.
+instance Semigroup H4 where
+  (<>) (H4 a1 a2) (H4 b1 b2) = H4 (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid H4 where
   mempty = defH4
-  mappend (H4 a1 a2) (H4 b1 b2) = H4 (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals H4 where
@@ -980,9 +1012,13 @@ defH5 ∷ H5
 defH5 = H5 Nothing Nothing
 
 -- | An instance.
+instance Semigroup H5 where
+  (<>) (H5 a1 a2) (H5 b1 b2) = H5 (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid H5 where
   mempty = defH5
-  mappend (H5 a1 a2) (H5 b1 b2) = H5 (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals H5 where
@@ -1095,9 +1131,13 @@ defH6 ∷ H6
 defH6 = H6  Nothing Nothing
 
 -- | An instance.
+instance Semigroup H6 where
+  (<>) (H6 a1 a2) (H6 b1 b2) = H6 (a1 <> b1) (a2 <> b2)
+
+-- | An instance.
 instance Monoid H6 where
   mempty = defH6
-  mappend (H6 a1 a2) (H6 b1 b2) = H6 (a1 <> b1) (a2 <> b2)
+  mappend = (<>)
 
 -- | An instance.
 instance A.AttrHasGlobals H6 where

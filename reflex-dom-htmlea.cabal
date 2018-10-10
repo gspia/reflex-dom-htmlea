@@ -1,5 +1,5 @@
 name:                reflex-dom-htmlea
-version:             0.1.1.6
+version:             0.1.1.7
 synopsis:            A reflex-dom API for HTML elements and attributes.
 description:         This package introduces sets of functions for writing
                      html elements and attributes. This way the compiler
